@@ -1,0 +1,10 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "ui-esteban",
+  "homepage": "https://github.com/chile-consultores/ui-esteban",
+  "include": [
+    "registry/ui/registry.json",
+    "registry/fondos/registry.json",
+    "registry/hooks/registry.json"
+  ]
+}

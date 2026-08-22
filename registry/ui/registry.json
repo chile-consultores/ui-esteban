@@ -1,0 +1,20 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "items": [
+    {
+      "name": "dialog",
+      "type": "registry:ui",
+      "title": "Dialog",
+      "description": "Modal accesible con focus trap, cierre con Escape y retorno de foco al elemento que lo abrió.",
+      "categories": ["ui", "overlay", "accesibilidad"],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "dialog/dialog.tsx",
+          "type": "registry:ui"
+        }
+      ]
+    }
+  ]
+}

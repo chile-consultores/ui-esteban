@@ -1,0 +1,21 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "items": [
+    {
+      "name": "cloud-shader",
+      "type": "registry:component",
+      "title": "Cloud Shader",
+      "description": "Fondo de nubes procedurales que se desplazan. Props para velocidad, cantidad y colores de cielo.",
+      "categories": ["fondos", "hero", "shader"],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "cloud-shader/cloud-shader.tsx",
+          "type": "registry:component",
+          "target": "components/fondos/cloud-shader.tsx"
+        }
+      ]
+    }
+  ]
+}
