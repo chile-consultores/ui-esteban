@@ -5,14 +5,15 @@
       "name": "dialog",
       "type": "registry:ui",
       "title": "Dialog",
-      "description": "Modal accesible con focus trap, cierre con Escape y retorno de foco al elemento que lo abrió.",
+      "description": "Modal accesible con focus trap, cierre con Escape y retorno de foco. Dos modos: confirmacion y prompt de texto. API basada en promesas.",
       "categories": ["ui", "overlay", "accesibilidad"],
       "dependencies": [],
       "registryDependencies": [],
       "files": [
         {
           "path": "dialog/dialog.tsx",
-          "type": "registry:ui"
+          "type": "registry:ui",
+          "target": "components/ui/dialog.tsx"
         }
       ]
     }
