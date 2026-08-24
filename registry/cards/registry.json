@@ -1,0 +1,37 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "items": [
+    {
+      "name": "number-ticker",
+      "type": "registry:component",
+      "title": "Number Ticker",
+      "description": "Numero que cuenta hacia arriba al entrar en pantalla. Para secciones de metricas.",
+      "categories": ["cards", "metricas"],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "number-ticker/number-ticker.tsx",
+          "type": "registry:component",
+          "target": "components/ui/number-ticker.tsx"
+        }
+      ]
+    },
+    {
+      "name": "magic-card",
+      "type": "registry:component",
+      "title": "Magic Card",
+      "description": "Card con spotlight que sigue al cursor e ilumina el borde. Reacciona al mouse.",
+      "categories": ["cards"],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "magic-card/magic-card.tsx",
+          "type": "registry:component",
+          "target": "components/ui/magic-card.tsx"
+        }
+      ]
+    }
+  ]
+}
