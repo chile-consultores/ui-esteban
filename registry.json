@@ -7,6 +7,8 @@
     "registry/fondos/registry.json",
     "registry/hooks/registry.json",
     "registry/texto/registry.json",
-    "registry/cards/registry.json"
+    "registry/cards/registry.json",
+    "registry/scroll/registry.json",
+    "registry/media/registry.json"
   ]
 }

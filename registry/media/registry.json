@@ -1,0 +1,26 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "items": [
+    {
+      "name": "lottie",
+      "type": "registry:component",
+      "title": "Lottie",
+      "description": "Reproduce archivos .lottie, incluidas las interactivas con maquina de estados. Requiere copiar el WASM a public/ (ver README).",
+      "categories": [
+        "media",
+        "animacion"
+      ],
+      "dependencies": [
+        "@lottiefiles/dotlottie-react"
+      ],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "lottie/lottie.tsx",
+          "type": "registry:component",
+          "target": "components/ui/lottie.tsx"
+        }
+      ]
+    }
+  ]
+}

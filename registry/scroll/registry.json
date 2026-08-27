@@ -1,0 +1,26 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "items": [
+    {
+      "name": "scroll-deck",
+      "type": "registry:component",
+      "title": "Scroll Deck",
+      "description": "Baraja de cartas en 3D que avanza con el scroll. Para servicios, pasos o features.",
+      "categories": [
+        "scroll",
+        "hero"
+      ],
+      "dependencies": [
+        "motion"
+      ],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "scroll-deck/scroll-deck.tsx",
+          "type": "registry:component",
+          "target": "components/ui/scroll-deck.tsx"
+        }
+      ]
+    }
+  ]
+}

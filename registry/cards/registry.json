@@ -6,7 +6,10 @@
       "type": "registry:component",
       "title": "Number Ticker",
       "description": "Numero que cuenta hacia arriba al entrar en pantalla. Para secciones de metricas.",
-      "categories": ["cards", "metricas"],
+      "categories": [
+        "cards",
+        "metricas"
+      ],
       "dependencies": [],
       "registryDependencies": [],
       "files": [
@@ -22,7 +25,9 @@
       "type": "registry:component",
       "title": "Magic Card",
       "description": "Card con spotlight que sigue al cursor e ilumina el borde. Reacciona al mouse.",
-      "categories": ["cards"],
+      "categories": [
+        "cards"
+      ],
       "dependencies": [],
       "registryDependencies": [],
       "files": [
@@ -30,6 +35,44 @@
           "path": "magic-card/magic-card.tsx",
           "type": "registry:component",
           "target": "components/ui/magic-card.tsx"
+        }
+      ]
+    },
+    {
+      "name": "progress-ring",
+      "type": "registry:component",
+      "title": "Progress Ring",
+      "description": "Anillo de progreso que se llena al entrar en pantalla. Cero dependencias npm.",
+      "categories": [
+        "cards",
+        "metricas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "progress-ring/progress-ring.tsx",
+          "type": "registry:component",
+          "target": "components/ui/progress-ring.tsx"
+        }
+      ]
+    },
+    {
+      "name": "card-cascade",
+      "type": "registry:component",
+      "title": "Card Cascade",
+      "description": "Entrada escalonada de tarjetas al aparecer en pantalla. Para listas de movimientos, notificaciones o resultados. Cero dependencias npm.",
+      "categories": [
+        "cards",
+        "listas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "card-cascade/card-cascade.tsx",
+          "type": "registry:component",
+          "target": "components/ui/card-cascade.tsx"
         }
       ]
     }
