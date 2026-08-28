@@ -21,6 +21,68 @@
           "target": "components/ui/lottie.tsx"
         }
       ]
+    },
+    {
+      "name": "lottie-toggle",
+      "type": "registry:component",
+      "title": "Lottie Toggle",
+      "description": "Boton accesible que reproduce una animacion Lottie de ida y vuelta y se queda en el estado final. Para iconos de menu.",
+      "categories": [
+        "media",
+        "animacion",
+        "navegacion"
+      ],
+      "dependencies": [
+        "@lottiefiles/dotlottie-react"
+      ],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "lottie-toggle/lottie-toggle.tsx",
+          "type": "registry:component",
+          "target": "components/ui/lottie-toggle.tsx"
+        }
+      ]
+    },
+    {
+      "name": "image-callouts",
+      "type": "registry:component",
+      "title": "Image Callouts",
+      "description": "Imagen anotada: puntos sobre la foto, lineas guia y etiquetas entrando en secuencia. Para explicar una captura o un producto. Cero dependencias npm.",
+      "categories": [
+        "media",
+        "marketing",
+        "hero"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "image-callouts/image-callouts.tsx",
+          "type": "registry:component",
+          "target": "components/ui/image-callouts.tsx"
+        }
+      ]
+    },
+    {
+      "name": "social-outro",
+      "type": "registry:component",
+      "title": "Social Outro",
+      "description": "Cierre de 'siguenos': un panel con degradado entra en diagonal y revela titulo y redes, con enlaces reales. Cero dependencias npm.",
+      "categories": [
+        "media",
+        "marketing",
+        "cta"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "social-outro/social-outro.tsx",
+          "type": "registry:component",
+          "target": "components/ui/social-outro.tsx"
+        }
+      ]
     }
   ]
 }

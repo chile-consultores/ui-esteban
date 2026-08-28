@@ -6,7 +6,11 @@
       "type": "registry:ui",
       "title": "Dialog",
       "description": "Modal accesible con focus trap, cierre con Escape y retorno de foco. Dos modos: confirmacion y prompt de texto. API basada en promesas.",
-      "categories": ["ui", "overlay", "accesibilidad"],
+      "categories": [
+        "ui",
+        "overlay",
+        "accesibilidad"
+      ],
       "dependencies": [],
       "registryDependencies": [],
       "files": [
@@ -14,6 +18,26 @@
           "path": "dialog/dialog.tsx",
           "type": "registry:ui",
           "target": "components/ui/dialog.tsx"
+        }
+      ]
+    },
+    {
+      "name": "toggle-accordion",
+      "type": "registry:ui",
+      "title": "Toggle Accordion",
+      "description": "Acordeon de una tarjeta abierta a la vez: el panel crece con alto medido, el texto entra tarde y sale temprano, y el chevron se releva en vez de girar. Accesible con teclado, cero dependencias npm.",
+      "categories": [
+        "ui",
+        "animacion",
+        "accesibilidad"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "toggle-accordion/toggle-accordion.tsx",
+          "type": "registry:ui",
+          "target": "components/ui/toggle-accordion.tsx"
         }
       ]
     }

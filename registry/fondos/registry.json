@@ -1,4 +1,25 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry.json",
-  "items": []
+  "items": [
+    {
+      "name": "dot-grid-spotlight",
+      "type": "registry:component",
+      "title": "Dot Grid Spotlight",
+      "description": "Fondo de grilla de puntos que se desplaza lento y se ilumina alrededor del cursor, con caida suave. Canvas 2D, cero dependencias npm. Estatico con prefers-reduced-motion o en movil.",
+      "categories": [
+        "fondos",
+        "animacion",
+        "hero"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "dot-grid-spotlight/dot-grid-spotlight.tsx",
+          "type": "registry:component",
+          "target": "components/ui/dot-grid-spotlight.tsx"
+        }
+      ]
+    }
+  ]
 }

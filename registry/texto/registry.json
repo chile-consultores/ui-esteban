@@ -6,7 +6,10 @@
       "type": "registry:component",
       "title": "Aurora Text",
       "description": "Texto con degradado animado tipo aurora. Para destacar una palabra dentro de un titular.",
-      "categories": ["texto", "hero"],
+      "categories": [
+        "texto",
+        "hero"
+      ],
       "dependencies": [],
       "registryDependencies": [],
       "files": [
@@ -14,6 +17,26 @@
           "path": "aurora-text/aurora-text.tsx",
           "type": "registry:component",
           "target": "components/ui/aurora-text.tsx"
+        }
+      ]
+    },
+    {
+      "name": "wordmark-collapse",
+      "type": "registry:component",
+      "title": "Wordmark Collapse",
+      "description": "Logo de texto que colapsa a su monograma al hacer scroll: 'Chile Consultores' -> 'CC'. Para headers que se achican. Cero dependencias npm.",
+      "categories": [
+        "texto",
+        "marca",
+        "header"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "wordmark-collapse/wordmark-collapse.tsx",
+          "type": "registry:component",
+          "target": "components/ui/wordmark-collapse.tsx"
         }
       ]
     }
