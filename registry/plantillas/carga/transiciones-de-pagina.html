@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Transiciones de página · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: router de hash con 8 transiciones entre vistas (fundido, deslizar, apilar, zoom, cortina, difuminar, elevar, ninguna) y barra de progreso superior.
+  Proyecto: cualquier SPA single-file de Chile Consultores (Clima, CRM, sitio corporativo).
+  Cómo aplicarlo: copia el CSS `.vista` y la función `navegar(hash)`. Cada vista es un <section data-vista="nombre">. La transición se elige con data-trans en <body>.
+  Conectar: dentro de `cargarVista(nombre)` haz el fetch de datos; la transición espera a que termine (con tope de 4 s).
+  Ganchos: [data-vista], [data-ir] (enlaces internos), body[data-trans], window.NAV.ir(nombre), evento `vista:lista`.
+  Accesibilidad: el foco pasa al h1 de la vista nueva, se anuncia con aria-live y prefers-reduced-motion deja el cambio instantáneo.
+-->
+<style>
+  :root{--dur:.45s}
+  .app{display:block;grid-template-columns:none;min-height:0;max-width:1000px;margin:0 auto;padding:16px 16px 64px}
+  .nav{display:flex;flex-direction:row;gap:6px;flex-wrap:wrap;padding:10px;border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);position:sticky;top:8px;z-index:20}
+  .nav a{padding:8px 14px;border-radius:99px;color:var(--texto-2);text-decoration:none;font-weight:600;transition:background .2s,color .2s}
+  .nav a:hover{color:var(--texto)}
+  .nav a[aria-current=page]{background:rgba(124,109,242,.18);color:var(--texto)}
+  .ctrl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}
+  .ctrl label{font-size:var(--fs-s);color:var(--texto-2)}
+  .ctrl select{min-width:180px}
+  #np2{position:fixed;left:0;top:0;height:3px;width:100%;z-index:9999;pointer-events:none;transform-origin:left;transform:scaleX(0);opacity:0;background:linear-gradient(90deg,var(--marca),var(--acento));box-shadow:0 0 10px var(--marca)}
+
+  /* === COMPONENTE: escenario de vistas === */
+  .escenario{position:relative;margin-top:8px;display:grid;overflow:clip;border-radius:var(--r)}
+  .vista{grid-area:1/1;min-width:0;border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:24px;display:flex;flex-direction:column;gap:14px;animation-duration:var(--dur);animation-fill-mode:both;animation-timing-function:var(--ease-salida)}
+  .vista[hidden]{display:none}
+  .vista h1{margin:0;font-size:1.6rem;outline:none}
+  .vista p{margin:0;color:var(--texto-2)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .cartas{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+  .carta{padding:14px;border:1px solid var(--borde);border-radius:12px;background:var(--superficie-2)}
+  
+  /* === COMPONENTE: transiciones (clases entra-X / sale-X) === */
+  .vista.sale{pointer-events:none;z-index:1}
+  [data-trans=fundido] .entra{animation-name:fIn} [data-trans=fundido] .sale{animation-name:fOut}
+  [data-trans=deslizar] .entra{animation-name:dIn} [data-trans=deslizar] .sale{animation-name:dOut}
+  [data-trans=deslizar][data-dir="-1"] .entra{animation-name:dInR} [data-trans=deslizar][data-dir="-1"] .sale{animation-name:dOutR}
+  [data-trans=apilar] .entra{animation-name:aIn;z-index:2} [data-trans=apilar] .sale{animation-name:aOut}
+  [data-trans=zoom] .entra{animation-name:zIn} [data-trans=zoom] .sale{animation-name:zOut}
+  [data-trans=cortina] .entra{animation-name:cIn;z-index:2} [data-trans=cortina] .sale{animation-name:none}
+  [data-trans=difuminar] .entra{animation-name:bIn} [data-trans=difuminar] .sale{animation-name:bOut}
+  [data-trans=elevar] .entra{animation-name:eIn} [data-trans=elevar] .sale{animation-name:eOut}
+  [data-trans=ninguna] .vista{animation:none}
+  @keyframes fIn{from{opacity:0}} @keyframes fOut{to{opacity:0}}
+  @keyframes dIn{from{opacity:0;transform:translateX(40px)}} @keyframes dOut{to{opacity:0;transform:translateX(-40px)}}
+  @keyframes dInR{from{opacity:0;transform:translateX(-40px)}} @keyframes dOutR{to{opacity:0;transform:translateX(40px)}}
+  @keyframes aIn{from{transform:translateX(100%)}} @keyframes aOut{to{transform:translateX(-18%) scale(.96);opacity:.4}}
+  @keyframes zIn{from{opacity:0;transform:scale(.94)}} @keyframes zOut{to{opacity:0;transform:scale(1.06)}}
+  @keyframes cIn{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes bIn{from{opacity:0;filter:blur(12px)}} @keyframes bOut{to{opacity:0;filter:blur(12px)}}
+  @keyframes eIn{from{opacity:0;transform:translateY(24px)}} @keyframes eOut{to{opacity:0;transform:translateY(-16px)}}
+  @media (prefers-reduced-motion:reduce){.vista{animation:none!important}#np2{transition:none!important}}
+  .escalon > *{opacity:0;animation:esc .5s var(--ease-salida) forwards}
+  .escalon > *:nth-child(1){animation-delay:.05s}.escalon > *:nth-child(2){animation-delay:.12s}.escalon > *:nth-child(3){animation-delay:.19s}.escalon > *:nth-child(4){animation-delay:.26s}
+  @keyframes esc{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.escalon > *{animation:none;opacity:1}}
+</style>
+</head>
+<body data-trans="deslizar" data-dir="1">
+<div id="np2" aria-hidden="true"></div>
+<div class="app">
+  <nav class="nav" aria-label="Principal" id="nav">
+    <a href="#inicio" data-ir="inicio">Inicio</a>
+    <a href="#clientes" data-ir="clientes">Clientes</a>
+    <a href="#estudios" data-ir="estudios">Estudios</a>
+    <a href="#informes" data-ir="informes">Informes</a>
+    <a href="#ajustes" data-ir="ajustes">Ajustes</a>
+  </nav>
+  <div class="ctrl">
+    <label for="in-trans">Transición</label>
+    <select class="input" id="in-trans" name="trans">
+      <option value="fundido">Fundido</option><option value="deslizar" selected>Deslizar</option><option value="apilar">Apilar</option><option value="zoom">Zoom</option><option value="cortina">Cortina</option><option value="difuminar">Difuminar</option><option value="elevar">Elevar</option><option value="ninguna">Ninguna</option>
+    </select>
+    <label for="in-lat">Latencia de datos <b id="v-lat">600 ms</b></label>
+    <input type="range" id="in-lat" name="lat" min="0" max="3000" step="100" value="600" style="accent-color:var(--marca)">
+  </div>
+  <div class="escenario" id="escenario">
+    <section class="vista" data-vista="inicio" aria-labelledby="h-inicio" hidden></section>
+  </div>
+  <p class="small" id="anuncio" role="status" aria-live="polite" style="position:absolute;left:-9999px">&nbsp;</p>
+</div>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  const esc = $('#escenario'), np = $('#np2'), anuncio = $('#anuncio');
+  const reducido = () => matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const ORDEN = ['inicio', 'clientes', 'estudios', 'informes', 'ajustes'];
+  let lat = 600, actual = null, seq = 0;
+  $('#in-lat').addEventListener('input', e => { lat = +e.target.value; $('#v-lat').textContent = lat + ' ms'; });
+  $('#in-trans').addEventListener('change', e => { document.body.dataset.trans = e.target.value; });
+
+  /* === COMPONENTE: contenido de cada vista (reemplazar por tu fetch + render) === */
+  const VISTAS = {
+    inicio: { t: 'Resumen del día', d: 'Lo importante de hoy en un vistazo.', k: [['Estudios activos', '12'], ['Respuestas hoy', '348'], ['Tasa de participación', '71%']] },
+    clientes: { t: 'Clientes', d: 'Empresas con proyectos vigentes.', c: ['Minera Aconcagua', 'Retail Pacífico', 'Transportes del Sur', 'Clínica Los Andes', 'Universidad del Norte', 'Agrícola Maule'] },
+    estudios: { t: 'Estudios', d: 'Clima, mystery shopper y rotación.', c: ['Clima 2026 · Minera', 'Mystery · Retail', 'Rotación · Clínica', 'Clima 2026 · Retail'] },
+    informes: { t: 'Informes', d: 'Resultados listos para presentar.', k: [['Borradores', '3'], ['Enviados', '18'], ['Pendientes de revisión', '2']] },
+    ajustes: { t: 'Ajustes', d: 'Preferencias de la cuenta.', c: ['Perfil', 'Equipo', 'Notificaciones', 'Seguridad'] }
+  };
+  async function cargarDatos(n) { await esperar(lat); return VISTAS[n]; }
+  function pintar(sec, n, v) {
+    sec.replaceChildren(); sec.classList.remove('sk'); sec.id = 'vista-' + n;
+    const h = el('h1', 'gradient-text', v.t); h.id = 'h-' + n; h.tabIndex = -1; sec.setAttribute('aria-labelledby', h.id);
+    const cuerpo = el('div', 'escalon'); cuerpo.style.cssText = 'display:flex;flex-direction:column;gap:14px';
+    cuerpo.appendChild(el('p', '', v.d));
+    if (v.k) { const g = el('div', 'kpis'); v.k.forEach(([a, b]) => { const k = el('div', 'kpi'); k.append(el('div', 'small', a), el('b', '', b)); k.firstChild.style.color = 'var(--texto-2)'; k.lastChild.style.cssText = 'font-size:1.6rem'; g.appendChild(k); }); cuerpo.appendChild(g); }
+    if (v.c) { const g = el('div', 'cartas'); v.c.forEach(x => g.appendChild(el('div', 'carta', x))); cuerpo.appendChild(g); }
+    sec.append(h, cuerpo);
+  }
+
+  /* barra superior */
+  let npT = null;
+  const NP = {
+    ini() { clearTimeout(npT); np.style.transition = 'none'; np.style.opacity = '1'; np.style.transform = 'scaleX(.05)'; void np.offsetWidth; np.style.transition = 'transform 4s cubic-bezier(.1,.8,.2,1)'; np.style.transform = 'scaleX(.85)'; },
+    fin() { np.style.transition = 'transform .2s, opacity .3s .2s'; np.style.transform = 'scaleX(1)'; np.style.opacity = '0'; npT = setTimeout(() => { np.style.transition = 'none'; np.style.transform = 'scaleX(0)'; }, 600); }
+  };
+
+  /* === COMPONENTE: navegar === */
+  async function navegar(n) {
+    if (!VISTAS[n]) n = 'inicio';
+    if (n === actual) return;
+    const mi = ++seq, previo = actual ? $('[data-vista="' + actual + '"]', esc) : null;
+    const dir = actual ? Math.sign(ORDEN.indexOf(n) - ORDEN.indexOf(actual)) || 1 : 1;
+    document.body.dataset.dir = String(dir);
+    document.querySelectorAll('[data-ir]').forEach(a => { if (a.dataset.ir === n) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    let nueva = $('[data-vista="' + n + '"]', esc);
+    if (!nueva) { nueva = el('section', 'vista'); nueva.dataset.vista = n; esc.appendChild(nueva); }
+    nueva.hidden = true;
+    NP.ini();
+    let datos; const t0 = Date.now();
+    const tope = esperar(4000).then(() => null);
+    try { datos = await Promise.race([cargarDatos(n), tope]); } catch (e) { datos = null; }
+    if (mi !== seq) return;
+    NP.fin();
+    if (!datos) { datos = { t: 'No pudimos cargar', d: 'Revisa tu conexión e intenta de nuevo.' }; }
+    pintar(nueva, n, datos); nueva.removeAttribute('aria-busy');
+    nueva.hidden = false; nueva.classList.remove('sale');
+    const anim = !reducido() && document.body.dataset.trans !== 'ninguna';
+    if (previo && anim) {
+      previo.classList.add('sale'); nueva.classList.add('entra');
+      const fin = () => { previo.hidden = true; previo.classList.remove('sale'); nueva.classList.remove('entra'); };
+      await Promise.race([esperar(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dur')) * 1000 + 80)]);
+      if (mi === seq) fin();
+    } else if (previo) { previo.hidden = true; }
+    if (mi !== seq) return;
+    actual = n; $('h1', nueva).focus({ preventScroll: true }); anuncio.textContent = 'Vista ' + VISTAS[n].t;
+    document.title = VISTAS[n].t + ' · Chile Consultores';
+    window.dispatchEvent(new CustomEvent('vista:lista', { detail: n }));
+  }
+  window.NAV = { ir: n => { location.hash = n; } };
+  window.addEventListener('hashchange', () => navegar(location.hash.slice(1)));
+  navegar(location.hash.slice(1) || 'inicio');
+});
+</script>
+</body>
+</html>

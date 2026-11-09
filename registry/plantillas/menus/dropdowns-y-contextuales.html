@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Dropdowns y menús contextuales · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: menú de usuario, menú de acciones con atajos, select personalizado con búsqueda, multiselect con chips, menú contextual (clic derecho o pulsación larga) y popover de notificaciones.
+  Proyecto: apps privadas de Chile Consultores (CRM, Clima, Helpdesk).
+  Cómo aplicarlo: copia el CSS `.pop` y la función `popover(disparador, panel, opciones)` que gestiona apertura, posición (voltea si no cabe), Escape, clic fuera y foco. Cada ejemplo la reutiliza.
+  Conectar: cambia los arreglos de opciones y reemplaza los `toast` por tus acciones reales.
+  Ganchos: .pop, [data-pop], [role=menu], [role=listbox], [role=menuitem], [aria-expanded].
+  Accesibilidad: patrón WAI-ARIA menu y listbox: flechas, Home, End, escritura rápida (typeahead), Escape devuelve el foco al disparador.
+-->
+<style>
+  .pagina{max-width:1000px;margin:0 auto;padding:24px 16px 120px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px;margin-top:20px}
+  .tarjeta{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+  .tarjeta h2{margin:0;font-size:1.05rem}
+  .fila{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .ico{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+  /* === COMPONENTE: popover base === */
+  .rel{position:relative;display:inline-block}
+  .pop{position:absolute;z-index:50;min-width:220px;background:var(--superficie-2);border:1px solid var(--borde);border-radius:14px;padding:6px;box-shadow:0 22px 50px rgba(0,0,0,.55);animation:pop .16s var(--ease-salida);left:0;top:calc(100% + 6px)}
+  .pop.der{left:auto;right:0}
+  .pop.arriba{top:auto;bottom:calc(100% + 6px)}
+  .pop[hidden]{display:none}
+  @keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.98)}}
+  .it{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:9px;border:0;background:none;color:var(--texto);font:inherit;cursor:pointer;text-align:left;min-height:38px}
+  .it:hover,.it:focus-visible,.it[data-act=true]{background:rgba(124,109,242,.2);outline:none}
+  .it .at{margin-left:auto;font-size:.72rem;color:var(--texto-2);border:1px solid var(--borde);border-radius:6px;padding:1px 6px}
+  .it.pel{color:var(--rojo)}
+  .it[aria-checked=true]::after,.it[aria-selected=true]::after{content:"✓";margin-left:auto;color:var(--acento);font-weight:800}
+  .it[disabled]{opacity:.4;cursor:not-allowed}
+  .sep{height:1px;background:var(--borde);margin:6px 4px}
+  .tit{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--texto-2);padding:8px 10px 4px}
+  .usr{display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--borde);margin-bottom:4px}
+  .usr b{display:block}
+
+  /* === COMPONENTE: select con busqueda y multiselect === */
+  .sel{min-width:260px;width:100%;justify-content:space-between;display:flex;text-align:left}
+  .busca{padding:6px}
+  .lista-op{max-height:200px;overflow:auto;padding:2px}
+  .vacio{padding:12px;color:var(--texto-2);font-size:var(--fs-s)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;min-height:28px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 6px 3px 10px;border-radius:99px;background:rgba(124,109,242,.2);font-size:.82rem}
+  .chip button{border:0;background:none;color:inherit;cursor:pointer;border-radius:50%;width:18px;height:18px;line-height:1;padding:0}
+  .chip button:hover{background:rgba(255,255,255,.15)}
+  .it[role=option][aria-selected=true]::after,.it.multi[aria-checked=true]::after{content:"✓"}
+
+  /* === COMPONENTE: menu contextual === */
+  #zona-ctx{height:200px;border:2px dashed var(--borde);border-radius:var(--r);display:grid;place-items:center;text-align:center;padding:14px;user-select:none;-webkit-touch-callout:none;background:var(--superficie-2)}
+  .ctx{position:fixed;z-index:200}
+  .badge-n{min-width:18px;height:18px;border-radius:99px;background:var(--rojo);color:#fff;font-size:.65rem;display:inline-grid;place-items:center;padding:0 5px;margin-left:4px}
+  .noti{display:flex;gap:10px;padding:10px;border-radius:10px}
+  .noti.nueva{background:rgba(124,109,242,.12)}
+  .noti .pt{width:8px;height:8px;border-radius:50%;background:var(--marca);margin-top:6px;flex:none}
+  .noti.leida .pt{background:transparent}
+  @media (prefers-reduced-motion:reduce){.pop{animation:none}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header><h1 class="gradient-text" style="margin:0 0 6px">Dropdowns y menús contextuales</h1><p class="small" style="margin:0">Todos con teclado: flechas, Home, End, escritura rápida, Escape.</p></header>
+  <div class="grid">
+    <section class="tarjeta"><h2>Menú de usuario</h2><div class="fila"><div class="rel" id="r-usr"></div></div></section>
+    <section class="tarjeta"><h2>Acciones con atajos</h2><div class="fila"><div class="rel" id="r-acc"></div></div></section>
+    <section class="tarjeta"><h2>Select con búsqueda</h2><label class="small" for="b-sel">Cliente</label><div class="rel" id="r-sel" style="display:block"></div></section>
+    <section class="tarjeta"><h2>Multiselect con chips</h2><label class="small" for="b-multi">Etiquetas</label><div class="rel" id="r-multi" style="display:block"></div><div class="chips" id="chips" aria-live="polite"></div></section>
+    <section class="tarjeta"><h2>Menú contextual</h2><div id="zona-ctx" tabindex="0" aria-label="Zona con menú contextual. Presiona la tecla de menú o Shift+F10"><div>Clic derecho aquí<br><span class="small">En táctil: mantén presionado. Con teclado: Shift + F10.</span></div></div></section>
+    <section class="tarjeta"><h2>Popover de notificaciones</h2><div class="fila"><div class="rel" id="r-not"></div></div></section>
+  </div>
+</main>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const NS = 'http://www.w3.org/2000/svg';
+  const IC = { editar: 'M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z', copiar: 'M9 9h11v11H9zM5 15V4h11', compartir: 'M4 12v8h16v-8M12 16V3M7 8l5-5 5 5', borrar: 'M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15', perfil: 'M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0', ajustes: 'M12 15a3 3 0 100-6 3 3 0 000 6z', salir: 'M9 21H5V3h4M16 17l5-5-5-5M21 12H9', campana: 'M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0', chev: 'M6 9l6 6 6-6', ayuda: 'M12 22a10 10 0 100-20 10 10 0 000 20zM9.5 9a2.5 2.5 0 115 0c0 2-2.5 2-2.5 4M12 17h.01', archivar: 'M3 4h18v4H3zM5 8v12h14V8M10 12h4' };
+  const ic = k => { const s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'ico'); s.setAttribute('aria-hidden', 'true'); const p = document.createElementNS(NS, 'path'); p.setAttribute('d', IC[k]); s.appendChild(p); return s; };
+  const toast = (m, t) => (window.UI && UI.toast) && UI.toast(m, t || 'info');
+  let abierto = null;
+
+  /* === COMPONENTE: popover === */
+  function popover(btn, panel, op = {}) {
+    const baseDer = panel.classList.contains('der'); panel.classList.add('pop'); panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-haspopup', op.rol || 'menu');
+    if (!panel.id) panel.id = 'pop-' + Math.random().toString(36).slice(2, 7); btn.setAttribute('aria-controls', panel.id);
+    const items = () => [...panel.querySelectorAll('.it:not([disabled])')];
+    function abrir(foco) {
+      if (abierto && abierto !== api) abierto.cerrar();
+      panel.hidden = false; btn.setAttribute('aria-expanded', 'true'); abierto = api;
+      panel.classList.remove('arriba'); panel.classList.toggle('der', baseDer); const r = panel.getBoundingClientRect();
+      if (r.bottom > innerHeight - 8 && btn.getBoundingClientRect().top > r.height) panel.classList.add('arriba');
+      if (r.right > innerWidth - 8) panel.classList.add('der');
+      if (op.alAbrir) op.alAbrir();
+      const it = items(); const fo = op.foco ? op.foco() : (foco === 'ultimo' ? it[it.length - 1] : it[0]); if (fo) fo.focus();
+    }
+    function cerrar(devolver = true) { if (panel.hidden) return; panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); if (abierto === api) abierto = null; if (devolver) btn.focus(); }
+    const api = { abrir, cerrar, items };
+    btn.addEventListener('click', () => panel.hidden ? abrir() : cerrar());
+    btn.addEventListener('keydown', e => { if (e.key === 'ArrowDown' && panel.hidden) { e.preventDefault(); abrir(); } if (e.key === 'ArrowUp' && panel.hidden) { e.preventDefault(); abrir('ultimo'); } });
+    panel.addEventListener('keydown', e => {
+      const it = items(); const i = it.indexOf(document.activeElement); let n = null;
+      if (e.key === 'Escape') { e.preventDefault(); cerrar(); return; }
+      if (e.key === 'Tab') { cerrar(false); return; }
+      if (e.target.matches('input')) { if (e.key === 'ArrowDown') { e.preventDefault(); (it[0] || e.target).focus(); } return; }
+      if (e.key === 'ArrowDown') n = it[(i + 1) % it.length]; else if (e.key === 'ArrowUp') n = it[(i - 1 + it.length) % it.length]; else if (e.key === 'Home') n = it[0]; else if (e.key === 'End') n = it[it.length - 1];
+      else if (e.key.length === 1 && /\S/.test(e.key) && !e.ctrlKey && !e.metaKey) { const k = e.key.toLowerCase(); n = [...it.slice(i + 1), ...it.slice(0, i + 1)].find(x => x.textContent.trim().toLowerCase().startsWith(k)); }
+      if (n) { e.preventDefault(); n.focus(); }
+    });
+    return api;
+  }
+  document.addEventListener('mousedown', e => { if (abierto && !e.target.closest('.rel') && !e.target.closest('.ctx')) abierto.cerrar(false); });
+  const item = (txt, icono, fn, op = {}) => { const b = el('button', 'it' + (op.pel ? ' pel' : '')); b.type = 'button'; b.setAttribute('role', 'menuitem'); if (icono) b.appendChild(ic(icono)); b.appendChild(el('span', '', txt)); if (op.atajo) b.appendChild(el('span', 'at', op.atajo)); if (op.off) b.disabled = true; b.addEventListener('click', () => { fn(); if (op.mantener) return; if (b.closest('.rel')) { const p = b.closest('.pop'); p.hidden = true; const bt = p.parentNode.querySelector('[aria-controls]'); bt.setAttribute('aria-expanded', 'false'); abierto = null; bt.focus(); } }); return b; };
+
+  /* 1. usuario */
+  { const r = $('#r-usr'); const b = el('button', 'btn btn-sec'); b.type = 'button'; const av = el('span', 'avatar', 'ES'); b.append(av, el('span', '', 'Esteban'), ic('chev')); const p = el('div', 'pop der'); p.setAttribute('role', 'menu'); p.setAttribute('aria-label', 'Cuenta');
+    const u = el('div', 'usr'); const a2 = el('span', 'avatar', 'ES'); const t = el('div'); t.append(el('b', '', 'Esteban'), el('span', 'small', 'admin@[dominio]')); u.append(a2, t); p.appendChild(u);
+    p.append(item('Mi perfil', 'perfil', () => toast('Mi perfil')), item('Ajustes', 'ajustes', () => toast('Ajustes')), item('Ayuda', 'ayuda', () => toast('Ayuda')), el('div', 'sep'), item('Cerrar sesión', 'salir', () => toast('Sesión cerrada', 'ok'), { pel: true }));
+    r.append(b, p); popover(b, p); }
+
+  /* 2. acciones con atajos */
+  { const r = $('#r-acc'); const b = el('button', 'btn'); b.type = 'button'; b.append(el('span', '', 'Acciones'), ic('chev')); const p = el('div', 'pop'); p.setAttribute('role', 'menu'); p.setAttribute('aria-label', 'Acciones');
+    p.append(item('Editar', 'editar', () => toast('Editar'), { atajo: 'Ctrl E' }), item('Duplicar', 'copiar', () => toast('Duplicar'), { atajo: 'Ctrl D' }), item('Compartir', 'compartir', () => toast('Compartir'), { atajo: 'Ctrl S' }), item('Archivar', 'archivar', () => {}, { off: true }), el('div', 'sep'), item('Eliminar', 'borrar', () => toast('Eliminado', 'error'), { pel: true, atajo: 'Supr' }));
+    r.append(b, p); popover(b, p); }
+
+  /* 3. select con busqueda */
+  const CLIENTES = ['Minera Aconcagua', 'Retail Pacífico', 'Transportes del Sur', 'Clínica Los Andes', 'Universidad del Norte', 'Agrícola Maule', 'Banco Austral', 'Constructora Andes'];
+  function combo(raiz, boton, datos, multi, alCambiar) {
+    const sel = new Set(); boton.type = 'button'; const lb = el('span', '', 'Selecciona...'); boton.append(lb, ic('chev'));
+    const p = el('div'); const bq = el('div', 'busca'); const inp = el('input', 'input'); inp.type = 'search'; inp.name = 'q-' + boton.id; inp.placeholder = 'Buscar...'; inp.setAttribute('aria-label', 'Buscar'); bq.appendChild(inp);
+    const lista = el('div', 'lista-op'); lista.setAttribute('role', 'listbox'); if (multi) lista.setAttribute('aria-multiselectable', 'true'); p.append(bq, lista); raiz.append(boton, p);
+    const api = popover(boton, p, { rol: 'listbox', foco: () => inp, alAbrir: () => { inp.value = ''; pintar(); } });
+    function pintar() { const q = inp.value.trim().toLowerCase(); lista.replaceChildren(); const v = datos.filter(d => d.toLowerCase().includes(q)); if (!v.length) lista.appendChild(el('div', 'vacio', 'Sin resultados')); v.forEach(d => { const o = el('button', 'it' + (multi ? ' multi' : '')); o.type = 'button'; o.setAttribute('role', 'option'); o.textContent = d; const on = sel.has(d); o.setAttribute(multi ? 'aria-checked' : 'aria-selected', String(on)); if (multi) o.setAttribute('aria-selected', String(on)); o.addEventListener('click', () => { if (multi) { sel.has(d) ? sel.delete(d) : sel.add(d); pintar(); resumen(); const f = [...lista.querySelectorAll('.it')].find(x => x.textContent === d); if (f) f.focus(); } else { sel.clear(); sel.add(d); resumen(); api.cerrar(); } }); lista.appendChild(o); }); }
+    function resumen() { lb.textContent = sel.size === 0 ? 'Selecciona...' : multi ? sel.size + ' seleccionadas' : [...sel][0]; if (alCambiar) alCambiar([...sel]); }
+    inp.addEventListener('input', pintar); inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const f = lista.querySelector('.it'); if (f) f.click(); } });
+    return { quitar(d) { sel.delete(d); resumen(); } };
+  }
+  { const b = el('button', 'btn btn-sec sel'); b.id = 'b-sel'; combo($('#r-sel'), b, CLIENTES, false); }
+  { const b = el('button', 'btn btn-sec sel'); b.id = 'b-multi'; const chips = $('#chips');
+    const c = combo($('#r-multi'), b, ['Prioritario', 'Clima', 'Mystery', 'Rotación', 'Renovación', 'Nuevo'], true, ls => { chips.replaceChildren(); ls.forEach(t => { const ch = el('span', 'chip'); ch.appendChild(el('span', '', t)); const x = el('button', '', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Quitar ' + t); x.addEventListener('click', () => c.quitar(t)); ch.appendChild(x); chips.appendChild(ch); }); }); }
+
+  /* 5. contextual */
+  { const z = $('#zona-ctx'); let m = null;
+    function cerrar() { if (m) { m.remove(); m = null; } document.removeEventListener('keydown', kd, true); }
+    function kd(e) { if (!m) return; if (e.key === 'Escape') { e.preventDefault(); cerrar(); z.focus(); return; } const it = [...m.querySelectorAll('.it:not([disabled])')]; const i = it.indexOf(document.activeElement); if (e.key === 'ArrowDown') { e.preventDefault(); it[(i + 1) % it.length].focus(); } if (e.key === 'ArrowUp') { e.preventDefault(); it[(i - 1 + it.length) % it.length].focus(); } if (e.key === 'Tab') cerrar(); }
+    function abrir(x, y) {
+      cerrar(); m = el('div', 'pop ctx'); m.setAttribute('role', 'menu'); m.style.cssText = 'left:0;top:0;visibility:hidden';
+      [['Abrir', null, 'Abrir'], ['Copiar enlace', 'copiar', 'Enlace copiado'], ['Renombrar', 'editar', 'Renombrar'], ['Mover a...', 'archivar', 'Mover']].forEach(([t, i, msg]) => m.appendChild(item(t, i, () => { cerrar(); toast(msg); }, { mantener: true })));
+      m.append(el('div', 'sep'), item('Eliminar', 'borrar', () => { cerrar(); toast('Eliminado', 'error'); }, { pel: true, mantener: true })); document.body.appendChild(m);
+      const r = m.getBoundingClientRect(); m.style.left = Math.min(x, innerWidth - r.width - 8) + 'px'; m.style.top = Math.min(y, innerHeight - r.height - 8) + 'px'; m.style.visibility = ''; m.querySelector('.it').focus(); document.addEventListener('keydown', kd, true);
+    }
+    z.addEventListener('contextmenu', e => { e.preventDefault(); abrir(e.clientX, e.clientY); });
+    z.addEventListener('keydown', e => { if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); const r = z.getBoundingClientRect(); abrir(r.left + 40, r.top + 40); } });
+    let tm = null, p0 = null; z.addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; p0 = [e.clientX, e.clientY]; tm = setTimeout(() => abrir(p0[0], p0[1]), 500); });
+    ['pointerup', 'pointercancel'].forEach(n => z.addEventListener(n, () => clearTimeout(tm))); z.addEventListener('pointermove', e => { if (p0 && Math.hypot(e.clientX - p0[0], e.clientY - p0[1]) > 10) clearTimeout(tm); });
+    document.addEventListener('mousedown', e => { if (m && !e.target.closest('.ctx')) cerrar(); }); window.addEventListener('scroll', cerrar, true); window.addEventListener('resize', cerrar); }
+
+  /* 6. notificaciones */
+  { const r = $('#r-not'); const b = el('button', 'btn btn-sec'); b.type = 'button'; b.setAttribute('aria-label', 'Notificaciones'); const n = el('span', 'badge-n', '3'); b.append(ic('campana'), el('span', '', 'Avisos'), n); const p = el('div', 'der'); p.style.width = '320px'; p.style.maxWidth = '86vw'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Notificaciones');
+    const cab = el('div', 'fila'); cab.style.cssText = 'justify-content:space-between;padding:6px 10px'; cab.appendChild(el('b', '', 'Notificaciones')); const mk = el('button', 'it'); mk.type = 'button'; mk.style.cssText = 'width:auto;min-height:0;padding:4px 8px;font-size:.8rem'; mk.textContent = 'Marcar leídas'; cab.appendChild(mk); p.appendChild(cab);
+    const DATOS = [['Nueva respuesta en Clima 2026', 'Hace 5 min', 1], ['Informe aprobado por Retail Pacífico', 'Hace 1 h', 1], ['Recordatorio: reunión con Minera', 'Hace 3 h', 1], ['Estudio de rotación finalizado', 'Ayer', 0]];
+    const L = el('div'); DATOS.forEach(([t, h, nu]) => { const x = el('button', 'it noti ' + (nu ? 'nueva' : 'leida')); x.type = 'button'; x.setAttribute('role', 'menuitem'); const pt = el('span', 'pt'); const c = el('div'); c.append(el('div', '', t), el('div', 'small', h)); x.append(pt, c); x.addEventListener('click', () => { if (x.classList.contains('nueva')) { x.classList.replace('nueva', 'leida'); cuenta(); } }); L.appendChild(x); }); p.appendChild(L);
+    function cuenta() { const k = L.querySelectorAll('.nueva').length; n.textContent = k; n.hidden = !k; }
+    mk.addEventListener('click', () => { L.querySelectorAll('.nueva').forEach(x => x.classList.replace('nueva', 'leida')); cuenta(); });
+    r.append(b, p); popover(b, p, { rol: 'dialog' }); }
+});
+</script>
+</body>
+</html>

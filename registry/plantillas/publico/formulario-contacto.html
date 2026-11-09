@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="index,follow">
+<meta name="description" content="Escríbele a Chile Consultores: cuéntanos si necesitas un estudio de clima laboral, Mystery Shopper o desarrollo web. Te respondemos en un día hábil.">
+<title>Contacto · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: landing corta de contacto pública con formulario validado, consentimiento explícito, honeypot, límite de reintentos y estados enviando, éxito con resumen y error con reintentar.
+  Proyecto: sitio corporativo y landings de Clima, Mystery y desarrollo web.
+  Cómo aplicarlo: cambia los textos, las opciones de #ct-motivo y el enlace #privacidad. Una regla nueva es una entrada en REGLAS y un .campo con su #ct-e-nombre.
+  Conectar: reemplaza API.contacto(datos) por tu llamada (Supabase insert o Edge Function). Guarda consentimiento y consentimiento_at junto al mensaje. #ct-demo es solo para probar el error, bórralo en producción.
+  Ganchos: API.contacto, REGLAS, #ct-form, #ct-ok, #ct-aviso, MAX_INTENTOS.
+  Reglas UX: etiqueta visible, validación al salir del campo, consentimiento sin premarcar, no se borra lo escrito si falla, foco al primer error y al éxito.
+-->
+<style>
+  .ct-pagina{max-width:640px;margin:0 auto;padding:24px 16px 64px;display:flex;flex-direction:column;gap:24px}
+  .ct-cab{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .ct-pagina .input,.ct-pagina .select,.ct-pagina .btn{min-height:44px}
+  .ct-pagina .select{width:auto;flex:none}
+  .ct-card{display:flex;flex-direction:column;gap:16px;padding:24px}
+  .ct-ancho{grid-column:1/-1}
+  .ct-pagina .campo .select{width:100%}
+  .ct-consent{align-items:flex-start;min-height:44px;padding:8px 0}
+  .ct-consent input{flex:none;margin-top:2px}
+  .ct-trampa{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  #ct-aviso:empty{display:none}
+  [tabindex="-1"]:focus{outline:none}
+  .ct-resumen{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px;margin:0}
+  .ct-resumen dt{color:var(--texto-2);font-size:var(--fs-s)}
+  .ct-resumen dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+  @media (max-width:560px){.ct-card{padding:16px}}
+  [hidden]{display:none}
+</style>
+<script type="application/ld+json">
+[{"@context":"https://schema.org","@type":"ContactPage","name":"Contacto · Chile Consultores","description":"Formulario de contacto de Chile Consultores: estudios de clima laboral, Mystery Shopper y desarrollo web.","inLanguage":"es-CL","about":{"@type":"Organization","name":"Chile Consultores","areaServed":"CL"}}]
+</script>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="ct-pagina">
+  <div class="ct-cab">
+    <div class="logo"><span class="dot"></span>Chile Consultores</div>
+    <div><label for="ct-demo" class="sr-only">Resultado del envío (demo)</label>
+      <select id="ct-demo" class="select"><option value="ok">Demo: envío exitoso</option><option value="error">Demo: error de red</option></select></div>
+  </div>
+  <div class="stack">
+    <h1 class="gradient-text">Cuéntanos qué necesitas</h1>
+    <p class="muted">Estudios de clima laboral, Mystery Shopper y desarrollo web. Te respondemos en un día hábil.</p>
+  </div>
+
+  <form class="card ct-card" id="ct-form" novalidate>
+    <div class="form-grid">
+      <div class="campo"><label for="ct-nombre">Nombre</label>
+        <input class="input" id="ct-nombre" name="nombre" autocomplete="name" required aria-describedby="ct-e-nombre">
+        <p class="error-msg" id="ct-e-nombre" aria-live="polite"></p></div>
+      <div class="campo"><label for="ct-empresa">Empresa <span class="muted">(opcional)</span></label>
+        <input class="input" id="ct-empresa" name="empresa" autocomplete="organization"></div>
+      <div class="campo"><label for="ct-correo">Correo</label>
+        <input class="input" id="ct-correo" name="correo" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="nombre@empresa.cl" required aria-describedby="ct-e-correo">
+        <p class="error-msg" id="ct-e-correo" aria-live="polite"></p></div>
+      <div class="campo"><label for="ct-telefono">Teléfono <span class="muted">(opcional)</span></label>
+        <input class="input" id="ct-telefono" name="telefono" type="tel" inputmode="tel" autocomplete="tel" placeholder="+56 9 1234 5678" aria-describedby="ct-e-telefono">
+        <p class="error-msg" id="ct-e-telefono" aria-live="polite"></p></div>
+      <div class="campo ct-ancho"><label for="ct-motivo">Motivo</label>
+        <select class="select" id="ct-motivo" name="motivo" required aria-describedby="ct-e-motivo">
+          <option value="">Elige un motivo</option><option>Cotizar un proyecto</option><option>Estudio de clima laboral</option>
+          <option>Mystery Shopper</option><option>Soporte de una plataforma</option><option>Otro</option>
+        </select>
+        <p class="error-msg" id="ct-e-motivo" aria-live="polite"></p></div>
+      <div class="campo ct-ancho"><label for="ct-mensaje">Mensaje</label>
+        <textarea class="textarea" id="ct-mensaje" name="mensaje" maxlength="1000" required aria-describedby="ct-e-mensaje"></textarea>
+        <div class="row between"><p class="error-msg" id="ct-e-mensaje" aria-live="polite"></p><span class="ayuda" id="ct-cont"></span></div></div>
+      <div class="campo ct-ancho">
+        <label class="check ct-consent"><input type="checkbox" id="ct-consent" name="consentimiento" required aria-describedby="ct-e-consentimiento">
+          <span>Acepto que Chile Consultores use mis datos de contacto y el contenido de mi mensaje solo para responder esta solicitud, y que los conserve mientras dure su gestión. Puedo pedir que los corrijan o eliminen cuando quiera. Más detalles en la <a href="#privacidad">Política de privacidad</a>.</span></label>
+        <p class="error-msg" id="ct-e-consentimiento" aria-live="polite"></p></div>
+    </div>
+    <div class="ct-trampa" aria-hidden="true"><label for="ct-sitio">Sitio web</label><input id="ct-sitio" name="sitio" tabindex="-1" autocomplete="off"></div>
+    <div class="aviso bad" id="ct-aviso" role="alert"></div>
+    <button class="btn btn-lg" id="ct-enviar" type="submit">Enviar mensaje</button>
+  </form>
+
+  <section class="card ct-card" id="ct-ok" hidden>
+    <h2 tabindex="-1">Mensaje enviado</h2>
+    <p id="ct-ok-t"></p>
+    <dl class="ct-resumen" id="ct-res"></dl>
+    <div><button class="btn btn-sec" id="ct-otro" type="button">Enviar otro mensaje</button></div>
+  </section>
+</main>
+<script>
+/* PUNTO DE CONEXION: reemplaza por tu llamada real (Supabase insert o Edge Function). Debe lanzar error si falla. */
+const API = {
+  contacto: async datos => {
+    await new Promise(r => setTimeout(r, 800));
+    if (document.querySelector('#ct-demo').value === 'error') throw new Error('red');
+  }
+};
+
+const $ = s => document.querySelector(s);
+const MAX_INTENTOS = 3, VENTANA_MS = 60000;
+const form = $('#ct-form'), F = form.elements, btn = $('#ct-enviar'), aviso = $('#ct-aviso');
+const REGLAS = {
+  nombre: e => e.value.trim().length < 2 ? 'Escribe tu nombre.' : '',
+  correo: e => !e.value.trim() ? 'Escribe tu correo.' : /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e.value.trim()) ? '' : 'Revisa el correo, por ejemplo nombre@empresa.cl.',
+  telefono: e => !e.value.trim() || /^(\+?56)?[2-9]\d{8}$/.test(e.value.replace(/[\s-]/g, '')) ? '' : 'Ingresa un teléfono chileno, por ejemplo +56 9 1234 5678.',
+  motivo: e => e.value ? '' : 'Elige un motivo.',
+  mensaje: e => e.value.trim().length < 10 ? 'Cuéntanos un poco más (mínimo 10 caracteres).' : '',
+  consentimiento: e => e.checked ? '' : 'Debes aceptar para poder enviar tu mensaje.'
+};
+const CAMPOS = [...form.elements].filter(e => REGLAS[e.name]);
+
+function validar(e) {
+  const m = REGLAS[e.name](e);
+  $('#ct-e-' + e.name).textContent = m;
+  e.setAttribute('aria-invalid', !!m);
+  e.closest('.campo').classList.toggle('invalido', !!m);
+  return !m;
+}
+CAMPOS.forEach(e => {
+  e.addEventListener('blur', () => { e.dataset.tocado = '1'; validar(e); });
+  e.addEventListener('input', () => { if (e.dataset.tocado) validar(e); });
+});
+
+const cont = () => { $('#ct-cont').textContent = `${F.mensaje.value.length} / ${F.mensaje.maxLength}`; };
+F.mensaje.addEventListener('input', cont); cont();
+
+function exito(d) {
+  $('#ct-ok-t').textContent = `Gracias, ${d.nombre}. Te responderemos a ${d.correo} en un día hábil.`;
+  const dl = $('#ct-res'); dl.replaceChildren();
+  [['Nombre', d.nombre], ['Empresa', d.empresa || 'Sin indicar'], ['Correo', d.correo], ['Teléfono', d.telefono || 'Sin indicar'], ['Motivo', d.motivo], ['Mensaje', d.mensaje]].forEach(([k, v]) => {
+    const a = document.createElement('dt'), b = document.createElement('dd');
+    a.textContent = k; b.textContent = v; dl.append(a, b);
+  });
+  form.hidden = true; $('#ct-ok').hidden = false; $('#ct-ok h2').focus();
+}
+
+const intentos = [];
+form.addEventListener('submit', async ev => {
+  ev.preventDefault(); aviso.textContent = '';
+  const malos = CAMPOS.filter(e => !validar(e));
+  if (malos.length) return malos[0].focus();
+  const ahora = Date.now();
+  while (intentos.length && ahora - intentos[0] > VENTANA_MS) intentos.shift();
+  if (intentos.length >= MAX_INTENTOS) {
+    aviso.textContent = `Demasiados intentos seguidos. Espera ${Math.ceil((VENTANA_MS - (ahora - intentos[0])) / 1000)} segundos y vuelve a intentar.`;
+    return;
+  }
+  intentos.push(ahora);
+  const tel = F.telefono.value.replace(/\D/g, '');
+  const datos = {
+    nombre: F.nombre.value.trim(), empresa: F.empresa.value.trim(), correo: F.correo.value.trim(),
+    telefono: tel ? '+56' + tel.slice(-9) : '', motivo: F.motivo.value, mensaje: F.mensaje.value.trim(),
+    consentimiento: true, consentimiento_at: new Date().toISOString()
+  };
+  btn.disabled = true; btn.textContent = 'Enviando…';
+  try {
+    if (!F.sitio.value) await API.contacto(datos);
+    btn.disabled = false; btn.textContent = 'Enviar mensaje';
+    return exito(datos);
+  } catch { /* se informa abajo */ }
+  btn.disabled = false; btn.textContent = 'Reintentar';
+  aviso.textContent = 'No pudimos enviar tu mensaje. Lo que escribiste sigue aquí, inténtalo de nuevo.';
+  btn.focus();
+});
+
+$('#ct-otro').addEventListener('click', () => {
+  form.reset(); cont();
+  CAMPOS.forEach(e => { delete e.dataset.tocado; $('#ct-e-' + e.name).textContent = ''; e.removeAttribute('aria-invalid'); e.closest('.campo').classList.remove('invalido'); });
+  $('#ct-ok').hidden = true; form.hidden = false; F.nombre.focus();
+});
+</script>
+</body>
+</html>

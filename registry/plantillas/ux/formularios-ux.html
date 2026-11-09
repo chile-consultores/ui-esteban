@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Formularios con UX pro · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: formulario de registro en 3 pasos con todas las reglas de UX aplicadas: validación al salir del campo (y en vivo después del primer error), resumen de errores con foco, RUT chileno con dígito verificador, teléfono +56, medidor de contraseña con requisitos visibles, borrador autoguardado, botón que muestra progreso (no se deshabilita en seco), confirmación de salida con cambios sin guardar y pantalla de éxito.
+  Proyecto: registro, contacto, onboarding y checkout de Chile Consultores.
+  Cómo aplicarlo: copia `VALIDADORES` (una entrada por tipo, como QUESTION_TYPES), `campo()` y `Form.crear()`. Para un campo nuevo agrega un validador y un <div class="campo" data-v="tipo">.
+  Conectar: reemplaza `enviar(datos)` por tu llamada a Supabase. El borrador usa localStorage con try/catch (clave "form-borrador").
+  Ganchos: .campo[data-v], [data-paso], #resumen-errores, window.Form.
+  Reglas UX: etiqueta siempre visible (no solo placeholder), una columna, inputmode y autocomplete correctos, error junto al campo con texto de cómo arreglarlo, no borrar lo escrito tras un error, mostrar/ocultar contraseña, Enter envía, foco al primer error.
+-->
+<style>
+  .pagina{max-width:640px;margin:0 auto;padding:28px 16px 80px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .caja{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:22px;display:flex;flex-direction:column;gap:18px}
+  .pasos{display:flex;gap:6px;list-style:none;margin:0;padding:0}
+  .pasos li{flex:1;height:6px;border-radius:99px;background:var(--superficie-2);transition:background .3s}
+  .pasos li.on{background:var(--marca)} .pasos li.ok{background:var(--acento)}
+  .cab-paso{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .cab-paso h2{margin:0;font-size:1.2rem}
+  [data-paso][hidden]{display:none}
+  .grupo{display:flex;flex-direction:column;gap:16px}
+
+  /* === COMPONENTE: campo === */
+  .campo{display:flex;flex-direction:column;gap:6px}
+  .campo label{font-weight:600;font-size:.92rem}
+  .campo label .op{font-weight:400;color:var(--texto-2)}
+  .campo .ayuda{font-size:.8rem;color:var(--texto-2)}
+  .campo .caja-in{position:relative;display:flex}
+  .campo input,.campo select,.campo textarea{width:100%;min-height:46px}
+  .campo .caja-in input{padding-right:48px}
+  .campo .ojo{position:absolute;right:4px;top:3px;height:40px;width:40px;border:0;background:none;color:var(--texto-2);cursor:pointer;border-radius:8px}
+  .campo .ojo:hover{color:var(--texto);background:rgba(255,255,255,.06)}
+  .campo .estado{display:block;padding:0;gap:0;text-align:left;position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;font-weight:800}
+  .campo[data-e=error] input,.campo[data-e=error] select,.campo[data-e=error] textarea{border-color:var(--rojo);box-shadow:0 0 0 3px rgba(248,113,113,.15)}
+  .campo[data-e=ok] input{border-color:var(--verde)}
+  .campo[data-e=ok] .estado{color:var(--verde)} .campo[data-e=error] .estado{color:var(--rojo)}
+  .campo .msg{font-size:.82rem;color:var(--rojo);display:none;gap:6px}
+  .campo[data-e=error] .msg{display:flex}
+  .campo[data-e=error] .ayuda{display:none}
+  .campo.tiene-ojo .estado{right:50px}
+
+  /* === COMPONENTE: medidor de contraseña === */
+  .medidor{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:2px}
+  .medidor i{height:5px;border-radius:99px;background:var(--superficie-2);transition:background .25s}
+  .medidor[data-n="1"] i:nth-child(-n+1){background:var(--rojo)}
+  .medidor[data-n="2"] i:nth-child(-n+2){background:#fb923c}
+  .medidor[data-n="3"] i:nth-child(-n+3){background:#facc15}
+  .medidor[data-n="4"] i{background:var(--verde)}
+  .reqs{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px;font-size:.8rem;color:var(--texto-2)}
+  .reqs li::before{content:"○";margin-right:8px}
+  .reqs li.ok{color:var(--verde)} .reqs li.ok::before{content:"●"}
+
+  /* === COMPONENTE: resumen de errores y boton === */
+  #resumen-errores{border:1px solid var(--rojo);background:rgba(248,113,113,.08);border-radius:12px;padding:14px 16px}
+  #resumen-errores[hidden]{display:none}
+  #resumen-errores h3{margin:0 0 6px;font-size:.95rem}
+  #resumen-errores ul{margin:0;padding-left:18px;display:grid;gap:2px}
+  #resumen-errores a{color:var(--texto)}
+  .acciones{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .btn.cargando{position:relative;color:transparent!important;pointer-events:none}
+  .btn.cargando::after{content:"";position:absolute;inset:0;margin:auto;width:18px;height:18px;border:2px solid #fff;border-right-color:transparent;border-radius:50%;animation:g .7s linear infinite}
+  @keyframes g{to{transform:rotate(360deg)}}
+  .borrador{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--texto-2)}
+  .borrador i{width:8px;height:8px;border-radius:50%;background:var(--verde)}
+  .exito{text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 0}
+  .exito svg{width:72px;height:72px}
+  .exito circle{stroke:var(--verde);stroke-width:3;fill:none;stroke-dasharray:166;stroke-dashoffset:166;animation:tr .6s .1s ease forwards}
+  .exito path{stroke:var(--verde);stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:48;stroke-dashoffset:48;animation:tr .4s .6s ease forwards}
+  @keyframes tr{to{stroke-dashoffset:0}}
+  .check-fila{display:flex;gap:10px;align-items:flex-start}
+  .check-fila input{margin-top:3px;width:20px;height:20px;flex:none;accent-color:var(--marca)}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}.exito circle,.exito path{stroke-dashoffset:0}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header style="margin-bottom:18px"><h1 class="gradient-text" style="margin:0 0 6px">Crea tu cuenta</h1><p class="small" style="margin:0">Toma menos de 2 minutos. Guardamos tu avance mientras escribes.</p></header>
+  <form class="caja" id="form" novalidate autocomplete="on">
+    <ol class="pasos" id="pasos" aria-label="Progreso del formulario"><li></li><li></li><li></li></ol>
+    <div class="cab-paso"><h2 id="tit-paso" tabindex="-1">Paso 1 de 3</h2><span class="borrador" id="borrador" hidden role="status"><i></i><span>Borrador guardado</span></span></div>
+    <div id="resumen-errores" role="alert" hidden tabindex="-1"></div>
+
+    <section data-paso="1" class="grupo" aria-labelledby="tit-paso">
+      <div class="campo" data-v="texto"><label for="in-nombre">Nombre completo</label><div class="caja-in"><input class="input" id="in-nombre" name="nombre" autocomplete="name" required><span class="estado" aria-hidden="true"></span></div><div class="msg" id="e-in-nombre"></div></div>
+      <div class="campo" data-v="rut"><label for="in-rut">RUT</label><div class="caja-in"><input class="input" id="in-rut" name="rut" inputmode="text" autocomplete="off" placeholder="12.345.678-5" maxlength="12" required><span class="estado" aria-hidden="true"></span></div><div class="ayuda" id="h-in-rut">Con o sin puntos y guion. Lo formateamos por ti.</div><div class="msg" id="e-in-rut"></div></div>
+      <div class="campo" data-v="email"><label for="in-email">Correo</label><div class="caja-in"><input class="input" id="in-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" required><span class="estado" aria-hidden="true"></span></div><div class="msg" id="e-in-email"></div></div>
+      <div class="campo" data-v="fono"><label for="in-fono">Teléfono <span class="op">(opcional)</span></label><div class="caja-in"><input class="input" id="in-fono" name="fono" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="+56 9 1234 5678"><span class="estado" aria-hidden="true"></span></div><div class="ayuda" id="h-in-fono">Celular chileno de 9 dígitos.</div><div class="msg" id="e-in-fono"></div></div>
+    </section>
+
+    <section data-paso="2" class="grupo" hidden aria-labelledby="tit-paso">
+      <div class="campo" data-v="empresa"><label for="in-empresa">Empresa</label><div class="caja-in"><input class="input" id="in-empresa" name="empresa" autocomplete="organization" required><span class="estado" aria-hidden="true"></span></div><div class="msg" id="e-in-empresa"></div></div>
+      <div class="campo" data-v="select"><label for="in-tam">Tamaño de la empresa</label><select class="input" id="in-tam" name="tam" required><option value="">Elige una opción</option><option>1 a 10 personas</option><option>11 a 50 personas</option><option>51 a 200 personas</option><option>Más de 200</option></select><div class="msg" id="e-in-tam"></div></div>
+      <div class="campo" data-v="texto-largo"><label for="in-obj">¿Qué quieres medir? <span class="op">(opcional)</span></label><textarea class="input" id="in-obj" name="obj" rows="3" maxlength="300"></textarea><div class="ayuda" id="cont-obj">0 de 300 caracteres</div></div>
+    </section>
+
+    <section data-paso="3" class="grupo" hidden aria-labelledby="tit-paso">
+      <div class="campo" data-v="clave"><label for="in-clave">Contraseña</label><div class="caja-in"><input class="input" id="in-clave" name="clave" type="password" autocomplete="new-password" aria-describedby="reqs" required><button class="ojo" type="button" aria-label="Mostrar contraseña" aria-pressed="false">Ver</button></div><div class="medidor" id="medidor" data-n="0" aria-hidden="true"><i></i><i></i><i></i><i></i></div><ul class="reqs" id="reqs"><li data-r="len">Al menos 10 caracteres</li><li data-r="may">Una mayúscula</li><li data-r="num">Un número</li><li data-r="esp">Un símbolo (!, ?, #...)</li></ul><div class="msg" id="e-in-clave"></div></div>
+      <div class="campo" data-v="repetir"><label for="in-clave2">Repite la contraseña</label><div class="caja-in"><input class="input" id="in-clave2" name="clave2" type="password" autocomplete="new-password" required><span class="estado" aria-hidden="true"></span></div><div class="msg" id="e-in-clave2"></div></div>
+      <div class="campo" data-v="acepta"><div class="check-fila"><input type="checkbox" id="in-acepta" name="acepta" required><label for="in-acepta" style="font-weight:400">Acepto los términos y la política de privacidad.</label></div><div class="msg" id="e-in-acepta"></div></div>
+    </section>
+
+    <section data-paso="4" class="exito" hidden aria-live="polite"><svg viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="26.5"/><path d="M17 31l9 9 17-19"/></svg><h2 style="margin:0">Cuenta creada</h2><p class="small" id="txt-exito" style="margin:0"></p><button class="btn btn-sec" type="button" id="btn-otra">Crear otra cuenta</button></section>
+
+    <div class="acciones" id="acciones"><button class="btn btn-sec" type="button" id="btn-atras" hidden>Atrás</button><button class="btn" type="submit" id="btn-sig" style="margin-left:auto">Continuar</button></div>
+  </form>
+</main>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+
+  /* === COMPONENTE: VALIDADORES (una entrada por tipo; devuelven '' si es valido o el mensaje de como arreglarlo) === */
+  const rutDV = cuerpo => { let s = 1, m = 0; for (; cuerpo; cuerpo = Math.floor(cuerpo / 10)) s = (s + cuerpo % 10 * (9 - m++ % 6)) % 11; return s ? String(s - 1) : 'K'; };
+  const limpiarRut = v => v.replace(/[^0-9kK]/g, '').toUpperCase();
+  const fmtRut = v => { const c = limpiarRut(v); if (c.length < 2) return c; const cu = c.slice(0, -1), dv = c.slice(-1); return cu.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + dv; };
+  const fmtFono = v => { let d = v.replace(/\D/g, ''); if (d.startsWith('56')) d = d.slice(2); d = d.slice(0, 9); if (!d) return ''; return '+56 ' + d.slice(0, 1) + (d.length > 1 ? ' ' + d.slice(1, 5) : '') + (d.length > 5 ? ' ' + d.slice(5) : ''); };
+  const VALIDADORES = {
+    texto: v => !v.trim() ? 'Escribe tu nombre completo' : v.trim().split(/\s+/).length < 2 ? 'Escribe nombre y apellido' : '',
+    rut: v => { const c = limpiarRut(v); if (!c) return 'Escribe tu RUT'; if (c.length < 8) return 'El RUT parece incompleto'; return rutDV(parseInt(c.slice(0, -1), 10)) === c.slice(-1) ? '' : 'El dígito verificador no coincide. Revisa el RUT'; },
+    email: v => !v.trim() ? 'Escribe tu correo' : !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) ? 'Falta algo. Ejemplo: nombre@empresa.cl' : '',
+    fono: v => { if (!v.trim()) return ''; const d = v.replace(/\D/g, '').replace(/^56/, ''); return /^9\d{8}$/.test(d) ? '' : 'Un celular chileno tiene 9 dígitos y parte con 9'; },
+    empresa: v => v.trim().length < 2 ? 'Escribe el nombre de tu empresa' : '',
+    select: v => v ? '' : 'Elige una opción de la lista',
+    'texto-largo': () => '',
+    clave: v => reqsClave(v).every(Boolean) ? '' : 'La contraseña aún no cumple todos los requisitos',
+    repetir: v => !v ? 'Repite la contraseña' : v !== $('#in-clave').value ? 'No coincide con la contraseña de arriba' : '',
+    acepta: (v, i) => i.checked ? '' : 'Debes aceptar para crear tu cuenta'
+  };
+  const reqsClave = v => [v.length >= 10, /[A-Z]/.test(v), /\d/.test(v), /[^A-Za-z0-9]/.test(v)];
+
+  /* === COMPONENTE: campo (validacion al salir, luego en vivo) === */
+  function campo(c) {
+    const tipo = c.dataset.v, inp = $('input,select,textarea', c); if (!inp) return;
+    const msg = $('.msg', c), est = $('.estado', c); let tocado = false;
+    const aria = [inp.getAttribute('aria-describedby'), $('.ayuda', c) && $('.ayuda', c).id, msg && msg.id].filter(Boolean); inp.setAttribute('aria-describedby', [...new Set(aria)].join(' '));
+    function validar(mostrar = true) { const e = VALIDADORES[tipo](inp.value, inp); if (!mostrar) return e; if (e) { c.dataset.e = 'error'; if (msg) msg.textContent = e; inp.setAttribute('aria-invalid', 'true'); if (est) est.textContent = '!'; } else { inp.removeAttribute('aria-invalid'); if (msg) msg.textContent = ''; if (tocado && inp.value && tipo !== 'select' && tipo !== 'acepta') { c.dataset.e = 'ok'; if (est) est.textContent = '✓'; } else delete c.dataset.e; } return e; }
+    inp.addEventListener('blur', () => { tocado = true; validar(); });
+    inp.addEventListener('input', () => { if (tipo === 'rut') { inp.value = fmtRut(inp.value); } if (tipo === 'fono') { inp.value = fmtFono(inp.value); } if (tocado || c.dataset.e === 'error') validar(); if (tipo === 'clave') { pintarClave(); const c2 = $('#in-clave2'); if (c2.value) c2.dispatchEvent(new Event('input')); } if (tipo === 'texto-largo') $('#cont-obj').textContent = inp.value.length + ' de 300 caracteres'; guardar(); });
+    inp.addEventListener('change', () => { tocado = true; validar(); guardar(); });
+    c._validar = validar;
+  }
+  $$('.campo[data-v]').forEach(campo);
+
+  /* contraseña */
+  function pintarClave() { const v = $('#in-clave').value, r = reqsClave(v); $$('#reqs li').forEach((li, i) => li.classList.toggle('ok', r[i])); $('#medidor').dataset.n = v ? Math.max(1, r.filter(Boolean).length) : 0; }
+  const ojo = $('.ojo'); ojo.addEventListener('click', () => { const i = $('#in-clave'); const ver = i.type === 'password'; i.type = ver ? 'text' : 'password'; ojo.textContent = ver ? 'Ocultar' : 'Ver'; ojo.setAttribute('aria-pressed', String(ver)); ojo.setAttribute('aria-label', ver ? 'Ocultar contraseña' : 'Mostrar contraseña'); i.focus(); });
+
+  /* === pasos === */
+  let paso = 1; const form = $('#form'), secs = $$('[data-paso]'), barras = $$('#pasos li');
+  const titulos = ['Tus datos', 'Tu empresa', 'Tu contraseña'];
+  function mostrar(n, foco = true) {
+    paso = n; secs.forEach(s => s.hidden = +s.dataset.paso !== n); barras.forEach((b, i) => { b.className = i + 1 < n ? 'ok' : i + 1 === n ? 'on' : ''; });
+    const fin = n === 4; $('#acciones').hidden = fin; $('#pasos').hidden = fin; $('.cab-paso').hidden = fin; $('#btn-atras').hidden = n === 1;
+    $('#tit-paso').textContent = 'Paso ' + Math.min(n, 3) + ' de 3: ' + (titulos[n - 1] || ''); $('#btn-sig').textContent = n === 3 ? 'Crear cuenta' : 'Continuar'; $('#resumen-errores').hidden = true;
+    if (foco && !fin) { const p = $('[data-paso="' + n + '"] input,[data-paso="' + n + '"] select'); if (p) p.focus({ preventScroll: false }); }
+  }
+  function validarPaso(n) {
+    const errs = []; $$('[data-paso="' + n + '"] .campo[data-v]').forEach(c => { if (c._validar) { const e = c._validar(); if (e) errs.push([c, e]); } });
+    const r = $('#resumen-errores'); if (errs.length) { r.replaceChildren(el('h3', '', errs.length === 1 ? 'Hay 1 cosa por corregir' : 'Hay ' + errs.length + ' cosas por corregir')); const u = el('ul'); errs.forEach(([c, e]) => { const li = el('li'); const a = el('a', '', ($('label', c) ? $('label', c).textContent.replace('(opcional)', '').trim() : 'Campo') + ': ' + e); a.href = '#' + $('input,select,textarea', c).id; a.addEventListener('click', ev => { ev.preventDefault(); $('input,select,textarea', c).focus(); }); li.appendChild(a); u.appendChild(li); }); r.appendChild(u); r.hidden = false; $('input,select,textarea', errs[0][0]).focus(); } else r.hidden = true;
+    return !errs.length;
+  }
+  $('#btn-atras').addEventListener('click', () => mostrar(paso - 1));
+  form.addEventListener('submit', async e => {
+    e.preventDefault(); if (!validarPaso(paso)) return;
+    if (paso < 3) { mostrar(paso + 1); return; }
+    const b = $('#btn-sig'); b.classList.add('cargando'); b.setAttribute('aria-busy', 'true');
+    try { await enviar(datos()); try { localStorage.removeItem('form-borrador'); } catch (x) {} sucio = false; $('#txt-exito').textContent = 'Te enviamos un correo a ' + $('#in-email').value + ' para confirmar.'; mostrar(4, false); $('#txt-exito').parentNode.querySelector('h2').tabIndex = -1; $('#txt-exito').parentNode.querySelector('h2').focus(); }
+    catch (err) { const r = $('#resumen-errores'); r.replaceChildren(el('h3', '', 'No pudimos crear tu cuenta'), el('p', 'small', 'Hubo un problema de conexión. Tus datos siguen aquí. Intenta de nuevo.')); r.hidden = false; r.focus(); }
+    b.classList.remove('cargando'); b.removeAttribute('aria-busy');
+  });
+  const datos = () => Object.fromEntries($$('input,select,textarea', form).filter(i => i.name && !/clave/.test(i.name)).map(i => [i.name, i.type === 'checkbox' ? i.checked : i.value]));
+  async function enviar(d) { await esperar(1200); if (window.__falla) throw new Error('red'); return d; }
+
+  /* === borrador === */
+  let sucio = false, t = null; const KEY = 'form-borrador';
+  function guardar() { sucio = true; clearTimeout(t); t = setTimeout(() => { try { const d = datos(); delete d.acepta; localStorage.setItem(KEY, JSON.stringify(d)); const b = $('#borrador'); b.hidden = false; } catch (e) {} }, 600); }
+  try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d) { Object.entries(d).forEach(([k, v]) => { const i = form.elements[k]; if (i && typeof v === 'string') i.value = v; }); if (window.UI && UI.toast) UI.toast('Recuperamos tu borrador', 'info'); } } catch (e) {}
+  window.addEventListener('beforeunload', e => { if (sucio && paso < 4) { e.preventDefault(); e.returnValue = ''; } });
+  $('#btn-otra').addEventListener('click', () => { form.reset(); $$('.campo').forEach(c => { delete c.dataset.e; }); pintarClave(); mostrar(1); });
+  window.Form = { validarPaso, mostrar };
+  mostrar(1, false); pintarClave();
+});
+</script>
+</body>
+</html>

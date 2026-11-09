@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Tabla de datos pro · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: tabla de datos completa: búsqueda con resaltado, filtros por chips, orden por columna (aria-sort), selección múltiple con Shift y "seleccionar todo en los N resultados", barra de acciones en lote, densidad, columnas visibles, cabecera fija, paginación, edición rápida con deshacer, exportar CSV y estados (cargando, vacío, sin resultados, error). En móvil cada fila pasa a tarjeta.
+  Proyecto: CRM, Helpdesk, Clima (listas de clientes, tickets, respuestas).
+  Cómo aplicarlo: copia el CSS `.dt` y `crearTabla(cfg)`. Define columnas en COLUMNAS (clave, título, tipo, orden) y reemplaza `cargarDatos()` por tu consulta paginada del servidor.
+  Conectar: con Supabase pasa orden, filtros y rango a la consulta (order, ilike, range) y deja el resto igual.
+  Ganchos: .dt, [data-col], [aria-sort], .fila-sel, #barra-lote, window.Tabla.
+  Reglas UX: el estado vive en la URL (hash) para poder compartir la vista, el total se muestra siempre, las acciones destructivas se pueden deshacer, nada se pierde al cambiar de página, foco visible, alvo táctil de 44 px.
+-->
+<style>
+  .pagina{max-width:1200px;margin:0 auto;padding:24px 16px 120px;display:flex;flex-direction:column;gap:14px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .barra-t{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .buscar{position:relative;flex:1;min-width:200px;max-width:380px}
+  .buscar input{width:100%;padding-left:36px}
+  .buscar svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--texto-2);fill:none;stroke-width:2}
+  .chips-f{display:flex;gap:6px;flex-wrap:wrap}
+  .chip-f{padding:7px 12px;border-radius:99px;border:1px solid var(--borde);background:var(--superficie);color:var(--texto-2);font:inherit;font-size:.85rem;cursor:pointer;min-height:36px}
+  .chip-f:hover{color:var(--texto)}
+  .chip-f[aria-pressed=true]{background:rgba(124,109,242,.22);border-color:var(--marca);color:var(--texto)}
+  .chip-f .n{opacity:.7;margin-left:6px;font-variant-numeric:tabular-nums}
+  .der{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .menu-col{position:relative}
+  .menu-col .pan{position:absolute;right:0;top:calc(100% + 6px);z-index:30;background:var(--superficie-2);border:1px solid var(--borde);border-radius:12px;padding:8px;min-width:190px;box-shadow:0 20px 44px rgba(0,0,0,.5)}
+  .menu-col .pan[hidden]{display:none}
+  .menu-col label{display:flex;gap:10px;align-items:center;padding:8px;border-radius:8px;cursor:pointer}
+  .menu-col label:hover{background:rgba(255,255,255,.06)}
+
+  /* === COMPONENTE: tabla === */
+  .dt-caja{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);overflow:clip}
+  .dt-sc{overflow:auto;max-height:520px;position:relative}
+  .dt{width:100%;border-collapse:separate;border-spacing:0;font-size:.92rem}
+  .dt th,.dt td{padding:var(--py,12px) 14px;text-align:left;border-bottom:1px solid var(--borde);white-space:nowrap}
+  .dt thead th{position:sticky;top:0;z-index:2;background:var(--superficie-2);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--texto-2)}
+  .dt thead th button{all:unset;cursor:pointer;display:inline-flex;gap:6px;align-items:center;padding:4px 2px;border-radius:6px}
+  .dt thead th button:hover,.dt thead th button:focus-visible{color:var(--texto)}
+  .dt thead th button:focus-visible{outline:2px solid var(--marca)}
+  .dt th[aria-sort] button::after{content:"↕";opacity:.35}
+  .dt th[aria-sort=ascending] button::after{content:"↑";opacity:1;color:var(--acento)}
+  .dt th[aria-sort=descending] button::after{content:"↓";opacity:1;color:var(--acento)}
+  .dt tbody tr{transition:background .15s}
+  .dt tbody tr:hover{background:rgba(255,255,255,.035)}
+  .dt tbody tr.fila-sel{background:rgba(124,109,242,.14)}
+  .dt tbody tr.fresca{animation:fr 1.4s ease}
+  @keyframes fr{from{background:rgba(52,211,153,.3)}}
+  .dt .c-sel{width:44px;padding-right:0}
+  .dt input[type=checkbox]{width:18px;height:18px;accent-color:var(--marca);cursor:pointer}
+  .dt mark{background:rgba(56,189,248,.28);color:inherit;border-radius:3px}
+  .dt td.num,.dt th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .dt .nom{display:flex;align-items:center;gap:10px;font-weight:600}
+  .est{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;padding:3px 10px;border-radius:99px;border:1px solid var(--borde)}
+  .est::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .est.activo{color:var(--verde)} .est.pausa{color:#facc15} .est.baja{color:var(--rojo)}
+  .acc-f{display:flex;gap:4px;justify-content:flex-end}
+  .acc-f button{width:36px;height:36px;border-radius:8px;border:0;background:none;color:var(--texto-2);cursor:pointer;font:inherit}
+  .acc-f button:hover,.acc-f button:focus-visible{background:rgba(255,255,255,.08);color:var(--texto)}
+  .dens-comp{--py:7px}.dens-comoda{--py:12px}.dens-amplia{--py:18px}
+  td[contenteditable=true]{outline:2px solid var(--marca);outline-offset:-2px;background:var(--superficie-2)}
+  .pie-t{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--borde);background:var(--superficie)}
+  .pie-t .pg{white-space:nowrap;display:flex;gap:6px;align-items:center}
+  .sk td div{height:14px;border-radius:6px;background:linear-gradient(100deg,var(--superficie-2) 30%,rgba(255,255,255,.07) 50%,var(--superficie-2) 70%);background-size:200% 100%;animation:sh 1.3s linear infinite}
+  @keyframes sh{to{background-position:-200% 0}}
+  .vacio{padding:48px 16px;text-align:center;color:var(--texto-2);display:flex;flex-direction:column;gap:10px;align-items:center}
+  .vacio b{color:var(--texto);font-size:1.05rem}
+
+  /* === COMPONENTE: barra de acciones en lote === */
+  #barra-lote{position:fixed;left:50%;bottom:20px;transform:translate(-50%,140%);z-index:60;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;padding:10px 14px;border-radius:16px;background:var(--superficie-2);border:1px solid var(--marca);box-shadow:0 20px 50px rgba(0,0,0,.6);transition:transform .35s var(--ease-salida);max-width:calc(100vw - 24px)}
+  #barra-lote.on{transform:translate(-50%,0)}
+  .sel-todo{padding:10px 14px;text-align:center;background:rgba(124,109,242,.12);font-size:.88rem;border-bottom:1px solid var(--borde)}
+  .sel-todo[hidden]{display:none}
+  .sel-todo button{all:unset;color:var(--acento);cursor:pointer;text-decoration:underline;font-weight:600}
+
+  @media(max-width:720px){
+    .dt thead{display:none}
+    .dt,.dt tbody,.dt tr,.dt td{display:block;width:100%}
+    .dt tbody tr{padding:12px 14px;border-bottom:1px solid var(--borde);display:grid;grid-template-columns:36px 1fr auto;gap:6px 10px}
+    .dt td{border:0;padding:0;white-space:normal}
+    .dt td.c-sel{grid-row:1/3;width:auto}
+    .dt td[data-lbl]::before{content:attr(data-lbl) ": ";color:var(--texto-2);font-size:.8rem}
+    .dt td.c-nom{grid-column:2}.dt td.c-acc{grid-column:3;grid-row:1}
+    .dt td:not(.c-sel):not(.c-nom):not(.c-acc){grid-column:2/4}
+    .der{margin-left:0}
+  }
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header><h1 class="gradient-text" style="margin:0 0 6px">Clientes</h1><p class="small" style="margin:0" id="resumen" aria-live="polite"></p></header>
+  <div class="barra-t">
+    <div class="buscar" role="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input class="input" id="in-q" name="q" type="search" placeholder="Buscar por nombre, ciudad o rubro" aria-label="Buscar en la tabla" autocomplete="off"></div>
+    <div class="chips-f" id="chips" role="group" aria-label="Filtrar por estado"></div>
+    <div class="der">
+      <label class="small" for="in-dens">Densidad</label><select class="input" id="in-dens" name="dens" style="min-height:40px;width:auto;flex:none"><option value="comp">Compacta</option><option value="comoda" selected>Cómoda</option><option value="amplia">Amplia</option></select>
+      <div class="menu-col"><button class="btn btn-sec btn-sm" id="btn-cols" type="button" aria-expanded="false" aria-controls="pan-cols">Columnas</button><div class="pan" id="pan-cols" hidden></div></div>
+      <button class="btn btn-sec btn-sm" id="btn-csv" type="button">Exportar CSV</button>
+      <button class="btn btn-sec btn-sm" id="btn-falla" type="button" title="Simula un error de red en la próxima carga">Simular error</button>
+    </div>
+  </div>
+  <div class="dt-caja">
+    <div class="sel-todo" id="sel-todo" hidden></div>
+    <div class="dt-sc"><table class="dt dens-comoda" id="dt" aria-describedby="resumen"><caption class="small" style="position:absolute;left:-9999px">Lista de clientes</caption><thead></thead><tbody></tbody></table></div>
+    <div class="pie-t"><span class="small" id="rango"></span><div class="pg"><label class="small" for="in-pp">Filas</label><select class="input" id="in-pp" name="pp" style="min-height:40px"><option>10</option><option selected>15</option><option>25</option></select><button class="btn btn-sec btn-sm" id="pg-ant" type="button" aria-label="Página anterior">‹</button><span class="small" id="pg-n"></span><button class="btn btn-sec btn-sm" id="pg-sig" type="button" aria-label="Página siguiente">›</button></div></div>
+  </div>
+</main>
+<div id="barra-lote" role="region" aria-label="Acciones sobre la selección"><b id="lote-n"></b><button class="btn btn-sec btn-sm" id="l-pausa" type="button">Pausar</button><button class="btn btn-sec btn-sm" id="l-act" type="button">Activar</button><button class="btn btn-sm" id="l-del" type="button" style="background:var(--rojo)">Eliminar</button><button class="btn btn-sec btn-sm" id="l-x" type="button" aria-label="Limpiar selección">Cancelar</button></div>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const toast = (m, t, o) => (window.UI && UI.toast) && UI.toast(m, t || 'info', o);
+
+  /* === datos de ejemplo (reemplazar por tu consulta) === */
+  const NOM = ['Minera Aconcagua', 'Retail Pacífico', 'Transportes del Sur', 'Clínica Los Andes', 'Universidad del Norte', 'Agrícola Maule', 'Banco Austral', 'Constructora Andes', 'Salmones Patagonia', 'Vinos del Valle', 'Logística Central', 'Tecnologías Bío', 'Educación Futuro', 'Energía Norte', 'Seguros Pacífico', 'Inmobiliaria Cordillera', 'Textiles Araucanía', 'Alimentos del Sur', 'Farmacias Unidas', 'Puertos del Pacífico'];
+  const CIU = ['Santiago', 'Valparaíso', 'Concepción', 'Antofagasta', 'Temuco', 'Puerto Montt', 'La Serena'], RUB = ['Minería', 'Retail', 'Salud', 'Educación', 'Finanzas', 'Agro', 'Logística'], EST = ['activo', 'activo', 'activo', 'pausa', 'baja'];
+  let BD = Array.from({ length: 87 }, (_, i) => ({ id: i + 1, nombre: NOM[i % NOM.length] + (i >= NOM.length ? ' ' + (Math.floor(i / NOM.length) + 1) : ''), ciudad: CIU[(i * 3) % 7], rubro: RUB[(i * 5) % 7], estado: EST[(i * 7) % 5], estudios: (i * 13) % 9, monto: 1200000 + ((i * 7919) % 90) * 75000 }));
+  const ETQ = { activo: 'Activo', pausa: 'En pausa', baja: 'De baja' };
+  const COLUMNAS = [
+    { k: 'nombre', t: 'Cliente', ord: true, fijo: true }, { k: 'ciudad', t: 'Ciudad', ord: true }, { k: 'rubro', t: 'Rubro', ord: true },
+    { k: 'estado', t: 'Estado', ord: true }, { k: 'estudios', t: 'Estudios', ord: true, num: true }, { k: 'monto', t: 'Monto anual', ord: true, num: true }
+  ];
+  const fmtM = n => '$' + n.toLocaleString('es-CL');
+
+  /* === estado (vive en el hash) === */
+  const S = { q: '', est: 'todos', ord: 'nombre', dir: 'asc', pag: 1, pp: 15, ocultas: new Set(), sel: new Set(), todo: false, dens: 'comoda' };
+  function leerHash() { const p = new URLSearchParams(location.hash.slice(1)); S.q = p.get('q') || ''; S.est = p.get('est') || 'todos'; S.ord = p.get('ord') || 'nombre'; S.dir = p.get('dir') || 'asc'; S.pag = +p.get('pag') || 1; S.pp = +p.get('pp') || 15; }
+  function escribirHash() { const p = new URLSearchParams(); if (S.q) p.set('q', S.q); if (S.est !== 'todos') p.set('est', S.est); if (S.ord !== 'nombre' || S.dir !== 'asc') { p.set('ord', S.ord); p.set('dir', S.dir); } if (S.pag > 1) p.set('pag', S.pag); if (S.pp !== 15) p.set('pp', S.pp); history.replaceState(null, '', '#' + p.toString()); }
+  leerHash(); $('#in-q').value = S.q; $('#in-pp').value = String(S.pp);
+
+  /* === consulta (reemplazar por el servidor) === */
+  let falla = false;
+  function filtrados() { const q = norm(S.q); let r = BD.filter(d => (S.est === 'todos' || d.estado === S.est) && (!q || norm(d.nombre + ' ' + d.ciudad + ' ' + d.rubro).includes(q))); const c = COLUMNAS.find(x => x.k === S.ord); r.sort((a, b) => { const x = a[S.ord], y = b[S.ord]; const v = c && c.num ? x - y : String(x).localeCompare(String(y), 'es'); return S.dir === 'asc' ? v : -v; }); return r; }
+  async function cargarDatos() { await esperar(450); if (falla) { falla = false; throw new Error('red'); } const all = filtrados(); const total = all.length; const ini = (S.pag - 1) * S.pp; return { filas: all.slice(ini, ini + S.pp), total, ids: all.map(d => d.id) }; }
+
+  /* === render === */
+  const tabla = $('#dt'), thead = $('thead', tabla), tbody = $('tbody', tabla); let ultima = null, ultIdx = null, tokenCarga = 0, ultimosIds = [];
+  const visibles = () => COLUMNAS.filter(c => !S.ocultas.has(c.k));
+  function pintarCabecera() {
+    thead.replaceChildren(); const tr = el('tr'); const th0 = el('th', 'c-sel'); const ca = el('input'); ca.type = 'checkbox'; ca.id = 'sel-pagina'; ca.name = 'sel-pagina'; ca.setAttribute('aria-label', 'Seleccionar todas las filas de esta página'); th0.appendChild(ca); tr.appendChild(th0);
+    ca.addEventListener('change', () => { (ultima ? ultima.filas : []).forEach(f => ca.checked ? S.sel.add(f.id) : S.sel.delete(f.id)); S.todo = false; pintarFilasSel(); });
+    visibles().forEach(c => { const th = el('th', c.num ? 'num' : ''); th.scope = 'col'; if (c.ord) { th.setAttribute('aria-sort', S.ord === c.k ? (S.dir === 'asc' ? 'ascending' : 'descending') : 'none'); const b = el('button', '', c.t); b.type = 'button'; b.addEventListener('click', () => { if (S.ord === c.k) S.dir = S.dir === 'asc' ? 'desc' : 'asc'; else { S.ord = c.k; S.dir = 'asc'; } S.pag = 1; refrescar(); }); th.appendChild(b); } else th.textContent = c.t; tr.appendChild(th); });
+    const tha = el('th', '', ''); tha.appendChild(el('span', '', 'Acciones')); tha.firstChild.style.cssText = 'position:absolute;left:-9999px'; tr.appendChild(tha); thead.appendChild(tr);
+  }
+  function resaltar(txt, q) { const f = document.createDocumentFragment(); const x = norm(q.trim()); if (!x) { f.append(txt); return f; } const i = norm(txt).indexOf(x); if (i < 0) { f.append(txt); return f; } f.append(txt.slice(0, i)); f.appendChild(el('mark', '', txt.slice(i, i + x.length))); f.append(txt.slice(i + x.length)); return f; }
+  function esqueleto() { tbody.replaceChildren(); for (let i = 0; i < Math.min(S.pp, 8); i++) { const tr = el('tr', 'sk'); const n = visibles().length + 2; for (let j = 0; j < n; j++) { const td = el('td'); td.appendChild(el('div')); td.firstChild.style.width = (40 + (i * 13 + j * 17) % 50) + '%'; tr.appendChild(td); } tbody.appendChild(tr); } tbody.setAttribute('aria-busy', 'true'); }
+  function pintar(d) {
+    tbody.removeAttribute('aria-busy'); tbody.replaceChildren(); ultima = d; ultimosIds = d.ids;
+    if (!d.filas.length) { const tr = el('tr'); const td = el('td'); td.colSpan = visibles().length + 2; td.style.cssText = 'display:table-cell'; const v = el('div', 'vacio'); if (S.q || S.est !== 'todos') { v.append(el('b', '', 'Sin resultados'), el('span', '', 'Prueba con otra palabra o quita los filtros.')); const b = el('button', 'btn btn-sec btn-sm', 'Limpiar filtros'); b.type = 'button'; b.addEventListener('click', () => { S.q = ''; S.est = 'todos'; $('#in-q').value = ''; S.pag = 1; refrescar(); }); v.appendChild(b); } else v.append(el('b', '', 'Aún no tienes clientes'), el('span', '', 'Crea tu primer cliente para empezar.')); td.appendChild(v); tr.appendChild(td); tbody.appendChild(tr); }
+    d.filas.forEach((f, idx) => {
+      const tr = el('tr'); tr.dataset.id = f.id; const tds = el('td', 'c-sel'); const cb = el('input'); cb.type = 'checkbox'; cb.name = 'sel-' + f.id; cb.setAttribute('aria-label', 'Seleccionar ' + f.nombre); cb.checked = S.sel.has(f.id); tds.appendChild(cb); tr.appendChild(tds);
+      cb.addEventListener('click', e => { if (e.shiftKey && ultIdx != null) { const a = Math.min(ultIdx, idx), b = Math.max(ultIdx, idx); for (let i = a; i <= b; i++) { const id = d.filas[i].id; cb.checked ? S.sel.add(id) : S.sel.delete(id); } } else cb.checked ? S.sel.add(f.id) : S.sel.delete(f.id); ultIdx = idx; S.todo = false; pintarFilasSel(); });
+      visibles().forEach(c => { const td = el('td', c.num ? 'num' : (c.k === 'nombre' ? 'c-nom' : '')); td.dataset.lbl = c.k === 'nombre' ? '' : c.t; if (!td.dataset.lbl) delete td.dataset.lbl;
+        if (c.k === 'nombre') { const w = el('div', 'nom'); w.appendChild(resaltar(f.nombre, S.q)); td.appendChild(w); td.tabIndex = -1; }
+        else if (c.k === 'estado') td.appendChild(el('span', 'est ' + f.estado, ETQ[f.estado]));
+        else if (c.k === 'monto') td.textContent = fmtM(f.monto);
+        else if (c.k === 'ciudad' || c.k === 'rubro') td.appendChild(resaltar(f[c.k], S.q));
+        else td.textContent = f[c.k]; tr.appendChild(td); });
+      const ta = el('td', 'c-acc'); const ac = el('div', 'acc-f'); const be = el('button', '', '✎'); be.type = 'button'; be.setAttribute('aria-label', 'Renombrar ' + f.nombre); be.addEventListener('click', () => editar(tr, f)); const bd = el('button', '', '🗑'); bd.type = 'button'; bd.setAttribute('aria-label', 'Eliminar ' + f.nombre); bd.addEventListener('click', () => eliminar([f.id])); ac.append(be, bd); ta.appendChild(ac); tr.appendChild(ta); tbody.appendChild(tr);
+    });
+    pintarFilasSel();
+  }
+  function pintarFilasSel() {
+    const filas = ultima ? ultima.filas : []; [...tbody.querySelectorAll('tr[data-id]')].forEach(tr => { const on = S.sel.has(+tr.dataset.id); tr.classList.toggle('fila-sel', on); tr.querySelector('input').checked = on; });
+    const n = S.todo ? ultimosIds.length : S.sel.size; const ca = $('#sel-pagina'); if (ca) { const k = filas.filter(f => S.sel.has(f.id)).length; ca.checked = filas.length > 0 && k === filas.length; ca.indeterminate = k > 0 && k < filas.length; }
+    const bl = $('#barra-lote'); bl.classList.toggle('on', n > 0); $('#lote-n').textContent = n + (n === 1 ? ' seleccionado' : ' seleccionados');
+    const st = $('#sel-todo'); const todosPag = filas.length && filas.every(f => S.sel.has(f.id));
+    if (todosPag && ultima.total > filas.length && !S.todo) { st.hidden = false; st.replaceChildren(document.createTextNode('Se seleccionaron las ' + filas.length + ' filas de esta página. ')); const b = el('button', '', 'Seleccionar los ' + ultima.total + ' resultados'); b.type = 'button'; b.addEventListener('click', () => { S.todo = true; ultimosIds.forEach(id => S.sel.add(id)); pintarFilasSel(); }); st.appendChild(b); }
+    else if (S.todo) { st.hidden = false; st.replaceChildren(document.createTextNode('Los ' + ultimosIds.length + ' resultados están seleccionados. ')); const b = el('button', '', 'Limpiar selección'); b.type = 'button'; b.addEventListener('click', limpiarSel); st.appendChild(b); } else st.hidden = true;
+  }
+  function limpiarSel() { S.sel.clear(); S.todo = false; pintarFilasSel(); }
+  function pintarChips(totales) { const c = $('#chips'); c.replaceChildren(); [['todos', 'Todos'], ['activo', 'Activos'], ['pausa', 'En pausa'], ['baja', 'De baja']].forEach(([k, t]) => { const b = el('button', 'chip-f'); b.type = 'button'; b.setAttribute('aria-pressed', String(S.est === k)); b.append(t, el('span', 'n', String(totales[k]))); b.addEventListener('click', () => { S.est = k; S.pag = 1; refrescar(); }); c.appendChild(b); }); }
+  function totalesChips() { const q = norm(S.q); const base = BD.filter(d => !q || norm(d.nombre + ' ' + d.ciudad + ' ' + d.rubro).includes(q)); return { todos: base.length, activo: base.filter(d => d.estado === 'activo').length, pausa: base.filter(d => d.estado === 'pausa').length, baja: base.filter(d => d.estado === 'baja').length }; }
+
+  async function refrescar(opts = {}) {
+    const tk = ++tokenCarga; escribirHash(); pintarCabecera(); pintarChips(totalesChips()); if (!opts.silencio) esqueleto();
+    try { const d = await cargarDatos(); if (tk !== tokenCarga) return; const maxP = Math.max(1, Math.ceil(d.total / S.pp)); if (S.pag > maxP) { S.pag = maxP; return refrescar(opts); } pintar(d); const ini = d.total ? (S.pag - 1) * S.pp + 1 : 0; $('#rango').textContent = 'Mostrando ' + ini + ' a ' + Math.min(S.pag * S.pp, d.total) + ' de ' + d.total; $('#resumen').textContent = d.total + (d.total === 1 ? ' cliente' : ' clientes') + (S.est !== 'todos' || S.q ? ' con los filtros actuales' : ' en total'); $('#pg-n').textContent = S.pag + ' / ' + maxP; $('#pg-ant').disabled = S.pag <= 1; $('#pg-sig').disabled = S.pag >= maxP; }
+    catch (e) { if (tk !== tokenCarga) return; tbody.removeAttribute('aria-busy'); tbody.replaceChildren(); const tr = el('tr'), td = el('td'); td.colSpan = visibles().length + 2; td.style.display = 'table-cell'; const v = el('div', 'vacio'); v.append(el('b', '', 'No pudimos cargar la lista'), el('span', '', 'Revisa tu conexión. Tus filtros siguen aplicados.')); const b = el('button', 'btn btn-sm', 'Reintentar'); b.type = 'button'; b.addEventListener('click', () => refrescar()); v.appendChild(b); td.appendChild(v); tr.appendChild(td); tbody.appendChild(tr); }
+  }
+
+  /* === acciones === */
+  function editar(tr, f) { const td = tr.querySelector('.nom'); const celda = td.parentNode; const orig = f.nombre; const inp = el('input', 'input'); inp.value = orig; inp.name = 'ren'; inp.setAttribute('aria-label', 'Nuevo nombre'); celda.replaceChildren(inp); inp.focus(); inp.select(); let fin = false; const cerrar = ok => { if (fin) return; fin = true; const v = inp.value.trim(); if (ok && v && v !== orig) { f.nombre = v; toast('Renombrado', 'ok', { deshacer: () => { f.nombre = orig; refrescar({ silencio: true }); } }); } refrescar({ silencio: true }); }; inp.addEventListener('keydown', e => { if (e.key === 'Enter') cerrar(true); if (e.key === 'Escape') cerrar(false); }); inp.addEventListener('blur', () => cerrar(true)); }
+  function eliminar(ids) { const quitados = BD.filter(d => ids.includes(d.id)); BD = BD.filter(d => !ids.includes(d.id)); ids.forEach(i => S.sel.delete(i)); S.todo = false; refrescar({ silencio: true }); toast(quitados.length + (quitados.length === 1 ? ' cliente eliminado' : ' clientes eliminados'), 'info', { deshacer: () => { BD = [...BD, ...quitados].sort((a, b) => a.id - b.id); refrescar({ silencio: true }); } }); }
+  const lote = fn => { const ids = S.todo ? ultimosIds : [...S.sel]; fn(ids); };
+  $('#l-del').addEventListener('click', () => lote(eliminar));
+  $('#l-pausa').addEventListener('click', () => lote(ids => { const ant = BD.filter(d => ids.includes(d.id)).map(d => [d, d.estado]); ant.forEach(([d]) => d.estado = 'pausa'); refrescar({ silencio: true }); toast(ids.length + ' en pausa', 'ok', { deshacer: () => { ant.forEach(([d, e]) => d.estado = e); refrescar({ silencio: true }); } }); }));
+  $('#l-act').addEventListener('click', () => lote(ids => { const ant = BD.filter(d => ids.includes(d.id)).map(d => [d, d.estado]); ant.forEach(([d]) => d.estado = 'activo'); refrescar({ silencio: true }); toast(ids.length + ' activados', 'ok', { deshacer: () => { ant.forEach(([d, e]) => d.estado = e); refrescar({ silencio: true }); } }); }));
+  $('#l-x').addEventListener('click', limpiarSel);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.sel.size && !/INPUT/.test(document.activeElement.tagName)) limpiarSel(); });
+
+  let tq = null; $('#in-q').addEventListener('input', e => { clearTimeout(tq); tq = setTimeout(() => { S.q = e.target.value; S.pag = 1; refrescar({ silencio: true }); }, 220); });
+  $('#in-pp').addEventListener('change', e => { S.pp = +e.target.value; S.pag = 1; refrescar(); });
+  $('#pg-ant').addEventListener('click', () => { S.pag--; refrescar(); }); $('#pg-sig').addEventListener('click', () => { S.pag++; refrescar(); });
+  $('#in-dens').addEventListener('change', e => { tabla.className = 'dt dens-' + e.target.value; });
+  $('#btn-falla').addEventListener('click', () => { falla = true; refrescar(); });
+  const pc = $('#pan-cols'), bc = $('#btn-cols'); COLUMNAS.forEach(c => { const l = el('label'); const i = el('input'); i.type = 'checkbox'; i.name = 'col-' + c.k; i.checked = true; i.disabled = !!c.fijo; i.addEventListener('change', () => { i.checked ? S.ocultas.delete(c.k) : S.ocultas.add(c.k); refrescar({ silencio: true }); }); l.append(i, document.createTextNode(c.t)); pc.appendChild(l); });
+  bc.addEventListener('click', () => { const on = pc.hidden; pc.hidden = !on; bc.setAttribute('aria-expanded', String(on)); });
+  document.addEventListener('mousedown', e => { if (!pc.hidden && !e.target.closest('.menu-col')) { pc.hidden = true; bc.setAttribute('aria-expanded', 'false'); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pc.hidden) { pc.hidden = true; bc.setAttribute('aria-expanded', 'false'); bc.focus(); } });
+  $('#btn-csv').addEventListener('click', () => { const cols = visibles(); const lineas = [cols.map(c => c.t).join(';'), ...filtrados().map(d => cols.map(c => '"' + String(c.k === 'estado' ? ETQ[d.estado] : d[c.k]).replace(/"/g, '""') + '"').join(';'))]; const b = new Blob(['﻿' + lineas.join('\n')], { type: 'text/csv;charset=utf-8' }); const a = el('a'); a.href = URL.createObjectURL(b); a.download = 'clientes.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 500); toast('Exportamos ' + filtrados().length + ' filas', 'ok'); });
+  window.addEventListener('hashchange', () => { leerHash(); $('#in-q').value = S.q; refrescar({ silencio: true }); });
+  window.Tabla = { refrescar };
+  refrescar();
+});
+</script>
+</body>
+</html>

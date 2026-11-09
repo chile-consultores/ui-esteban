@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Invitación · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: aceptar la invitación a una empresa (?token=): quién invita, empresa y rol, estados válida / expirada / ya usada, formulario de nombre y clave, y pantalla de bienvenida con 3 primeros pasos.
+  Proyecto: onboarding de usuarios invitados en Clima, Mystery, CRM y DataDash.
+  Cómo aplicarlo: copia main, style y script. El correo de invitación debe enlazar a esta página con ?token=... El selector de demo se elimina al conectar (bloque .iv-demo y el parámetro demo de API.invitacion).
+  Conectar: reemplaza API.invitacion (lee la invitación por token) y API.aceptar (crea el usuario y lo une a la empresa con su rol, idealmente en una Edge Function).
+  Ganchos: API, [data-vista], mostrar(vista), #demo, #ir-panel.
+  Reglas UX: se ve de inmediato quién invita, a qué empresa y con qué rol, el correo viene fijo desde la invitación, cada estado sin salida tiene un siguiente paso, foco al título de cada vista.
+-->
+<style>
+  .iv-centro{min-height:100vh;display:grid;grid-template-columns:minmax(0,440px);place-content:center;gap:12px;padding:24px 16px}
+  .iv-demo{display:flex;align-items:center;justify-content:flex-end;gap:8px;font-size:var(--fs-xs);color:var(--texto-3)}
+  .iv-demo .select{width:auto;flex:none;padding-top:6px;padding-bottom:6px}
+  .iv-tarjeta{display:flex;flex-direction:column;gap:16px;padding:28px 24px}
+  @media (max-width:480px){.iv-tarjeta{padding:24px 16px}}
+  .iv-pag .btn,.iv-pag .input,.iv-pag .select{min-height:44px}
+  .iv-logo{justify-content:center}
+  .iv-vista{display:flex;flex-direction:column;gap:16px}
+  .iv-vista h1{font-size:var(--fs-l)} .iv-vista h1:focus{outline:none}
+  .iv-empresa{padding:14px 16px;border-radius:var(--r-s);background:var(--marca-l);border:1px solid var(--borde-2);display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+  .iv-empresa b{font:600 1.15rem var(--display)}
+  .iv-clave{position:relative}
+  .iv-clave .input{padding-right:92px}
+  .iv-ojo{position:absolute;right:2px;top:2px;bottom:2px;min-height:0}
+  .iv-req{list-style:none;margin:6px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;font-size:var(--fs-xs);color:var(--texto-3)}
+  .iv-req li::before{content:"○ "}
+  .iv-req li.ok{color:var(--verde)} .iv-req li.ok::before{content:"✓ "}
+  .iv-pasos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;counter-reset:p}
+  .iv-pasos li{counter-increment:p;display:flex;gap:12px;align-items:flex-start;font-size:var(--fs-s)}
+  .iv-pasos li::before{content:counter(p);flex:none;width:28px;height:28px;border-radius:50%;background:var(--marca-l);border:1px solid var(--marca);display:grid;place-items:center;font-weight:600}
+  .iv-pasos b{display:block;font-size:var(--fs-b)}
+  [hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="iv-centro iv-pag">
+  <div class="iv-demo"><label for="demo">Demo, estado de la invitación</label>
+    <select class="select" id="demo"><option value="valida">Válida</option><option value="expirada">Expirada</option><option value="usada">Ya usada</option></select></div>
+  <div class="card iv-tarjeta">
+    <div class="logo iv-logo"><span class="dot"></span>Chile Consultores</div>
+
+    <section class="iv-vista" data-vista="carga" aria-busy="true"><div class="skeleton titulo"></div><div class="skeleton bloque"></div></section>
+
+    <section class="iv-vista" data-vista="valida" hidden>
+      <h1 tabindex="-1"><span id="quien"></span> te invitó a unirte</h1>
+      <div class="iv-empresa"><span class="small muted">Empresa</span><b id="empresa"></b><span class="badge marca" id="rol"></span></div>
+      <p class="small muted">Esta invitación es para <b id="correo-inv"></b>. Crea tu acceso para aceptarla.</p>
+      <form id="f-inv" class="iv-vista" novalidate>
+        <div class="campo"><label for="nombre">Tu nombre completo</label><input class="input" id="nombre" name="nombre" autocomplete="name"><div class="error-msg"></div></div>
+        <div class="campo"><label for="clave">Crea tu clave</label>
+          <div class="iv-clave"><input class="input" id="clave" name="clave" type="password" autocomplete="new-password" aria-describedby="med">
+            <button type="button" class="btn btn-ghost iv-ojo" data-ojo="clave" aria-controls="clave">Mostrar</button></div>
+          <div id="med"><div class="progreso"><span></span></div><p class="small muted" data-nivel></p><ul class="iv-req"></ul></div>
+          <div class="error-msg"></div></div>
+        <div class="aviso bad" id="err" role="alert" tabindex="-1" hidden></div>
+        <button class="btn btn-lg" id="b-aceptar" data-busy="Creando tu acceso…">Aceptar invitación</button>
+      </form>
+    </section>
+
+    <section class="iv-vista" data-vista="expirada" hidden>
+      <h1 tabindex="-1">Esta invitación expiró</h1>
+      <p class="muted small">Las invitaciones duran 7 días. Pide a <b class="quien"></b> que te envíe una nueva y te llegará otro correo.</p>
+    </section>
+
+    <section class="iv-vista" data-vista="usada" hidden>
+      <h1 tabindex="-1">Esta invitación ya fue usada</h1>
+      <p class="muted small">Ya existe una cuenta creada con este enlace. Si fuiste tú, ingresa con tu correo y tu clave.</p>
+      <a class="btn btn-lg" href="login-y-registro.html">Ir a ingresar</a>
+    </section>
+
+    <section class="iv-vista" data-vista="bienvenida" hidden>
+      <h1 tabindex="-1">Te damos la bienvenida, <span id="bien-nombre"></span></h1>
+      <p class="muted small">Ya eres parte de <b class="empresa"></b>. Estos son tus primeros pasos:</p>
+      <ol class="iv-pasos">
+        <li><span><b>Completa tu perfil</b>Agrega tu cargo y tu foto para que tu equipo te reconozca.</span></li>
+        <li><span><b>Recorre tu panel</b>Mira los módulos que tienes disponibles según tu rol.</span></li>
+        <li><span><b>Activa la verificación en 2 pasos</b>Protege tu cuenta con un código en tu teléfono.</span></li>
+      </ol>
+      <a class="btn btn-lg" id="ir-panel" href="/">Ir al panel</a>
+    </section>
+  </div>
+</main>
+<script src="../[base]/base.js"></script>
+<script>
+  const espera = ms => new Promise(r => setTimeout(r, ms));
+  // CONECTAR: reemplaza por Supabase. invitacion(token) devuelve { estado: 'valida' | 'expirada' | 'usada', invita, empresa, rol, correo }.
+  const API = {
+    invitacion: async (token, demo) => {
+      await espera(500);
+      return { estado: demo, invita: 'Matías Pérez', empresa: 'Andes Norte Logística SpA', rol: 'Analista de clima laboral', correo: 'sol.vega@andesnorte.cl' };
+    },
+    aceptar: async (token, nombre, clave) => { await espera(800); return { ok: true }; }
+  };
+
+  const $ = id => document.getElementById(id);
+  const token = new URLSearchParams(location.search).get('token') || '';
+  let inv = null;
+
+  function mostrar(vista) {
+    document.querySelectorAll('[data-vista]').forEach(s => { s.hidden = s.dataset.vista !== vista; });
+    const h = document.querySelector('[data-vista="' + vista + '"] h1'); if (h) h.focus();
+  }
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-ojo]'); if (!b) return;
+    const i = $(b.dataset.ojo), ver = i.type === 'password';
+    i.type = ver ? 'text' : 'password'; b.textContent = ver ? 'Ocultar' : 'Mostrar';
+  });
+
+  const REQ = [['8 o más caracteres', v => v.length >= 8], ['Mayúscula y minúscula', v => /[a-z]/.test(v) && /[A-Z]/.test(v)], ['Un número', v => /\d/.test(v)], ['Un símbolo', v => /[^\w\s]/.test(v)]];
+  function medidor(inp, raiz) {
+    const li = REQ.map(([t]) => { const l = document.createElement('li'); l.textContent = t; raiz.querySelector('ul').append(l); return l; });
+    const act = () => {
+      const ok = REQ.filter(([, f], i) => { const b = f(inp.value); li[i].classList.toggle('ok', b); return b; }).length;
+      raiz.querySelector('.progreso').style.setProperty('--p', ok / 4);
+      raiz.querySelector('[data-nivel]').textContent = inp.value ? ['Muy débil', 'Débil', 'Media', 'Fuerte', 'Muy fuerte'][ok] : '';
+      return ok;
+    };
+    inp.addEventListener('input', act); return act;
+  }
+
+  const f = $('f-inv'), nivel = medidor(f.elements.clave, $('med'));
+  const validar = UI.validar(f, {
+    nombre: v => v.trim().length >= 3 ? '' : 'Escribe tu nombre completo.',
+    clave: () => nivel() === 4 ? '' : 'Tu clave debe cumplir todos los requisitos.'
+  });
+  f.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!validar()) return f.querySelector('[aria-invalid="true"]').focus();
+    $('err').hidden = true;
+    const nombre = f.elements.nombre.value.trim();
+    try {
+      const r = await UI.busy($('b-aceptar'), () => API.aceptar(token, nombre, f.elements.clave.value));
+      if (!r.ok) throw new Error();
+      $('bien-nombre').textContent = nombre.split(/\s+/)[0]; mostrar('bienvenida');
+    } catch (_) { $('err').textContent = 'No pudimos aceptar la invitación. Intenta de nuevo.'; $('err').hidden = false; $('err').focus(); }
+  });
+
+  async function cargar(demo) {
+    mostrar('carga');
+    try { inv = await API.invitacion(token, demo); }
+    catch (_) { inv = { estado: 'expirada', invita: 'quien te invitó' }; }
+    $('quien').textContent = inv.invita; $('empresa').textContent = inv.empresa; $('rol').textContent = inv.rol; $('correo-inv').textContent = inv.correo;
+    document.querySelectorAll('.quien').forEach(e => { e.textContent = inv.invita; });
+    document.querySelectorAll('.empresa').forEach(e => { e.textContent = inv.empresa; });
+    mostrar(inv.estado);
+  }
+  $('demo').addEventListener('change', e => cargar(e.target.value));
+  cargar($('demo').value);
+</script>
+</body>
+</html>

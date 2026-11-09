@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Onboarding y tour guiado · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: onboarding en 3 capas: (1) tour con foco sobre elementos reales (spotlight, flechas del teclado, omitir, retomar), (2) checklist de activación con progreso que se marca solo al completar la acción real, (3) sugerencias contextuales de primer uso que se muestran una sola vez.
+  Proyecto: cualquier app privada de Chile Consultores (CRM, Clima, Helpdesk, DataDash).
+  Cómo aplicarlo: copia `Tour.iniciar(pasos)` y el CSS `.tour-*`. Cada paso apunta a un selector (`el`), con título y texto. Los pasos sin elemento visible se saltan solos.
+  Conectar: `Checklist.completar('id')` se llama desde tus acciones reales (ej: al crear el primer cliente). El progreso se guarda en localStorage con try/catch.
+  Ganchos: [data-tour="id"], #checklist, window.Tour, window.Checklist, window.Pista.
+  Reglas UX: nunca bloquea (siempre hay "Omitir" y Escape), máximo 5 pasos, muestra "Paso 2 de 4", se puede retomar desde un botón de ayuda, no reaparece una vez visto, respeta prefers-reduced-motion y mueve el foco al paso actual para lectores de pantalla.
+-->
+<style>
+  .app{display:grid;grid-template-columns:220px 1fr;min-height:100dvh}
+  @media(max-width:760px){.app{grid-template-columns:1fr}}
+  .lado{border-right:1px solid var(--borde);background:var(--superficie-2);padding:16px 12px;display:flex;flex-direction:column;gap:4px}
+  .lado b.logo{padding:6px 10px 14px;display:block}
+  .lado a{padding:10px 12px;border-radius:10px;color:var(--texto-2);text-decoration:none;font-weight:600}
+  @media(max-width:760px){.lado{display:none}}
+  .lado a[aria-current=page]{background:rgba(124,109,242,.2);color:var(--texto)}
+  .princ{padding:20px;display:flex;flex-direction:column;gap:18px;min-width:0}
+  .cab{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .cab h1{margin:0;flex:1;min-width:160px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+  .tarj{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:16px}
+  .tarj b.n{font-size:1.6rem;display:block}
+  .cuerpo{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+  @media(max-width:1000px){.cuerpo{grid-template-columns:1fr}}
+
+  /* === COMPONENTE: tour === */
+  .tour-velo{position:fixed;inset:0;z-index:900;pointer-events:none}
+  .tour-hueco{position:fixed;border-radius:12px;box-shadow:0 0 0 9999px rgba(5,5,12,.72);transition:top .35s var(--ease-salida),left .35s var(--ease-salida),width .35s var(--ease-salida),height .35s var(--ease-salida);pointer-events:none;border:2px solid var(--marca)}
+  .tour-bloq{position:fixed;inset:0;z-index:899}
+  .tour-tip{position:fixed;z-index:901;width:min(340px,calc(100vw - 24px));background:#151522;border:1px solid var(--borde);border-radius:16px;padding:16px;box-shadow:0 24px 60px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:8px;animation:tin .25s var(--ease-salida)}
+  @keyframes tin{from{opacity:0;transform:translateY(6px)}}
+  .tour-tip h2{margin:0;font-size:1.05rem}
+  .tour-tip p{margin:0;color:var(--texto-2);font-size:.92rem}
+  .tour-pie{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .tour-pie .pasos{flex:1;font-size:.78rem;color:var(--texto-2)}
+  .tour-pts{display:flex;gap:5px}
+  .tour-pts i{width:7px;height:7px;border-radius:50%;background:var(--borde);transition:background .2s,width .2s}
+  .tour-pts i.on{background:var(--marca);width:18px;border-radius:99px}
+  .tour-omitir{background:none;border:0;color:var(--texto-2);cursor:pointer;font:inherit;font-size:.85rem;text-decoration:underline;padding:8px}
+  .tour-tip .btn{min-height:40px}
+  .tour-tip [hidden]{display:none}
+  .tour-flecha{position:absolute;width:14px;height:14px;background:#151522;border-left:1px solid var(--borde);border-top:1px solid var(--borde);transform:rotate(45deg)}
+
+  /* === COMPONENTE: checklist === */
+  #checklist h2{margin:0 0 4px;font-size:1.05rem}
+  .barra-p{height:8px;border-radius:99px;background:var(--superficie-2);overflow:hidden;margin:10px 0 14px}
+  .barra-p i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--marca),var(--acento));transition:width .5s var(--ease-salida)}
+  .tareas{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+  .tareas li{display:flex;gap:12px;align-items:flex-start;padding:10px;border-radius:12px;border:1px solid var(--borde);background:var(--superficie-2);transition:opacity .3s}
+  .tareas .marca{width:22px;height:22px;border-radius:50%;border:2px solid var(--borde);flex:none;display:grid;place-items:center;font-size:.8rem;color:transparent;margin-top:1px;transition:all .3s}
+  .tareas li.hecha .marca{background:var(--verde);border-color:var(--verde);color:#06070d;font-weight:800}
+  .tareas li.hecha .t{text-decoration:line-through;color:var(--texto-2)}
+  .tareas li.hecha{opacity:.7}
+  .tareas .t{font-weight:600}
+  .tareas .d{font-size:.82rem;color:var(--texto-2)}
+  .tareas button.ir{margin-left:auto;align-self:center;flex:none}
+  .celebra{display:none;text-align:center;padding:10px;color:var(--verde);font-weight:700}
+  .celebra.on{display:block;animation:tin .4s}
+
+  /* === COMPONENTE: pista de primer uso === */
+  .pista{position:absolute;z-index:40;max-width:260px;background:var(--marca);color:#fff;border-radius:12px;padding:10px 12px;font-size:.85rem;box-shadow:0 14px 34px rgba(124,109,242,.5);animation:tin .3s var(--ease-salida);display:flex;gap:8px;align-items:flex-start}
+  .pista button{all:unset;cursor:pointer;font-weight:800;padding:0 4px;line-height:1.2}
+  .pista::before{content:"";position:absolute;top:-6px;left:22px;width:12px;height:12px;background:var(--marca);transform:rotate(45deg)}
+  .rel{position:relative;display:inline-block}
+  .btn-ayuda{position:fixed;right:18px;bottom:18px;z-index:50;width:48px;height:48px;border-radius:50%;border:1px solid var(--borde);background:var(--superficie-2);color:var(--texto);font:inherit;font-weight:800;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.45)}
+  .btn-ayuda:hover{border-color:var(--marca)}
+  @media (prefers-reduced-motion:reduce){.tour-hueco,.tour-tip,.pista,.barra-p i{transition:none;animation:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="lado" aria-label="Principal" data-tour="menu"><b class="logo gradient-text">Chile Consultores</b><a href="#" aria-current="page">Inicio</a><a href="#">Clientes</a><a href="#">Estudios</a><a href="#">Informes</a><a href="#">Ajustes</a></nav>
+  <main class="princ">
+    <div class="cab"><h1 class="gradient-text">Bienvenido, Esteban</h1>
+      <div class="rel"><button class="btn" id="btn-cliente" type="button" data-tour="nuevo">Nuevo cliente</button></div>
+      <button class="btn btn-sec" id="btn-estudio" type="button">Nuevo estudio</button></div>
+    <div class="kpis" data-tour="kpis"><div class="tarj"><span class="small">Clientes</span><b class="n" id="k-cli">0</b></div><div class="tarj"><span class="small">Estudios activos</span><b class="n" id="k-est">0</b></div><div class="tarj"><span class="small">Respuestas</span><b class="n">0</b></div></div>
+    <div class="cuerpo">
+      <div class="tarj" data-tour="lista"><b>Actividad reciente</b><p class="small" style="margin:6px 0 0">Aquí verás lo que pasa en tus estudios. Aún no hay actividad.</p></div>
+      <section class="tarj" id="checklist" data-tour="check" aria-labelledby="h-chk"><h2 id="h-chk">Primeros pasos</h2><span class="small" id="chk-txt"></span><div class="barra-p" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="h-chk"><i id="chk-bar"></i></div><ul class="tareas" id="tareas"></ul><div class="celebra" id="celebra" role="status">Listo, ya dominas lo básico.</div><button class="tour-omitir" id="chk-ocultar" type="button" style="margin-top:6px">Ocultar esta lista</button></section>
+    </div>
+  </main>
+</div>
+<button class="btn-ayuda" id="btn-ayuda" type="button" aria-label="Ayuda: ver el tour de nuevo" title="Ver el tour de nuevo">?</button>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const toast = (m, t) => (window.UI && UI.toast) && UI.toast(m, t || 'info');
+  const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  const leer = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+  const reducido = () => matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+  /* === COMPONENTE: Tour === */
+  const PASOS = [
+    { el: '[data-tour=menu]', t: 'Tu menú principal', d: 'Desde aquí navegas entre clientes, estudios e informes. Siempre está a la vista.' },
+    { el: '[data-tour=nuevo]', t: 'Crea tu primer cliente', d: 'Este botón abre el formulario. Con nombre y correo ya puedes empezar.' },
+    { el: '[data-tour=kpis]', t: 'Tus números clave', d: 'Se actualizan solos cada vez que alguien responde una encuesta.' },
+    { el: '[data-tour=check]', t: 'Tu lista de primeros pasos', d: 'Cada tarea se marca sola cuando la completas. Puedes ocultarla cuando quieras.' }
+  ];
+  let activo = null;
+  function iniciar(pasos = PASOS, desde = 0) {
+    if (activo) activo.cerrar(false);
+    const vis = pasos.filter(p => { const e = $(p.el); return e && e.getClientRects().length; }); if (!vis.length) return;
+    let i = Math.min(desde, vis.length - 1); const previo = document.activeElement;
+    const bloq = el('div', 'tour-bloq'); const velo = el('div', 'tour-velo'); const hueco = el('div', 'tour-hueco'); velo.appendChild(hueco);
+    const tip = el('div', 'tour-tip'); tip.setAttribute('role', 'dialog'); tip.setAttribute('aria-modal', 'false'); tip.setAttribute('aria-labelledby', 'tour-t'); tip.setAttribute('aria-describedby', 'tour-d'); tip.tabIndex = -1;
+    const flecha = el('div', 'tour-flecha'); document.body.append(bloq, velo, tip); tip.appendChild(flecha);
+    const h = el('h2'); h.id = 'tour-t'; const p = el('p'); p.id = 'tour-d'; const pie = el('div', 'tour-pie'); const pas = el('span', 'pasos'); pas.setAttribute('aria-live', 'polite'); const pts = el('span', 'tour-pts'); pts.setAttribute('aria-hidden', 'true'); vis.forEach(() => pts.appendChild(el('i')));
+    const om = el('button', 'tour-omitir', 'Omitir'); om.type = 'button'; const at = el('button', 'btn btn-sec btn-sm', 'Atrás'); at.type = 'button'; const sg = el('button', 'btn btn-sm', 'Siguiente'); sg.type = 'button';
+    pie.append(pas, pts); const fila = el('div', 'tour-pie'); fila.append(om, el('span')); fila.lastChild.style.flex = '1'; fila.append(at, sg); tip.append(h, p, pie, fila);
+    function pos() {
+      const e = $(vis[i].el); const r = e.getBoundingClientRect(); const m = 6;
+      hueco.style.cssText = 'top:' + (r.top - m) + 'px;left:' + (r.left - m) + 'px;width:' + (r.width + m * 2) + 'px;height:' + (r.height + m * 2) + 'px';
+      const tw = tip.offsetWidth, th = tip.offsetHeight; let x, y, arriba = false;
+      if (r.right + tw + 20 < innerWidth) { x = r.right + 16; y = r.top; flecha.style.cssText = 'left:-8px;top:24px;transform:rotate(-45deg)'; }
+      else { y = r.bottom + 16; arriba = false; if (y + th > innerHeight - 8) { y = Math.max(8, r.top - th - 16); arriba = true; } x = Math.min(Math.max(12, r.left), innerWidth - tw - 12); flecha.style.cssText = arriba ? 'left:' + Math.min(Math.max(16, r.left - x + 20), tw - 30) + 'px;bottom:-8px;transform:rotate(225deg)' : 'left:' + Math.min(Math.max(16, r.left - x + 20), tw - 30) + 'px;top:-8px'; }
+      tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.min(Math.max(8, y), innerHeight - th - 8) + 'px';
+    }
+    function mostrar() {
+      const e = $(vis[i].el); e.scrollIntoView({ block: 'center', behavior: reducido() ? 'auto' : 'smooth' }); const d = vis[i];
+      h.textContent = d.t; p.textContent = d.d; pas.textContent = 'Paso ' + (i + 1) + ' de ' + vis.length; [...pts.children].forEach((x, k) => x.classList.toggle('on', k === i));
+      at.hidden = i === 0; sg.textContent = i === vis.length - 1 ? 'Terminar' : 'Siguiente'; setTimeout(() => { pos(); tip.focus({ preventScroll: true }); }, reducido() ? 0 : 280); pos();
+    }
+    function cerrar(terminado) { document.removeEventListener('keydown', kd, true); window.removeEventListener('resize', pos); window.removeEventListener('scroll', pos, true); bloq.remove(); velo.remove(); tip.remove(); activo = null; guardar('tour-visto', true); if (previo && previo.focus) previo.focus(); if (terminado === true) { window.dispatchEvent(new Event('tour:fin')); } }
+    function kd(e) { if (e.key === 'Escape') { e.preventDefault(); cerrar(false); } else if (e.key === 'ArrowRight' || e.key === 'Enter' && document.activeElement === tip) { e.preventDefault(); sig(); } else if (e.key === 'ArrowLeft') { e.preventDefault(); atr(); } else if (e.key === 'Tab') { const f = [...tip.querySelectorAll('button')].filter(b => !b.hidden); const k = f.indexOf(document.activeElement); if (e.shiftKey && k <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && k === f.length - 1) { e.preventDefault(); f[0].focus(); } } }
+    const sig = () => { if (i < vis.length - 1) { i++; mostrar(); } else cerrar(true); }, atr = () => { if (i > 0) { i--; mostrar(); } };
+    sg.addEventListener('click', sig); at.addEventListener('click', atr); om.addEventListener('click', () => cerrar(false)); bloq.addEventListener('click', () => {});
+    document.addEventListener('keydown', kd, true); window.addEventListener('resize', pos); window.addEventListener('scroll', pos, true);
+    activo = { cerrar }; mostrar();
+  }
+  window.Tour = { iniciar, activo: () => !!activo };
+
+  /* === COMPONENTE: Checklist === */
+  const TAREAS = [
+    { id: 'cliente', t: 'Crea tu primer cliente', d: 'Con nombre y correo basta.', ir: () => $('#btn-cliente').click() },
+    { id: 'estudio', t: 'Lanza un estudio', d: 'Clima laboral o mystery shopper.', ir: () => $('#btn-estudio').click() },
+    { id: 'equipo', t: 'Invita a tu equipo', d: 'Hasta 5 personas en el plan base.', ir: () => Checklist.completar('equipo') },
+    { id: 'tour', t: 'Termina el tour', d: 'Dura menos de un minuto.', ir: () => Tour.iniciar() }
+  ];
+  let hechas = new Set(leer('chk-hechas', []));
+  const ul = $('#tareas');
+  function pintarChk() {
+    ul.replaceChildren(); TAREAS.forEach(t => { const li = el('li', hechas.has(t.id) ? 'hecha' : ''); const m = el('span', 'marca', '✓'); m.setAttribute('aria-hidden', 'true'); const c = el('div'); c.append(el('div', 't', t.t), el('div', 'd', t.d)); li.append(m, c); if (!hechas.has(t.id)) { const b = el('button', 'btn btn-sec btn-sm ir', 'Hacerlo'); b.type = 'button'; b.setAttribute('aria-label', t.t); b.addEventListener('click', t.ir); li.appendChild(b); } else li.setAttribute('aria-label', t.t + ', completada'); ul.appendChild(li); });
+    const n = hechas.size, tot = TAREAS.length, pct = Math.round(n / tot * 100); $('#chk-txt').textContent = n + ' de ' + tot + ' completadas'; $('#chk-bar').style.width = pct + '%'; $('[role=progressbar]').setAttribute('aria-valuenow', pct); $('#celebra').classList.toggle('on', n === tot);
+  }
+  const Checklist = window.Checklist = { completar(id) { if (hechas.has(id)) return; hechas.add(id); guardar('chk-hechas', [...hechas]); pintarChk(); const t = TAREAS.find(x => x.id === id); toast('Completaste: ' + t.t, 'ok'); }, reiniciar() { hechas.clear(); guardar('chk-hechas', []); pintarChk(); } };
+  $('#chk-ocultar').addEventListener('click', () => { $('#checklist').hidden = true; toast('Puedes volver a verla desde el botón ?', 'info'); });
+  pintarChk();
+
+  /* acciones reales que completan tareas */
+  $('#btn-cliente').addEventListener('click', () => { $('#k-cli').textContent = +$('#k-cli').textContent + 1; Pista.ocultar(); Checklist.completar('cliente'); });
+  $('#btn-estudio').addEventListener('click', () => { $('#k-est').textContent = +$('#k-est').textContent + 1; Checklist.completar('estudio'); });
+
+  /* === COMPONENTE: Pista de primer uso (una sola vez) === */
+  const Pista = window.Pista = {
+    mostrar(sel, texto, clave) { if (leer('pista-' + clave, false)) return; const e = $(sel); if (!e) return; const w = e.closest('.rel') || e.parentNode; const p = el('div', 'pista'); p.setAttribute('role', 'status'); p.style.top = (e.offsetHeight + 12) + 'px'; p.style.left = '0'; p.append(el('span', '', texto)); const x = el('button', '', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Cerrar pista'); x.addEventListener('click', () => { guardar('pista-' + clave, true); p.remove(); }); p.appendChild(x); w.appendChild(p); Pista._p = [p, clave]; },
+    ocultar() { if (Pista._p) { guardar('pista-' + Pista._p[1], true); Pista._p[0].remove(); Pista._p = null; } }
+  };
+
+  $('#btn-ayuda').addEventListener('click', () => { $('#checklist').hidden = false; Tour.iniciar(); });
+  /* primer ingreso */
+  window.addEventListener('tour:fin', () => Checklist.completar('tour'));
+  if (!leer('tour-visto', false)) setTimeout(() => Tour.iniciar(), 700); else Pista.mostrar('#btn-cliente', 'Empieza por aquí: crea tu primer cliente', 'cliente');
+});
+</script>
+</body>
+</html>

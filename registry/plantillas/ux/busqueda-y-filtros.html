@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Búsqueda y filtros · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: catálogo con búsqueda y filtros por facetas: contadores que se recalculan, chips de filtros activos con "limpiar todo", rango de precio con doble control, orden, vistas guardadas, historial de búsquedas, sugerencias "quizás quisiste decir" cuando no hay resultados, estado en la URL y panel de filtros como hoja inferior en móvil.
+  Proyecto: catálogo de estudios, biblioteca de plantillas, directorio de clientes y cualquier lista con más de 20 elementos.
+  Cómo aplicarlo: copia `FACETAS` (declarativas, una entrada por filtro) y la función `calcular()`. Para otro catálogo cambia DATOS y FACETAS; el resto se adapta solo.
+  Conectar: `calcular()` es el punto donde llamas al servidor (pasa el estado S como parámetros).
+  Ganchos: [data-faceta], #chips-activos, #lista, #vistas, window.Cat.
+  Reglas UX: el número junto a cada opción dice cuántos resultados daría (y se deshabilita si es 0), el total de resultados siempre visible, quitar un filtro es un clic, no se recarga la página, el estado sobrevive al refrescar y se puede compartir por enlace, y los filtros no pierden lo elegido al ordenar.
+-->
+<style>
+  .pagina{max-width:1180px;margin:0 auto;padding:24px 16px 100px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .cab{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:14px 0}
+  .buscar{position:relative;flex:1;min-width:220px;max-width:520px}
+  .buscar input{width:100%;padding-left:38px;min-height:48px}
+  .buscar svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:17px;height:17px;stroke:var(--texto-2);fill:none;stroke-width:2}
+  .hist{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;background:var(--superficie-2);border:1px solid var(--borde);border-radius:14px;padding:6px;box-shadow:0 20px 44px rgba(0,0,0,.5)}
+  .hist[hidden]{display:none}
+  .hist .t{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--texto-2);padding:8px 10px 4px}
+  .hist button{display:flex;width:100%;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;border:0;background:none;color:var(--texto);font:inherit;cursor:pointer;text-align:left}
+  .hist button:hover,.hist button[data-act=true]{background:rgba(124,109,242,.2)}
+  .hist .x{margin-left:auto;color:var(--texto-2)}
+  .layout{display:grid;grid-template-columns:260px 1fr;gap:22px;align-items:start}
+  @media(max-width:860px){.layout{grid-template-columns:1fr}}
+
+  /* === COMPONENTE: panel de facetas === */
+  .facetas{display:flex;flex-direction:column;gap:18px;position:sticky;top:12px}
+  .fac{border-bottom:1px solid var(--borde);padding-bottom:16px}
+  .fac h2{margin:0 0 10px;font-size:.9rem}
+  .op{display:flex;align-items:center;gap:10px;padding:6px 4px;border-radius:8px;cursor:pointer;min-height:36px}
+  .op:hover{background:rgba(255,255,255,.04)}
+  .op input{width:18px;height:18px;accent-color:var(--marca);flex:none}
+  .op .n{margin-left:auto;font-size:.8rem;color:var(--texto-2);font-variant-numeric:tabular-nums}
+  .op.cero{opacity:.4;cursor:not-allowed}
+  .rango{display:grid;gap:10px}
+  .rango .doble{position:relative;height:28px}
+  .rango input[type=range]{position:absolute;left:0;right:0;width:100%;margin:0;top:6px;background:none;pointer-events:none;-webkit-appearance:none;appearance:none;accent-color:var(--marca)}
+  .rango input[type=range]::-webkit-slider-thumb{pointer-events:auto;-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--marca);border:2px solid #fff;cursor:pointer}
+  .rango input[type=range]::-moz-range-thumb{pointer-events:auto;width:16px;height:16px;border-radius:50%;background:var(--marca);border:2px solid #fff;cursor:pointer}
+  .rango input[type=range]::-webkit-slider-runnable-track{height:4px;background:var(--superficie-2);border-radius:4px}
+  .rango .vals{display:flex;justify-content:space-between;font-size:.85rem;font-variant-numeric:tabular-nums}
+  .est-s{color:#facc15;letter-spacing:2px}
+
+  /* === COMPONENTE: chips activos === */
+  #chips-activos{display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-height:36px;margin-bottom:12px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 12px;border-radius:99px;background:rgba(124,109,242,.2);font-size:.85rem;border:1px solid rgba(124,109,242,.4)}
+  .chip button{border:0;background:none;color:inherit;cursor:pointer;width:24px;height:24px;border-radius:50%;line-height:1}
+  .chip button:hover{background:rgba(255,255,255,.15)}
+  .limpiar{background:none;border:0;color:var(--acento);cursor:pointer;font:inherit;font-size:.85rem;text-decoration:underline;padding:8px}
+  .barra-res{display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+  .vistas{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+  .vistas button{padding:6px 12px;border-radius:99px;border:1px dashed var(--borde);background:none;color:var(--texto-2);font:inherit;font-size:.82rem;cursor:pointer}
+  .vistas button:hover{color:var(--texto);border-color:var(--marca)}
+
+  /* === COMPONENTE: tarjetas === */
+  #lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+  .tarj{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:16px;display:flex;flex-direction:column;gap:8px;transition:transform .2s,border-color .2s;animation:ap .3s var(--ease-salida) both}
+  @keyframes ap{from{opacity:0;transform:translateY(8px)}}
+  .tarj:hover{transform:translateY(-3px);border-color:var(--marca)}
+  .tarj h3{margin:0;font-size:1rem}
+  .tarj mark{background:rgba(56,189,248,.28);color:inherit;border-radius:3px}
+  .tarj .meta{display:flex;gap:6px;flex-wrap:wrap}
+  .tag{font-size:.75rem;padding:2px 8px;border-radius:99px;border:1px solid var(--borde);color:var(--texto-2)}
+  .tarj .pie{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:8px}
+  .tarj .precio{font-weight:800;font-variant-numeric:tabular-nums}
+  .sin{padding:44px 16px;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center;grid-column:1/-1}
+  .sin b{font-size:1.1rem}
+  .sug{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  .btn-filtros{display:none}
+  .hoja-velo{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:90;opacity:0;pointer-events:none;transition:opacity .25s}
+  @media(max-width:860px){
+    .btn-filtros{display:inline-flex}
+    .facetas{position:fixed;left:0;right:0;bottom:0;z-index:100;max-height:82dvh;overflow:auto;background:var(--superficie-2);border-top:1px solid var(--borde);border-radius:22px 22px 0 0;padding:18px 18px 90px;transform:translateY(105%);transition:transform .35s var(--ease-salida);visibility:hidden}
+    .facetas.on{transform:none;visibility:visible}
+    .hoja-velo.on{opacity:1;pointer-events:auto}
+    .aplicar{position:fixed;left:0;right:0;bottom:0;z-index:101;padding:12px 18px;background:var(--superficie-2);border-top:1px solid var(--borde);display:none;gap:10px}
+    .aplicar.on{display:flex}.aplicar .btn{flex:1;min-height:48px}
+  }
+  .aplicar{display:none}
+  .desk-solo{}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header><h1 class="gradient-text" style="margin:0 0 4px">Catálogo de estudios</h1><p class="small" style="margin:0">Filtra por tipo, industria, precio y valoración.</p></header>
+  <div class="cab">
+    <div class="buscar" role="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input class="input" id="in-q" name="q" type="search" placeholder="Busca por nombre o tema" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="hist" aria-label="Buscar estudios"><div class="hist" id="hist" role="listbox" hidden></div></div>
+    <button class="btn btn-sec btn-filtros" id="btn-filtros" type="button" aria-expanded="false" aria-controls="facetas">Filtros <span id="n-filtros"></span></button>
+    <label class="small" for="in-ord">Ordenar</label><select class="input" id="in-ord" name="ord" style="min-height:44px;width:auto;flex:none"><option value="rel">Más relevantes</option><option value="pa">Precio: menor a mayor</option><option value="pd">Precio: mayor a menor</option><option value="val">Mejor valorados</option><option value="az">Nombre A a Z</option></select>
+  </div>
+  <div class="layout">
+    <aside class="facetas" id="facetas" aria-label="Filtros"></aside>
+    <section aria-labelledby="h-res">
+      <div class="barra-res"><h2 id="h-res" style="margin:0;font-size:1rem" aria-live="polite"></h2></div>
+      <div class="vistas" id="vistas" aria-label="Vistas rápidas"></div>
+      <div id="chips-activos" aria-label="Filtros aplicados"></div>
+      <div id="lista" aria-live="polite"></div>
+    </section>
+  </div>
+</main>
+<div class="hoja-velo" id="velo"></div>
+<div class="aplicar" id="aplicar"><button class="btn btn-sec" id="a-limpiar" type="button">Limpiar</button><button class="btn" id="a-ver" type="button">Ver resultados</button></div>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const fmt = n => '$' + n.toLocaleString('es-CL');
+
+  /* === datos de ejemplo (reemplazar por tu fuente) === */
+  const T = ['Clima laboral', 'Mystery shopper', 'Rotación', 'Satisfacción', 'Marca'], I = ['Minería', 'Retail', 'Salud', 'Educación', 'Finanzas', 'Agro'];
+  const NOMB = ['Pulso de clima', 'Auditoría de tienda', 'Causas de salida', 'NPS de clientes', 'Reputación de marca', 'Liderazgo y confianza', 'Atención en sucursal', 'Entrevista de egreso', 'Experiencia de paciente', 'Imagen corporativa', 'Bienestar del equipo', 'Cliente incógnito digital'];
+  const DATOS = Array.from({ length: 48 }, (_, i) => ({ id: i, nombre: NOMB[i % 12] + (i >= 12 ? ' ' + ['Plus', 'Pro', 'Express', 'Premium'][Math.floor(i / 12) - 1] : ''), tipo: T[(i * 7) % 5], industria: I[(i * 5) % 6], precio: 350000 + ((i * 6007) % 40) * 45000, val: 3 + ((i * 7) % 21) / 10, dur: [2, 4, 6, 8][i % 4] }));
+  const MIN = 300000, MAX = 2200000;
+
+  /* === COMPONENTE: facetas (declarativas) === */
+  const FACETAS = [
+    { id: 'tipo', t: 'Tipo de estudio', tipo: 'multi', valores: T, campo: d => d.tipo },
+    { id: 'industria', t: 'Industria', tipo: 'multi', valores: I, campo: d => d.industria },
+    { id: 'precio', t: 'Precio', tipo: 'rango' },
+    { id: 'val', t: 'Valoración', tipo: 'minimo', valores: [4.5, 4, 3.5] }
+  ];
+  const S = { q: '', tipo: new Set(), industria: new Set(), pmin: MIN, pmax: MAX, val: 0, ord: 'rel' };
+
+  /* === estado en la URL === */
+  function aHash() { const p = new URLSearchParams(); if (S.q) p.set('q', S.q); ['tipo', 'industria'].forEach(k => { if (S[k].size) p.set(k, [...S[k]].join('|')); }); if (S.pmin > MIN) p.set('pmin', S.pmin); if (S.pmax < MAX) p.set('pmax', S.pmax); if (S.val) p.set('val', S.val); if (S.ord !== 'rel') p.set('ord', S.ord); history.replaceState(null, '', '#' + p); }
+  function deHash() { const p = new URLSearchParams(location.hash.slice(1)); S.q = p.get('q') || ''; ['tipo', 'industria'].forEach(k => S[k] = new Set((p.get(k) || '').split('|').filter(Boolean))); S.pmin = +p.get('pmin') || MIN; S.pmax = +p.get('pmax') || MAX; S.val = +p.get('val') || 0; S.ord = p.get('ord') || 'rel'; }
+  deHash();
+
+  /* === calculo (reemplazar por el servidor) === */
+  const coincide = (d, omitir) => { const q = norm(S.q.trim()); if (q && !norm(d.nombre + ' ' + d.tipo + ' ' + d.industria).includes(q)) return false; if (omitir !== 'tipo' && S.tipo.size && !S.tipo.has(d.tipo)) return false; if (omitir !== 'industria' && S.industria.size && !S.industria.has(d.industria)) return false; if (omitir !== 'precio' && (d.precio < S.pmin || d.precio > S.pmax)) return false; if (omitir !== 'val' && S.val && d.val < S.val) return false; return true; };
+  function calcular() { const r = DATOS.filter(d => coincide(d)); const o = { rel: (a, b) => a.id - b.id, pa: (a, b) => a.precio - b.precio, pd: (a, b) => b.precio - a.precio, val: (a, b) => b.val - a.val, az: (a, b) => a.nombre.localeCompare(b.nombre, 'es') }[S.ord]; return r.sort(o); }
+  const contar = (faceta, valor) => DATOS.filter(d => coincide(d, faceta.id) && (faceta.id === 'val' ? d.val >= valor : faceta.campo(d) === valor)).length;
+
+  /* === panel === */
+  const panel = $('#facetas'); const refs = {};
+  function construirPanel() {
+    panel.replaceChildren();
+    FACETAS.forEach(f => { const g = el('fieldset', 'fac'); g.style.cssText = 'border:0;margin:0;padding:0 0 16px;border-bottom:1px solid var(--borde)'; g.dataset.faceta = f.id; const lg = el('legend'); lg.style.cssText = 'font-weight:700;font-size:.9rem;padding:0;margin-bottom:10px'; lg.textContent = f.t; g.appendChild(lg);
+      if (f.tipo === 'multi' || f.tipo === 'minimo') { refs[f.id] = []; f.valores.forEach(v => { const l = el('label', 'op'); const i = el('input'); i.type = f.tipo === 'multi' ? 'checkbox' : 'radio'; i.name = f.id; i.value = v; const tx = f.tipo === 'minimo' ? el('span', '', '') : el('span', '', v); if (f.tipo === 'minimo') { tx.appendChild(el('span', 'est-s', '★'.repeat(Math.floor(v)) + (v % 1 ? '½' : ''))); tx.append(' ' + v + ' o más'); } const n = el('span', 'n'); l.append(i, tx, n); g.appendChild(l); refs[f.id].push([i, l, n, v]);
+        i.addEventListener('change', () => { if (f.tipo === 'multi') { i.checked ? S[f.id].add(v) : S[f.id].delete(v); } else S.val = i.checked ? v : 0; if (f.tipo === 'minimo') { const rx = refs.val.find(x => x[0].checked); } renderizar(); }); });
+        if (f.tipo === 'minimo') { const l = el('label', 'op'); const i = el('input'); i.type = 'radio'; i.name = 'val'; i.value = ''; i.checked = !S.val; l.append(i, el('span', '', 'Todas')); g.insertBefore(l, g.children[1]); i.addEventListener('change', () => { S.val = 0; renderizar(); }); refs.val.push([i, l, el('span'), 0]); } }
+      else { const w = el('div', 'rango'); const v = el('div', 'vals'); const sa = el('span'), sb = el('span'); v.append(sa, sb); const dd = el('div', 'doble'); const a = el('input'), b = el('input'); [a, b].forEach((x, k) => { x.type = 'range'; x.min = MIN; x.max = MAX; x.step = 50000; x.name = k ? 'pmax' : 'pmin'; x.setAttribute('aria-label', k ? 'Precio máximo' : 'Precio mínimo'); dd.appendChild(x); }); a.value = S.pmin; b.value = S.pmax; w.append(v, dd); g.appendChild(w); refs.precio = { a, b, sa, sb };
+        const act = () => { let x = +a.value, y = +b.value; if (x > y) { if (document.activeElement === a) { x = y; a.value = x; } else { y = x; b.value = y; } } S.pmin = x; S.pmax = y; renderizar(); }; a.addEventListener('input', act); b.addEventListener('input', act); }
+      panel.appendChild(g); });
+  }
+  function pintarPanel() {
+    FACETAS.forEach(f => { if (f.tipo === 'multi') refs[f.id].forEach(([i, l, n, v]) => { const c = contar(f, v); i.checked = S[f.id].has(v); n.textContent = c; const off = c === 0 && !i.checked; l.classList.toggle('cero', off); i.disabled = off; }); else if (f.tipo === 'minimo') refs.val.forEach(([i, l, n, v]) => { if (v) { const c = contar(f, v); n.textContent = c; l.classList.toggle('cero', c === 0 && S.val !== v); i.disabled = c === 0 && S.val !== v; } i.checked = S.val === v; }); else { const r = refs.precio; r.a.value = S.pmin; r.b.value = S.pmax; r.sa.textContent = fmt(S.pmin); r.sb.textContent = fmt(S.pmax) + (S.pmax >= MAX ? '+' : ''); } });
+  }
+  function resaltar(txt, q) { const f = document.createDocumentFragment(); const x = norm(q.trim()); if (!x) { f.append(txt); return f; } const i = norm(txt).indexOf(x); if (i < 0) { f.append(txt); return f; } f.append(txt.slice(0, i)); f.appendChild(el('mark', '', txt.slice(i, i + x.length))); f.append(txt.slice(i + x.length)); return f; }
+  const activos = () => { const a = []; if (S.q) a.push(['Búsqueda: ' + S.q, () => { S.q = ''; $('#in-q').value = ''; }]); S.tipo.forEach(v => a.push([v, () => S.tipo.delete(v)])); S.industria.forEach(v => a.push([v, () => S.industria.delete(v)])); if (S.pmin > MIN || S.pmax < MAX) a.push([fmt(S.pmin) + ' a ' + fmt(S.pmax), () => { S.pmin = MIN; S.pmax = MAX; }]); if (S.val) a.push([S.val + ' estrellas o más', () => { S.val = 0; }]); return a; };
+  function limpiarTodo() { S.q = ''; $('#in-q').value = ''; S.tipo.clear(); S.industria.clear(); S.pmin = MIN; S.pmax = MAX; S.val = 0; }
+
+  function renderizar() {
+    aHash(); const r = calcular(); pintarPanel();
+    $('#h-res').textContent = r.length === 0 ? 'Sin resultados' : r.length + (r.length === 1 ? ' estudio' : ' estudios');
+    const ac = activos(); const cc = $('#chips-activos'); cc.replaceChildren(); ac.forEach(([t, fn]) => { const c = el('span', 'chip'); c.appendChild(el('span', '', t)); const x = el('button', '', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Quitar filtro ' + t); x.addEventListener('click', () => { fn(); renderizar(); $('#in-q').focus && 0; }); c.appendChild(x); cc.appendChild(c); }); if (ac.length > 1) { const b = el('button', 'limpiar', 'Limpiar todo'); b.type = 'button'; b.addEventListener('click', () => { limpiarTodo(); renderizar(); }); cc.appendChild(b); }
+    $('#n-filtros').textContent = ac.filter(a => !/^Búsqueda/.test(a[0])).length ? '(' + ac.filter(a => !/^Búsqueda/.test(a[0])).length + ')' : '';
+    $('#in-ord').value = S.ord; $('#a-ver').textContent = 'Ver ' + r.length + ' resultados';
+    const L = $('#lista'); L.replaceChildren();
+    if (!r.length) { const s = el('div', 'sin'); s.append(el('b', '', S.q ? 'No encontramos "' + S.q + '"' : 'Ningún estudio cumple todos los filtros'), el('span', 'small', 'Revisa la ortografía o quita algún filtro.')); const sg = el('div', 'sug'); const alt = sugerencias(); alt.forEach(t => { const b = el('button', 'btn btn-sec btn-sm', t); b.type = 'button'; b.addEventListener('click', () => { S.q = t; $('#in-q').value = t; renderizar(); }); sg.appendChild(b); }); if (alt.length) { s.appendChild(el('span', 'small', 'Quizás buscabas:')); s.appendChild(sg); } const b = el('button', 'btn', 'Limpiar filtros'); b.type = 'button'; b.addEventListener('click', () => { limpiarTodo(); renderizar(); }); s.appendChild(b); L.appendChild(s); return; }
+    r.slice(0, 24).forEach((d, i) => { const t = el('article', 'tarj'); t.style.animationDelay = Math.min(i, 8) * 30 + 'ms'; const h = el('h3'); h.appendChild(resaltar(d.nombre, S.q)); const m = el('div', 'meta'); m.append(el('span', 'tag', d.tipo), el('span', 'tag', d.industria), el('span', 'tag', d.dur + ' semanas')); const pie = el('div', 'pie'); const pr = el('span', 'precio', fmt(d.precio)); const v = el('span', 'small'); v.append(el('span', 'est-s', '★'), ' ' + d.val.toFixed(1)); pie.append(pr, v); t.append(h, m, pie); L.appendChild(t); });
+    if (r.length > 24) { const m = el('p', 'small', 'Mostrando 24 de ' + r.length + '. Afina los filtros o agrega paginación.'); m.style.gridColumn = '1/-1'; L.appendChild(m); }
+  }
+  function sugerencias() { const q = norm(S.q); if (!q) return []; const mapa = new Map(); [...T, ...I, ...NOMB].flatMap(x => x.split(' ')).filter(x => x.length > 3).forEach(x => { if (!mapa.has(norm(x))) mapa.set(norm(x), x); }); const uni = [...mapa.values()]; const dist = (a, b) => { const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }; return uni.map(t => [t, dist(q, norm(t))]).filter(x => x[1] <= (q.length >= 5 ? 2 : 1)).sort((a, b) => a[1] - b[1]).slice(0, 3).map(x => x[0]); }
+
+  /* === vistas guardadas === */
+  const VISTAS = [['Económicos', () => { limpiarTodo(); S.pmax = 700000; }], ['Retail bien valorado', () => { limpiarTodo(); S.industria.add('Retail'); S.val = 4; }], ['Clima en minería', () => { limpiarTodo(); S.tipo.add('Clima laboral'); S.industria.add('Minería'); }]];
+  VISTAS.forEach(([t, fn]) => { const b = el('button', '', t); b.type = 'button'; b.addEventListener('click', () => { fn(); renderizar(); }); $('#vistas').appendChild(b); });
+
+  /* === historial de busqueda === */
+  const KEY = 'cat-hist'; let hist = []; try { hist = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+  const H = $('#hist'), Q = $('#in-q'); let hi = -1;
+  function pintarHist() { const q = norm(Q.value.trim()); const l = hist.filter(h => !q || norm(h).includes(q)).slice(0, 5); H.replaceChildren(); if (!l.length) { H.hidden = true; Q.setAttribute('aria-expanded', 'false'); return; } H.appendChild(el('div', 't', 'Búsquedas recientes')); l.forEach((h, i) => { const b = el('button'); b.type = 'button'; b.setAttribute('role', 'option'); b.dataset.i = i; b.append(el('span', '', h)); const x = el('span', 'x', '×'); x.setAttribute('aria-label', 'Quitar de recientes'); b.appendChild(x); b.addEventListener('mousedown', e => { e.preventDefault(); if (e.target === x) { hist = hist.filter(z => z !== h); guardarH(); pintarHist(); } else { Q.value = h; S.q = h; H.hidden = true; renderizar(); } }); H.appendChild(b); }); H.hidden = false; Q.setAttribute('aria-expanded', 'true'); }
+  const guardarH = () => { try { localStorage.setItem(KEY, JSON.stringify(hist.slice(0, 8))); } catch (e) {} };
+  let tq = null; Q.addEventListener('input', () => { clearTimeout(tq); tq = setTimeout(() => { S.q = Q.value; renderizar(); }, 200); pintarHist(); });
+  Q.addEventListener('focus', pintarHist); Q.addEventListener('blur', () => { H.hidden = true; Q.setAttribute('aria-expanded', 'false'); });
+  Q.addEventListener('keydown', e => { if (e.key === 'Enter') { const v = Q.value.trim(); if (v) { hist = [v, ...hist.filter(x => x !== v)].slice(0, 8); guardarH(); } S.q = Q.value; H.hidden = true; renderizar(); } if (e.key === 'Escape') { if (Q.value) { Q.value = ''; S.q = ''; renderizar(); } H.hidden = true; } });
+  $('#in-ord').addEventListener('change', e => { S.ord = e.target.value; renderizar(); });
+
+  /* === movil: hoja de filtros === */
+  const velo = $('#velo'), bf = $('#btn-filtros'), ap = $('#aplicar');
+  const hoja = on => { panel.classList.toggle('on', on); velo.classList.toggle('on', on); ap.classList.toggle('on', on); bf.setAttribute('aria-expanded', String(on)); document.body.style.overflow = on ? 'hidden' : ''; if (on) panel.querySelector('input').focus(); else bf.focus(); };
+  bf.addEventListener('click', () => hoja(true)); velo.addEventListener('click', () => hoja(false)); $('#a-ver').addEventListener('click', () => hoja(false)); $('#a-limpiar').addEventListener('click', () => { limpiarTodo(); renderizar(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && panel.classList.contains('on')) hoja(false); });
+  window.addEventListener('hashchange', () => { deHash(); Q.value = S.q; renderizar(); });
+
+  Q.value = S.q; construirPanel(); renderizar(); window.Cat = { S, renderizar };
+});
+</script>
+</body>
+</html>

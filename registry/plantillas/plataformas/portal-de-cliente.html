@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Portal de cliente · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: portal donde una empresa cliente ve sus estudios (Clima, Mystery) con estado y avance, descarga informes, paga facturas y pide soporte.
+  Proyecto: portal de clientes de Chile Consultores (Clima Laboral, Mystery Shopper).
+  Cómo aplicarlo: copia el bloque API y render(). Cada estudio y factura sale de un arreglo con el mismo formato que DATOS.
+  Conectar: reemplaza SESION y los 4 métodos de API: cargar (tablas studies, invoices), pagar (checkout), informe (URL firmada de Storage) y soporte (tabla support_tickets).
+  Ganchos: #pc-estados, #pc-estudios, #pc-facturas, #pc-form, #pc-soporte, #pc-demo (selector solo para demo, bórralo en producción).
+-->
+<style>
+  [hidden]{display:none}
+  .pc{max-width:1000px;margin:0 auto;padding:24px 16px 64px}
+  .pc .btn,.pc .input,.pc .select,.pc .textarea{min-height:44px}
+  .pc-cab{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+  .pc-cab h1{font-size:var(--fs-l)}
+  .pc-usuario{display:flex;align-items:center;gap:10px;font-size:var(--fs-s)}
+  .pc-barra{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .pc-barra .select{width:auto;flex:none}
+  .pc-estudio{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:16px 0;border-bottom:1px solid var(--borde)}
+  .pc-estudio:last-child{border-bottom:0}
+  .pc-info{flex:1;min-width:180px}
+  .pc-avance{flex-basis:100%;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .pc-avance .progreso{flex:1;min-width:120px}
+  .pc-pct{font-variant-numeric:tabular-nums;font-size:var(--fs-s);min-width:3ch}
+  .pc .tabla-wrap{position:relative}
+  .pc h2{font-size:var(--fs-m)}
+  .pc-tit:focus{outline:none}
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<div class="pc">
+  <header class="pc-cab">
+    <div>
+      <h1 id="pc-empresa"></h1>
+      <p class="muted small" id="pc-rut"></p>
+    </div>
+    <div class="pc-usuario">
+      <span class="avatar" id="pc-ini" aria-hidden="true"></span>
+      <span id="pc-user"></span>
+      <button class="btn btn-sec" data-modal="pc-soporte">Solicitar soporte</button>
+    </div>
+  </header>
+
+  <div class="pc-barra">
+    <h2 class="pc-tit" id="pc-h-est" tabindex="-1">Tus estudios</h2>
+    <div class="row"><label for="pc-demo" class="muted small">Estado de demo</label>
+      <select id="pc-demo" class="select"><option value="contenido">Contenido</option><option value="cargando">Cargando</option><option value="error">Error</option><option value="vacio">Vacío</option></select></div>
+  </div>
+
+  <div id="pc-estados">
+    <div id="pc-skel" class="card" aria-busy="true" aria-label="Cargando datos" hidden>
+      <div class="skeleton titulo"></div><div class="skeleton linea"></div><div class="skeleton linea"></div><div class="skeleton bloque"></div>
+    </div>
+    <div id="pc-error" class="estado card" role="alert" tabindex="-1" hidden>
+      <h3>No pudimos cargar tus datos</h3><p>Revisa tu conexión e inténtalo de nuevo.</p>
+      <button class="btn" id="pc-reintentar">Reintentar</button>
+    </div>
+    <div id="pc-vacio" class="estado card" tabindex="-1" hidden>
+      <h3>Aún no tienes estudios</h3><p>Cuando contrates un estudio de Clima o Mystery lo verás aquí.</p>
+      <button class="btn" data-modal="pc-soporte">Hablar con un ejecutivo</button>
+    </div>
+    <div id="pc-contenido" hidden>
+      <div class="grid grid-3 mb-24">
+        <div class="card kpi"><span class="label">Estudios activos</span><span class="valor" id="pc-k1"></span></div>
+        <div class="card kpi"><span class="label">Informes disponibles</span><span class="valor" id="pc-k2"></span></div>
+        <div class="card kpi"><span class="label">Saldo pendiente</span><span class="valor" id="pc-k3"></span></div>
+      </div>
+      <section class="card mb-24" aria-labelledby="pc-h-est"><div id="pc-estudios"></div></section>
+      <section class="card" aria-labelledby="pc-h-fact">
+        <div class="card-head"><h2 class="pc-tit" id="pc-h-fact" tabindex="-1">Facturas</h2></div>
+        <div class="tabla-wrap"><table class="tabla">
+          <caption class="sr-only">Facturas de tu empresa</caption>
+          <thead><tr><th scope="col">N°</th><th scope="col">Fecha</th><th scope="col" class="num">Monto</th><th scope="col">Estado</th><th scope="col"><span class="sr-only">Acción</span></th></tr></thead>
+          <tbody id="pc-facturas"></tbody>
+        </table></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="telon" id="pc-soporte"><div class="modal" role="dialog" aria-labelledby="pc-st">
+    <div class="modal-head"><h3 id="pc-st">Solicitar soporte</h3><button class="btn btn-ghost btn-icon cerrar-modal" data-cerrar-modal aria-label="Cerrar">✕</button></div>
+    <form id="pc-form" novalidate>
+      <div class="campo"><label for="pc-asunto">Tema</label>
+        <select class="select" id="pc-asunto" name="asunto"><option value="">Elige un tema</option><option>Resultados de un estudio</option><option>Facturación y pagos</option><option>Acceso a la plataforma</option><option>Otro</option></select>
+        <div class="error-msg" role="alert"></div></div>
+      <div class="campo"><label for="pc-msg">Mensaje</label>
+        <textarea class="textarea" id="pc-msg" name="mensaje" placeholder="Cuéntanos qué necesitas"></textarea>
+        <div class="error-msg" role="alert"></div></div>
+      <div class="modal-foot"><button type="button" class="btn btn-sec" data-cerrar-modal>Cancelar</button><button class="btn" data-busy="Enviando…">Enviar solicitud</button></div>
+    </form>
+  </div></div>
+</div>
+<script src="../[base]/base.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const ESTUDIO = { curso: ['En curso', 'info'], revision: ['En revisión', 'warn'], listo: ['Informe listo', 'ok'] };
+  const FACTURA = { pagada: ['Pagada', 'ok'], pendiente: ['Pendiente', 'warn'], vencida: ['Vencida', 'bad'] };
+
+  /* CONECTAR: reemplaza SESION y los métodos de API por llamadas a Supabase. */
+  const SESION = { empresa: 'Minera Los Andes SpA', rut: '76.123.456-7', usuario: 'Carolina Pizarro' };
+  const DATOS = {
+    estudios: [
+      { id: 'E-101', nombre: 'Clima Laboral 2026', tipo: 'Clima', estado: 'curso', avance: 62, informe: false },
+      { id: 'E-098', nombre: 'Mystery Shopper sucursales norte', tipo: 'Mystery', estado: 'revision', avance: 100, informe: false },
+      { id: 'E-087', nombre: 'Clima Laboral 2025', tipo: 'Clima', estado: 'listo', avance: 100, informe: true },
+    ],
+    facturas: [
+      { id: 'F-2026-0412', fecha: '2026-10-05', monto: 1190000, estado: 'pendiente' },
+      { id: 'F-2026-0377', fecha: '2026-09-02', monto: 850000, estado: 'vencida' },
+      { id: 'F-2026-0301', fecha: '2026-07-14', monto: 1190000, estado: 'pagada' },
+    ],
+  };
+  const espera = ms => new Promise(r => setTimeout(r, ms));
+  const API = {
+    cargar: async modo => { await espera(700); if (modo === 'error') throw new Error('red'); return modo === 'vacio' ? { estudios: [], facturas: [] } : DATOS; },
+    pagar: async id => { await espera(800); },
+    soporte: async datos => { await espera(800); },
+    informe: e => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['Informe ' + e.nombre], { type: 'text/plain' })); a.download = 'informe-' + e.id + '.txt'; a.click(); URL.revokeObjectURL(a.href); },
+  };
+
+  const el = (tag, cls, texto) => { const e = document.createElement(tag); if (cls) e.className = cls; if (texto != null) e.textContent = texto; return e; };
+  const badge = (mapa, k) => el('span', 'badge ' + mapa[k][1], mapa[k][0]);
+  let datos = DATOS, primera = true;
+
+  function mostrar(cual) {
+    ['skel', 'error', 'vacio', 'contenido'].forEach(n => { $('pc-' + n).hidden = n !== cual; });
+    if (!primera && (cual === 'error' || cual === 'vacio')) $('pc-' + cual).focus();
+    primera = false;
+  }
+
+  function render() {
+    const { estudios, facturas } = datos;
+    $('pc-k1').textContent = estudios.filter(e => e.estado !== 'listo').length;
+    $('pc-k2').textContent = estudios.filter(e => e.informe).length;
+    $('pc-k3').textContent = UI.formato.clp(facturas.filter(f => f.estado !== 'pagada').reduce((s, f) => s + f.monto, 0));
+    $('pc-estudios').replaceChildren(...estudios.map(e => {
+      const fila = el('div', 'pc-estudio'), info = el('div', 'pc-info');
+      info.append(el('strong', null, e.nombre), el('div', 'muted small', e.tipo + ' · ' + e.id));
+      const av = el('div', 'pc-avance'), barra = el('div', 'progreso'), tramo = el('span');
+      barra.setAttribute('role', 'progressbar'); barra.setAttribute('aria-label', 'Avance de ' + e.nombre);
+      barra.setAttribute('aria-valuemin', 0); barra.setAttribute('aria-valuemax', 100); barra.setAttribute('aria-valuenow', e.avance);
+      tramo.style.setProperty('--p', e.avance / 100); barra.append(tramo);
+      const btn = el('button', 'btn btn-sec btn-sm', e.informe ? 'Descargar informe' : 'Informe no disponible');
+      btn.disabled = !e.informe; btn.setAttribute('aria-label', (e.informe ? 'Descargar informe de ' : 'Informe no disponible de ') + e.nombre);
+      btn.addEventListener('click', () => { API.informe(e); UI.toast('Descarga iniciada', 'ok'); });
+      av.append(barra, el('span', 'pc-pct', e.avance + '%'), btn);
+      fila.append(info, badge(ESTUDIO, e.estado), av); return fila;
+    }));
+    $('pc-facturas').replaceChildren(...facturas.map(f => {
+      const tr = el('tr'), acc = el('td', 'acciones-fila');
+      if (f.estado !== 'pagada') {
+        const b = el('button', 'btn btn-sm', 'Pagar'); b.setAttribute('aria-label', 'Pagar factura ' + f.id);
+        b.addEventListener('click', async () => {
+          if (!await UI.confirmar({ titulo: 'Pagar ' + f.id, texto: 'Se cobrarán ' + UI.formato.clp(f.monto) + ' (IVA incluido).', confirmar: 'Pagar' })) return;
+          await UI.busy(b, () => API.pagar(f.id));
+          f.estado = 'pagada'; render(); $('pc-h-fact').focus(); UI.toast('Pago registrado. Gracias.', 'ok');
+        }); b.dataset.busy = 'Pagando…'; acc.append(b);
+      }
+      const monto = el('td', 'num', UI.formato.clp(f.monto)), est = el('td'); est.append(badge(FACTURA, f.estado));
+      tr.append(el('td', 'mono', f.id), el('td', null, UI.formato.fecha(f.fecha + 'T12:00')), monto, est, acc); return tr;
+    }));
+  }
+
+  async function cargar() {
+    const modo = $('pc-demo').value;
+    mostrar('skel');
+    if (modo === 'cargando') return;
+    try {
+      datos = await API.cargar(modo);
+      if (!datos.estudios.length) return mostrar('vacio');
+      render(); mostrar('contenido');
+    } catch (e) { mostrar('error'); }
+  }
+
+  $('pc-empresa').textContent = SESION.empresa;
+  $('pc-rut').textContent = 'RUT ' + SESION.rut + ' · Portal de cliente';
+  $('pc-user').textContent = SESION.usuario;
+  $('pc-ini').textContent = SESION.usuario.split(' ').map(p => p[0]).join('');
+  $('pc-demo').addEventListener('change', cargar);
+  $('pc-reintentar').addEventListener('click', () => { $('pc-demo').value = 'contenido'; cargar(); });
+
+  const form = $('pc-form');
+  const validar = UI.validar(form, { asunto: v => v ? '' : 'Elige un tema.', mensaje: v => v.trim().length >= 10 ? '' : 'Cuéntanos un poco más (mínimo 10 caracteres).' });
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!validar()) return form.querySelector('[aria-invalid="true"]').focus();
+    await UI.busy(form.querySelector('.btn:not(.btn-sec)'), () => API.soporte(Object.fromEntries(new FormData(form))));
+    UI.modal.cerrar('pc-soporte'); form.reset();
+    form.querySelectorAll('.campo').forEach(c => { c.classList.remove('invalido'); c.querySelector('.error-msg').textContent = ''; c.querySelector('[aria-invalid]').removeAttribute('aria-invalid'); });
+    UI.toast('Recibimos tu solicitud. Te respondemos en menos de 24 horas.', 'ok');
+  });
+  cargar();
+})();
+</script>
+</body>
+</html>

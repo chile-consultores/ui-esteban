@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Barras de progreso · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: 10 patrones de progreso (lineal, indeterminada, buffer, NProgress superior, circular, gauge, pasos, multi-segmento, subida con velocidad y ETA, contador animado).
+  Proyecto: cualquier app de Chile Consultores (subida de archivos, importación de CSV, informes largos, wizards).
+  Cómo aplicarlo: copia el CSS del patrón y su función (ponBarra, NP, anillo, subir). Todo lleva role="progressbar" con aria-valuenow/min/max.
+  Conectar: en subida real reemplaza `simularSubida` por XMLHttpRequest.upload.onprogress o supabase.storage.upload con onUploadProgress.
+  Ganchos: [role=progressbar], window.NP.start/set/inc/done (barra superior), .anillo[data-valor], .subida (tarjeta de archivo).
+-->
+<style>
+  :root{--vel:.5s}
+  .pagina{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+  h2{font-size:1.05rem;margin:0 0 4px}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px;margin-top:20px}
+  .tarjeta{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+  .tarjeta .sub{font-size:var(--fs-s);color:var(--texto-2);margin:0}
+  .fila{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .entre{justify-content:space-between}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* === COMPONENTE: barra lineal (variantes) === */
+  .barra{position:relative;height:10px;border-radius:99px;background:var(--superficie-2);overflow:hidden}
+  .barra > .rel{position:absolute;inset:0 auto 0 0;width:0;border-radius:99px;background:linear-gradient(90deg,var(--marca),var(--acento));transition:width var(--vel) var(--ease-salida)}
+  .barra.gruesa{height:16px}
+  .barra.rayada > .rel{background:repeating-linear-gradient(45deg,var(--marca) 0 10px,#9a8dff 10px 20px);background-size:28px 28px;animation:rayas 1s linear infinite}
+  @keyframes rayas{to{background-position:28px 0}}
+  .barra.brillo > .rel{box-shadow:0 0 14px var(--marca)}
+  .barra.indet > .rel{width:35%;animation:indet 1.4s ease-in-out infinite;transition:none}
+  @keyframes indet{0%{transform:translateX(-110%)}100%{transform:translateX(300%)}}
+  .barra.buffer > .buf{position:absolute;inset:0 auto 0 0;width:0;background:rgba(255,255,255,.14);transition:width var(--vel) linear}
+  .barra.ok > .rel{background:var(--verde)} .barra.err > .rel{background:var(--rojo)}
+
+  /* === COMPONENTE: NProgress (barra fija arriba) === */
+  #np{position:fixed;left:0;top:0;height:3px;width:100%;z-index:9999;pointer-events:none;opacity:0;transition:opacity .3s}
+  #np .rel{height:100%;width:0;background:linear-gradient(90deg,var(--marca),var(--acento));box-shadow:0 0 10px var(--acento);transition:width .25s ease}
+  #np.on{opacity:1}
+
+  /* === COMPONENTE: anillo y gauge (SVG) === */
+  .anillos{display:flex;gap:22px;flex-wrap:wrap;align-items:center}
+  .anillo{position:relative;width:110px;height:110px}
+  .anillo svg{width:100%;height:100%;transform:rotate(-90deg)}
+  .anillo circle{fill:none;stroke-width:9;stroke-linecap:round}
+  .anillo .pista{stroke:var(--superficie-2)}
+  .anillo .prog{stroke:url(#gradAnillo);transition:stroke-dashoffset var(--vel) var(--ease-salida)}
+  .anillo .centro{position:absolute;inset:0;display:grid;place-items:center;font:600 1.4rem var(--display)}
+  .gauge{position:relative;width:200px;height:112px}
+  .gauge svg{width:100%;height:100%}
+  .gauge path{fill:none;stroke-width:14;stroke-linecap:round}
+  .gauge .pista{stroke:var(--superficie-2)}
+  .gauge .prog{stroke:url(#gradAnillo);transition:stroke-dashoffset var(--vel) var(--ease-salida)}
+  .gauge .centro{position:absolute;left:0;right:0;bottom:4px;text-align:center;font:600 1.6rem var(--display)}
+
+  /* === COMPONENTE: pasos con porcentaje === */
+  .pasos{display:flex;gap:6px}
+  .paso{flex:1;min-width:0}
+  .paso .tr{height:6px;border-radius:99px;background:var(--superficie-2);overflow:hidden;margin-bottom:6px}
+  .paso .tr > span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--marca),var(--acento));transition:width var(--vel) var(--ease-salida)}
+  .paso small{display:block;font-size:var(--fs-xs);color:var(--texto-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .paso.activo small{color:var(--texto)} .paso.hecho small{color:var(--verde)}
+
+  /* === COMPONENTE: multi-segmento === */
+  .multi{display:flex;height:14px;border-radius:99px;overflow:hidden;background:var(--superficie-2);gap:2px}
+  .multi > span{height:100%;transition:flex-basis var(--vel) var(--ease-salida);flex-basis:0;flex-grow:0;flex-shrink:0}
+  .leyenda{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:var(--fs-xs);color:var(--texto-2)}
+  .leyenda i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px}
+
+  /* === COMPONENTE: tarjeta de subida === */
+  .subida{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--borde);border-radius:var(--r-s);background:var(--superficie)}
+  .subida .meta{display:flex;justify-content:space-between;gap:8px;font-size:var(--fs-xs);color:var(--texto-2);flex-wrap:wrap}
+  .subida .nombre{font-size:var(--fs-s);color:var(--texto);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .contador{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+  .contador .kpi{padding:12px;border:1px solid var(--borde);border-radius:var(--r-s);background:var(--superficie)}
+  .contador .valor{font:600 1.7rem var(--display);font-variant-numeric:tabular-nums}
+  @media (prefers-reduced-motion:reduce){.barra.rayada>.rel,.barra.indet>.rel{animation:none}.barra.indet>.rel{width:100%;opacity:.6}}
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<div id="np" aria-hidden="true"><div class="rel"></div></div>
+<main class="pagina" id="contenido">
+  <h1>Barras de <span class="gradient-text">progreso</span></h1>
+  <p class="muted">Diez patrones con accesibilidad completa. El tiempo de cada demo está simulado y se puede reemplazar por tu proceso real.</p>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="gradAnillo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7C6DF2"/><stop offset="1" stop-color="#38BDF8"/></linearGradient></defs></svg>
+
+  <div class="grid2">
+    <section class="tarjeta" aria-labelledby="t1">
+      <div><h2 id="t1">1. Lineal determinada</h2><p class="sub">Controlada por un valor 0 a 100. Variantes: normal, rayada animada y con brillo.</p></div>
+      <div class="barra gruesa" role="progressbar" aria-label="Progreso de la tarea" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="b1"><span class="rel"></span></div>
+      <div class="barra gruesa rayada" role="progressbar" aria-label="Progreso rayado" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="b1b"><span class="rel"></span></div>
+      <div class="barra gruesa brillo" role="progressbar" aria-label="Progreso con brillo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="b1c"><span class="rel"></span></div>
+      <div class="fila"><label class="small muted" for="in-val">Valor</label><input id="in-val" type="range" min="0" max="100" value="0" style="flex:1"><output class="mono small num" id="outVal" for="in-val">0%</output><button class="btn btn-sec btn-sm" type="button" id="btnAuto">Reproducir</button></div>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="t2">
+      <div><h2 id="t2">2. Indeterminada y buffer</h2><p class="sub">Cuando no se conoce el total, o el contenido se precarga más rápido de lo que se usa.</p></div>
+      <div class="barra" role="progressbar" aria-label="Cargando, duración desconocida" aria-busy="true"><span class="rel"></span></div>
+      <div class="barra buffer" role="progressbar" aria-label="Reproducción con precarga" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="b2"><span class="buf"></span><span class="rel"></span></div>
+      <p class="small muted num" id="txtBuf">Reproducido 0% · precargado 0%</p>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="t3">
+      <div><h2 id="t3">3. Barra superior estilo NProgress</h2><p class="sub">Se engancha a la navegación entre vistas: avanza sola, se completa y se oculta.</p></div>
+      <div class="fila"><button class="btn" type="button" id="btnNav">Simular navegación</button><button class="btn btn-sec" type="button" id="btnNavLarga">Navegación lenta</button></div>
+      <p class="small muted" id="txtNav" role="status" aria-live="polite">Listo. La barra aparece arriba de la página.</p>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="t4">
+      <div><h2 id="t4">4. Circular y gauge</h2><p class="sub">Anillo SVG con porcentaje y semicírculo para métricas (ej. puntaje de clima).</p></div>
+      <div class="anillos">
+        <div class="anillo" role="progressbar" aria-label="Avance del estudio" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="anillo"><svg viewBox="0 0 100 100"><circle class="pista" cx="50" cy="50" r="42"/><circle class="prog" cx="50" cy="50" r="42"/></svg><span class="centro num" id="anilloTxt">0%</span></div>
+        <div class="gauge" role="progressbar" aria-label="Puntaje de clima" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="gauge"><svg viewBox="0 0 200 112"><path class="pista" d="M16 100 A84 84 0 0 1 184 100"/><path class="prog" d="M16 100 A84 84 0 0 1 184 100"/></svg><span class="centro num" id="gaugeTxt">0</span></div>
+      </div>
+      <div class="fila"><button class="btn btn-sec btn-sm" type="button" data-set="25">25</button><button class="btn btn-sec btn-sm" type="button" data-set="72">72</button><button class="btn btn-sec btn-sm" type="button" data-set="100">100</button></div>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="t5">
+      <div><h2 id="t5">5. Pasos con porcentaje</h2><p class="sub">Proceso en etapas: cada segmento se llena y el siguiente se activa.</p></div>
+      <div class="pasos" id="pasos" role="progressbar" aria-label="Importación en 4 pasos" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+      <div class="fila entre"><span class="small muted num" id="txtPasos">Paso 1 de 4</span><button class="btn btn-sm" type="button" id="btnPasos">Iniciar importación</button></div>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="t6">
+      <div><h2 id="t6">6. Multi-segmento</h2><p class="sub">Una sola barra con varias categorías, ideal para almacenamiento o distribución.</p></div>
+      <div class="multi" id="multi" role="img" aria-label="Uso de almacenamiento"></div>
+      <div class="leyenda" id="leyenda"></div>
+      <button class="btn btn-sec btn-sm" type="button" id="btnMulti" style="align-self:flex-start">Recalcular</button>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="t7" style="grid-column:1/-1">
+      <div><h2 id="t7">7. Subida con velocidad y tiempo restante</h2><p class="sub">Tres archivos con progreso real simulado: pausar, reanudar, cancelar y reintentar si falla.</p></div>
+      <div id="subidas" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px"></div>
+      <div class="fila"><button class="btn" type="button" id="btnSubir">Subir 3 archivos</button><span class="small muted" id="txtSubida" role="status" aria-live="polite"></span></div>
+    </section>
+
+    <section class="tarjeta" aria-labelledby="t8" style="grid-column:1/-1">
+      <div><h2 id="t8">8. Contador animado</h2><p class="sub">Los números suben con easing; con movimiento reducido aparecen directo.</p></div>
+      <div class="contador" id="contador"></div>
+      <button class="btn btn-sec btn-sm" type="button" id="btnCont" style="align-self:flex-start">Volver a contar</button>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  const reducido = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fmt = new Intl.NumberFormat('es-CL');
+
+  /* === ponBarra: actualiza ancho y aria === */
+  function ponBarra(b, pct) {
+    pct = Math.max(0, Math.min(100, pct));
+    b.setAttribute('aria-valuenow', String(Math.round(pct)));
+    const r = b.querySelector('.rel'); if (r) r.style.width = pct + '%';
+  }
+
+  /* 1. lineal + reproducción */
+  const val = $('#in-val'), out = $('#outVal');
+  const b1 = ['#b1', '#b1b', '#b1c'].map(s => $(s));
+  function setLineal(v) { b1.forEach(b => ponBarra(b, v)); out.textContent = v + '%'; val.value = v; }
+  val.addEventListener('input', () => setLineal(+val.value));
+  let timerAuto = null;
+  $('#btnAuto').addEventListener('click', e => {
+    const btn = e.currentTarget;
+    if (timerAuto) { clearInterval(timerAuto); timerAuto = null; btn.textContent = 'Reproducir'; return; }
+    if (+val.value >= 100) setLineal(0);
+    btn.textContent = 'Pausar';
+    timerAuto = setInterval(() => { const n = Math.min(100, +val.value + 2); setLineal(n); if (n >= 100) { clearInterval(timerAuto); timerAuto = null; btn.textContent = 'Reproducir'; b1.forEach(b => b.classList.add('ok')); setTimeout(() => b1.forEach(b => b.classList.remove('ok')), 900); } }, 70);
+  });
+
+  /* 2. buffer */
+  const b2 = $('#b2'); let rep = 0, pre = 0;
+  setInterval(() => { pre = Math.min(100, pre + 3 + Math.random() * 3); rep = Math.min(pre - 4, rep + 1.5); if (rep >= 96) { rep = 0; pre = 0; } rep = Math.max(0, rep); b2.querySelector('.buf').style.width = pre + '%'; ponBarra(b2, rep); $('#txtBuf').textContent = 'Reproducido ' + Math.round(rep) + '% · precargado ' + Math.round(pre) + '%'; }, 250);
+
+  /* 3. NProgress */
+  const NP = window.NP = (function () {
+    const cont = $('#np'), rel = $('#np .rel'); let n = 0, t = null, activo = false;
+    const set = v => { n = Math.max(0, Math.min(1, v)); rel.style.width = (n * 100) + '%'; };
+    const inc = () => { if (!activo) return; let a = n < .2 ? .1 : n < .5 ? .04 : n < .8 ? .02 : n < .99 ? .005 : 0; set(n + a * Math.random() + .003); };
+    return {
+      start() { if (activo) return; activo = true; set(0); cont.classList.add('on'); setTimeout(() => set(.08), 20); t = setInterval(inc, 250); },
+      set, inc,
+      done() { if (!activo) return; clearInterval(t); set(1); setTimeout(() => { cont.classList.remove('on'); activo = false; setTimeout(() => set(0), 320); }, 280); }
+    };
+  })();
+  async function navegar(ms, btn) {
+    const txt = $('#txtNav'); document.querySelectorAll('[id^=btnNav]').forEach(b => b.disabled = true);
+    document.body.setAttribute('aria-busy', 'true'); NP.start(); txt.textContent = 'Cargando la siguiente vista…';
+    await esperar(ms); NP.done(); document.body.removeAttribute('aria-busy'); txt.textContent = 'Vista cargada.';
+    document.querySelectorAll('[id^=btnNav]').forEach(b => b.disabled = false);
+  }
+  $('#btnNav').addEventListener('click', () => navegar(1500));
+  $('#btnNavLarga').addEventListener('click', () => navegar(4200));
+
+  /* 4. anillo y gauge */
+  const CIRC = 2 * Math.PI * 42, ARCO = Math.PI * 84;
+  const pa = $('#anillo .prog'), pg = $('#gauge .prog');
+  pa.style.strokeDasharray = CIRC; pg.style.strokeDasharray = ARCO;
+  function setAnillos(v) {
+    pa.style.strokeDashoffset = CIRC * (1 - v / 100); pg.style.strokeDashoffset = ARCO * (1 - v / 100);
+    $('#anillo').setAttribute('aria-valuenow', v); $('#gauge').setAttribute('aria-valuenow', v);
+    $('#anilloTxt').textContent = v + '%'; $('#gaugeTxt').textContent = v;
+  }
+  pa.style.strokeDashoffset = CIRC; pg.style.strokeDashoffset = ARCO;
+  document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', () => setAnillos(+b.dataset.set)));
+  setTimeout(() => setAnillos(72), 400);
+
+  /* 5. pasos */
+  const NOMBRES = ['Validar archivo', 'Mapear columnas', 'Importar filas', 'Verificar'];
+  const pasos = $('#pasos');
+  NOMBRES.forEach((n, i) => { const p = el('div', 'paso'); p.dataset.i = i; const tr = el('div', 'tr'); tr.appendChild(el('span')); p.append(tr, el('small', '', (i + 1) + '. ' + n)); pasos.appendChild(p); });
+  async function correrPasos() {
+    const btn = $('#btnPasos'); btn.disabled = true;
+    pasos.querySelectorAll('.paso').forEach(p => { p.className = 'paso'; p.querySelector('.tr span').style.width = '0'; });
+    for (let i = 0; i < NOMBRES.length; i++) {
+      const p = pasos.children[i]; p.classList.add('activo'); $('#txtPasos').textContent = 'Paso ' + (i + 1) + ' de 4: ' + NOMBRES[i];
+      for (let v = 0; v <= 100; v += 20) { p.querySelector('.tr span').style.width = v + '%'; pasos.setAttribute('aria-valuenow', Math.round(((i * 100) + v) / 4)); await esperar(110 + Math.random() * 120); }
+      p.classList.remove('activo'); p.classList.add('hecho');
+    }
+    $('#txtPasos').textContent = 'Importación completa'; btn.disabled = false; btn.textContent = 'Repetir';
+  }
+  $('#btnPasos').addEventListener('click', correrPasos);
+
+  /* 6. multi-segmento */
+  const CATS = [['Documentos', '#7C6DF2'], ['Imágenes', '#38BDF8'], ['Videos', '#F472B6'], ['Otros', '#FBBF24']];
+  const multi = $('#multi'), ley = $('#leyenda'); const TOT = 50; // GB
+  CATS.forEach(([n, c]) => { const s = el('span'); s.style.background = c; multi.appendChild(s); const l = el('span'); const i = el('i'); i.style.background = c; l.append(i, document.createTextNode(n + ' ')); l.appendChild(el('b', 'num', '')); ley.appendChild(l); });
+  const libre = el('span'); libre.style.background = 'transparent'; multi.appendChild(libre);
+  function recalcular() {
+    const vals = CATS.map(() => 2 + Math.random() * 9); const usado = vals.reduce((a, b) => a + b, 0);
+    [...multi.children].slice(0, CATS.length).forEach((s, i) => { s.style.flexBasis = (vals[i] / TOT * 100) + '%'; ley.children[i].querySelector('b').textContent = vals[i].toFixed(1).replace('.', ',') + ' GB'; });
+    libre.style.flexBasis = ((TOT - usado) / TOT * 100) + '%'; libre.style.flexGrow = '1';
+    multi.setAttribute('aria-label', 'Uso de almacenamiento: ' + usado.toFixed(1).replace('.', ',') + ' GB de ' + TOT + ' GB');
+  }
+  $('#btnMulti').addEventListener('click', recalcular); setTimeout(recalcular, 100);
+
+  /* 7. subida con velocidad y ETA */
+  const ARCH = [['informe-clima-2026.pdf', 18.4], ['base-respuestas.xlsx', 6.2], ['video-capacitacion.mp4', 74.0]]; // MB
+  const subidas = $('#subidas'); const estados = [];
+  const fmtT = s => s < 60 ? Math.ceil(s) + ' s' : Math.floor(s / 60) + ' min ' + Math.ceil(s % 60) + ' s';
+  ARCH.forEach(([n, mb], i) => {
+    const c = el('div', 'subida'); c.append(el('div', 'nombre', n));
+    const b = el('div', 'barra'); b.setAttribute('role', 'progressbar'); b.setAttribute('aria-label', 'Subiendo ' + n); b.setAttribute('aria-valuemin', '0'); b.setAttribute('aria-valuemax', '100'); b.setAttribute('aria-valuenow', '0'); b.appendChild(el('span', 'rel'));
+    const m = el('div', 'meta'); const a = el('span', 'num', '0 de ' + mb.toFixed(1).replace('.', ',') + ' MB'); const v = el('span', 'num', 'En espera'); m.append(a, v);
+    const bt = el('div', 'fila'); const pb = el('button', 'btn btn-sec btn-sm', 'Pausar'); pb.type = 'button'; pb.disabled = true; const cb = el('button', 'btn btn-ghost btn-sm', 'Cancelar'); cb.type = 'button'; cb.disabled = true; bt.append(pb, cb);
+    c.append(b, m, bt); subidas.appendChild(c);
+    const e = { n, mb, hecho: 0, vel: 0, pausa: false, cancel: false, activa: false, b, a, v, pb, cb, falla: i === 1 };
+    estados.push(e);
+    pb.addEventListener('click', () => { if (e.err) { e.err = false; e.falla = false; e.b.classList.remove('err'); iniciar(e); return; } e.pausa = !e.pausa; pb.textContent = e.pausa ? 'Reanudar' : 'Pausar'; if (e.pausa) e.v.textContent = 'En pausa'; });
+    cb.addEventListener('click', () => { e.cancel = true; });
+  });
+  async function iniciar(e) {
+    e.activa = true; e.cancel = false; e.pausa = false; e.pb.disabled = false; e.cb.disabled = false; e.pb.textContent = 'Pausar'; e.b.classList.remove('err', 'ok');
+    let t0 = performance.now(), ult = t0;
+    while (e.hecho < e.mb) {
+      await esperar(120);
+      if (e.cancel) { e.v.textContent = 'Cancelado'; e.b.classList.add('err'); e.pb.disabled = true; e.cb.disabled = true; e.activa = false; return; }
+      if (e.pausa) { ult = performance.now(); continue; }
+      const ahora = performance.now(), dt = (ahora - ult) / 1000; ult = ahora;
+      e.vel = Math.max(.8, (e.vel || 4) + (Math.random() - .5) * 3); e.hecho = Math.min(e.mb, e.hecho + e.vel * dt * (e.mb > 30 ? 1.4 : 1));
+      if (e.falla && e.hecho > e.mb * .55) { e.err = true; e.b.classList.add('err'); e.v.textContent = 'Falló la conexión'; e.pb.textContent = 'Reintentar'; e.cb.disabled = true; e.activa = false; return; }
+      ponBarra(e.b, e.hecho / e.mb * 100);
+      e.a.textContent = e.hecho.toFixed(1).replace('.', ',') + ' de ' + e.mb.toFixed(1).replace('.', ',') + ' MB';
+      e.v.textContent = e.vel.toFixed(1).replace('.', ',') + ' MB/s · quedan ' + fmtT((e.mb - e.hecho) / e.vel);
+    }
+    ponBarra(e.b, 100); e.b.classList.add('ok'); e.v.textContent = 'Completado'; e.pb.disabled = true; e.cb.disabled = true; e.activa = false;
+  }
+  $('#btnSubir').addEventListener('click', async () => {
+    const btn = $('#btnSubir'); btn.disabled = true; $('#txtSubida').textContent = 'Subiendo archivos…';
+    estados.forEach(e => { e.hecho = 0; e.vel = 0; e.err = false; e.falla = e.n.startsWith('base'); ponBarra(e.b, 0); });
+    await Promise.all(estados.map(iniciar));
+    const fallo = estados.some(e => e.err), canc = estados.some(e => e.cancel);
+    $('#txtSubida').textContent = fallo ? 'Un archivo falló: usa Reintentar.' : canc ? 'Subida cancelada parcialmente.' : 'Todos los archivos se subieron.';
+    btn.disabled = false;
+  });
+
+  /* 8. contador animado */
+  const KPIS = [['Respuestas', 4821], ['Sucursales', 63], ['Participación', 96], ['Horas ahorradas', 1250]];
+  const cont = $('#contador');
+  KPIS.forEach(([l]) => { const k = el('div', 'kpi'); k.append(el('div', 'valor num', '0'), el('div', 'label', l)); cont.appendChild(k); });
+  function contar() {
+    const vals = cont.querySelectorAll('.valor');
+    KPIS.forEach(([, fin], i) => {
+      const nodo = vals[i], suf = KPIS[i][0] === 'Participación' ? '%' : '';
+      if (reducido()) { nodo.textContent = fmt.format(fin) + suf; return; }
+      const dur = 1400, t0 = performance.now();
+      (function paso(t) { const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3); nodo.textContent = fmt.format(Math.round(fin * e)) + suf; if (p < 1) requestAnimationFrame(paso); })(t0);
+    });
+  }
+  $('#btnCont').addEventListener('click', contar); contar();
+})();
+</script>
+</body>
+</html>

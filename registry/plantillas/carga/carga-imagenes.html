@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Carga de imágenes · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: 7 técnicas de carga de imágenes (lazy con IntersectionObserver, blur-up LQIP, color dominante, fallback con reintento, masonry, carga por franjas, avatar con iniciales) con medidor de CLS en vivo.
+  Proyecto: catálogos, galerías de informes, avatares de usuario, landing de Chile Consultores.
+  Cómo aplicarlo: copia el bloque "COMPONENTE: imagen perezosa" (CSS + función cargarImagen). Usa <div class="img" data-src="..." data-lqip="..." style="aspect-ratio:3/2">.
+  Aquí las imágenes se dibujan con canvas porque la plantilla no usa recursos externos; en producción pon la URL real (Supabase Storage con transformaciones de tamaño).
+  Ganchos: .img[data-src], .img.cargada, .img.error, #latencia, #fallos, window.IMG.cargar(el).
+-->
+<style>
+  .pagina{max-width:1100px;margin:0 auto;padding:24px 16px 80px}
+  .barra{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin:20px 0 28px;padding:12px 16px;border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);position:sticky;top:8px;z-index:20;backdrop-filter:blur(12px)}
+  .stat{font-size:var(--fs-s);color:var(--texto-2)} .stat b{color:var(--texto);font-variant-numeric:tabular-nums}
+  section.bloque{margin-top:36px} section.bloque h2{font-size:1.15rem;margin-bottom:4px} section.bloque .sub{color:var(--texto-2);font-size:var(--fs-s);margin:0 0 14px}
+  .rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,200px),1fr));gap:12px}
+  .masonry{columns:3 200px;column-gap:12px}.masonry .img{margin-bottom:12px;break-inside:avoid}
+
+  /* === COMPONENTE: imagen perezosa === */
+  .img{position:relative;overflow:hidden;border-radius:var(--r-s);background:var(--c-dom,#1a1a2e);isolation:isolate;display:block}
+  .img > canvas,.img > img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .5s ease,filter .6s ease}
+  .img .lqip{filter:blur(18px);transform:scale(1.08)}
+  .img .full{opacity:0}
+  .img.cargada .full{opacity:1}
+  .img.cargada .lqip{opacity:0}
+  .img .shimmer{position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);transform:translateX(-100%);animation:sh 1.3s infinite}
+  .img.cargada .shimmer,.img.error .shimmer{display:none}
+  @keyframes sh{to{transform:translateX(100%)}}
+  .img .pie{position:absolute;left:0;right:0;bottom:0;padding:18px 10px 8px;background:linear-gradient(transparent,rgba(0,0,0,.6));font-size:var(--fs-xs);opacity:0;transition:opacity .4s .2s;z-index:3}
+  .img.cargada .pie{opacity:1}
+  /* error con reintento */
+  .img .fallo{position:absolute;inset:0;display:none;flex-direction:column;gap:8px;align-items:center;justify-content:center;background:var(--fondo-2);z-index:4;text-align:center;font-size:var(--fs-xs);color:var(--texto-2);padding:8px}
+  .img.error .fallo{display:flex}
+  /* franjas */
+  .franjas .full{opacity:1;clip-path:inset(0 0 100% 0);transition:none}
+  .franjas.cargada .full{clip-path:inset(0 0 0 0);transition:clip-path var(--t-fr,1.2s) steps(var(--n-fr,8),end)}
+  .franjas .lqip{transition:opacity .4s 1s}
+  /* avatar con iniciales */
+  .avatar-c{position:relative;width:48px;height:48px;border-radius:50%;overflow:hidden;background:var(--marca-l);display:grid;place-items:center;font:600 .95rem var(--display);flex:none}
+  .avatar-c img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .4s}
+  .avatar-c.cargada img{opacity:1}
+  .fila-av{display:flex;gap:14px;flex-wrap:wrap}
+  .av-item{display:flex;gap:10px;align-items:center;min-width:180px}
+  .relleno-alto{height:60px}
+  @media (prefers-reduced-motion:reduce){.img .shimmer{animation:none}.img > canvas,.img > img{transition:none}.franjas.cargada .full{transition:none}}
+  .aviso.cls{align-items:center}
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="pagina" id="contenido">
+  <h1>Carga de <span class="gradient-text">imágenes</span></h1>
+  <p class="muted">Siete técnicas para que las imágenes lleguen sin saltos de layout y con buena percepción de velocidad. Baja por la página: cada bloque carga solo cuando se acerca.</p>
+
+  <div class="barra" role="group" aria-label="Condiciones de red simuladas">
+    <label class="small muted" for="latencia">Latencia</label><input id="latencia" type="range" min="0" max="3000" step="100" value="900"><output class="mono small" id="outLat" for="latencia">900 ms</output>
+    <label class="small muted" for="fallos">Fallos</label><input id="fallos" type="range" min="0" max="60" step="5" value="15"><output class="mono small" id="outFal" for="fallos">15%</output>
+    <span class="stat">Cargadas <b id="stCarg">0</b> de <b id="stTot">0</b></span>
+    <span class="stat" title="Desplazamiento acumulado de layout durante esta sesión">CLS <b id="stCls">0.000</b></span>
+    <button class="btn btn-sec btn-sm" type="button" id="btnRecargar">Recargar todas</button>
+  </div>
+
+  <section class="bloque" aria-labelledby="h1"><h2 id="h1">1. Lazy load con IntersectionObserver</h2><p class="sub">Cada imagen reserva su proporción (aspect-ratio) y empieza a cargar 200 px antes de entrar en pantalla.</p><div class="rejilla" id="g1"></div></section>
+  <section class="bloque" aria-labelledby="h2"><h2 id="h2">2. Blur-up (LQIP)</h2><p class="sub">Una versión diminuta de 20 px se muestra desenfocada y la imagen final la reemplaza con un fundido.</p><div class="rejilla" id="g2"></div></section>
+  <section class="bloque" aria-labelledby="h3"><h2 id="h3">3. Color dominante y fundido</h2><p class="sub">El fondo toma el color medio de la imagen mientras carga; sin shimmer, solo fade-in.</p><div class="rejilla" id="g3"></div></section>
+  <section class="bloque" aria-labelledby="h4"><h2 id="h4">4. Imagen rota con reintento</h2><p class="sub">Sube el slider de fallos: la tarjeta muestra el error y un botón para reintentar sin recargar la página.</p><div class="rejilla" id="g4"></div></section>
+  <section class="bloque" aria-labelledby="h5"><h2 id="h5">5. Galería masonry</h2><p class="sub">Alturas distintas, columnas CSS y proporciones reservadas: nada se mueve cuando llegan las fotos.</p><div class="masonry" id="g5"></div></section>
+  <section class="bloque" aria-labelledby="h6"><h2 id="h6">6. Carga por franjas (progresiva)</h2><p class="sub">La imagen se revela de arriba hacia abajo en pasos, como un JPEG progresivo.</p><div class="rejilla" id="g6"></div></section>
+  <section class="bloque" aria-labelledby="h7"><h2 id="h7">7. Avatares con iniciales</h2><p class="sub">Mientras llega la foto se muestran las iniciales; si no hay foto, quedan las iniciales.</p><div class="fila-av" id="g7"></div></section>
+  <div class="relleno-alto"></div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+
+  /* ---------- "Servidor" de imágenes: dibuja con canvas según una semilla ---------- */
+  const PAL = [['#7C6DF2', '#38BDF8'], ['#F472B6', '#7C6DF2'], ['#34D399', '#38BDF8'], ['#FBBF24', '#F472B6'], ['#38BDF8', '#34D399'], ['#A78BFA', '#FBBF24']];
+  const rnd = s => { let x = Math.sin(s * 9301 + 49297) * 233280; return () => (x = Math.sin(x * 9301 + 49297) * 233280, x - Math.floor(x)); };
+  function dibujar(seed, w, h) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); const r = rnd(seed + 1); const p = PAL[seed % PAL.length];
+    const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, p[0]); gr.addColorStop(1, p[1]); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 7; i++) { g.beginPath(); g.fillStyle = 'rgba(255,255,255,' + (0.06 + r() * 0.2).toFixed(2) + ')'; g.arc(r() * w, r() * h, (0.1 + r() * 0.35) * Math.min(w, h), 0, 7); g.fill(); }
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.moveTo(0, h); g.lineTo(w * (.2 + r() * .3), h * .55); g.lineTo(w * (.5 + r() * .2), h * .8); g.lineTo(w, h * .6); g.lineTo(w, h); g.fill();
+    return c;
+  }
+  const cache = new Map();
+  function promedio(seed) { const p = PAL[seed % PAL.length]; return p[0]; }
+  /* fetchImagen: simula red con latencia y fallos. Sustituir por fetch real/Image.onload */
+  async function fetchImagen(seed, w, h, opts = {}) {
+    const lat = +$('#latencia').value, fal = +$('#fallos').value / 100;
+    await esperar(opts.rapido ? 30 : lat * (.5 + Math.random()));
+    if (!opts.rapido && Math.random() < fal) throw new Error('red');
+    const k = seed + '-' + w + 'x' + h; if (!cache.has(k)) cache.set(k, dibujar(seed, w, h).toDataURL('image/jpeg', .85));
+    return cache.get(k);
+  }
+
+  /* ---------- Contadores y CLS ---------- */
+  let total = 0, cargadas = 0, cls = 0;
+  const stat = () => { $('#stCarg').textContent = cargadas; $('#stTot').textContent = total; $('#stCls').textContent = cls.toFixed(3); };
+  try { new PerformanceObserver(l => { l.getEntries().forEach(e => { if (!e.hadRecentInput) { cls += e.value; stat(); } }); }).observe({ type: 'layout-shift', buffered: true }); } catch (e) { /* navegador sin soporte */ }
+
+  /* === COMPONENTE: imagen perezosa === */
+  function crearImg(cfg) {
+    const d = el('div', 'img' + (cfg.clase ? ' ' + cfg.clase : '')); d.style.aspectRatio = cfg.ratio; d.dataset.seed = cfg.seed; d.dataset.w = cfg.w; d.dataset.h = cfg.h;
+    d.setAttribute('role', 'img'); d.setAttribute('aria-label', cfg.alt); d.setAttribute('aria-busy', 'true');
+    if (cfg.dominante) d.style.setProperty('--c-dom', promedio(cfg.seed));
+    if (cfg.shimmer) d.appendChild(el('span', 'shimmer'));
+    if (cfg.pie) d.appendChild(el('div', 'pie', cfg.pie));
+    const f = el('div', 'fallo'); f.append(el('span', '', 'No se pudo cargar la imagen')); const b = el('button', 'btn btn-sec btn-sm', 'Reintentar'); b.type = 'button'; b.addEventListener('click', () => cargarImagen(d)); f.appendChild(b); d.appendChild(f);
+    d._cfg = cfg; total++; stat(); return d;
+  }
+  async function cargarImagen(d) {
+    if (d._cargando) return; d._cargando = true; const cfg = d._cfg; d.classList.remove('error', 'cargada'); d.setAttribute('aria-busy', 'true');
+    d.querySelectorAll('img,canvas.lqip').forEach(x => x.remove());
+    if (cfg.lqip) { const l = new Image(); l.className = 'lqip'; l.alt = ''; l.src = dibujar(cfg.seed, 20, Math.round(20 * cfg.h / cfg.w)).toDataURL(); d.insertBefore(l, d.firstChild); }
+    try {
+      const url = await fetchImagen(cfg.seed, cfg.w, cfg.h);
+      const im = new Image(); im.className = 'full'; im.alt = ''; im.decoding = 'async'; im.src = url;
+      await im.decode().catch(() => {}); d.insertBefore(im, d.querySelector('.shimmer,.pie,.fallo'));
+      requestAnimationFrame(() => requestAnimationFrame(() => { d.classList.add('cargada'); }));
+      d.removeAttribute('aria-busy'); cargadas++; stat();
+    } catch (e) { d.classList.add('error'); d.removeAttribute('aria-busy'); }
+    d._cargando = false;
+  }
+  window.IMG = { cargar: cargarImagen };
+
+  /* Observador compartido: empieza a cargar 200 px antes de entrar */
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { io.unobserve(e.target); cargarImagen(e.target); } }), { rootMargin: '200px' });
+  const mont = (cont, cfg) => { const d = crearImg(cfg); cont.appendChild(d); io.observe(d); return d; };
+  const ALT = ['Paisaje violeta', 'Cima azul', 'Valle verde', 'Atardecer rosado', 'Costa celeste', 'Montaña lila'];
+
+  /* Bloques */
+  for (let i = 0; i < 12; i++) mont($('#g1'), { seed: i, w: 400, h: 267, ratio: '3/2', alt: ALT[i % 6] + ' ' + (i + 1), shimmer: true });
+  for (let i = 0; i < 6; i++) mont($('#g2'), { seed: i + 20, w: 400, h: 267, ratio: '3/2', alt: ALT[i % 6], lqip: true });
+  for (let i = 0; i < 6; i++) mont($('#g3'), { seed: i + 40, w: 400, h: 267, ratio: '3/2', alt: ALT[i % 6], dominante: true, pie: ALT[i % 6] });
+  for (let i = 0; i < 6; i++) mont($('#g4'), { seed: i + 60, w: 400, h: 267, ratio: '3/2', alt: ALT[i % 6], shimmer: true });
+  const R = [[400, 520, '10/13'], [400, 300, '4/3'], [400, 400, '1/1'], [400, 560, '5/7'], [400, 260, '20/13'], [400, 460, '20/23'], [400, 340, '20/17'], [400, 500, '4/5']];
+  R.forEach(([w, h, r], i) => mont($('#g5'), { seed: i + 80, w, h, ratio: r, alt: ALT[i % 6], shimmer: true }));
+  for (let i = 0; i < 3; i++) mont($('#g6'), { seed: i + 100, w: 400, h: 267, ratio: '3/2', alt: ALT[i % 6], lqip: true, clase: 'franjas' });
+  [['Camila Rojas', 1], ['Diego Pérez', 2], ['Fernanda Lagos', 3], ['Sin foto', 0]].forEach(([n, s]) => {
+    const it = el('div', 'av-item'); const av = el('div', 'avatar-c'); av.setAttribute('aria-hidden', 'true'); av.appendChild(el('span', '', n.split(' ').map(x => x[0]).join('').slice(0, 2)));
+    it.append(av, el('span', 'small', n)); $('#g7').appendChild(it);
+    if (s) { total++; stat(); const ob = new IntersectionObserver(async es => { if (!es[0].isIntersecting) return; ob.disconnect(); try { const url = await fetchImagen(s + 7, 96, 96); const im = new Image(); im.alt = ''; im.src = url; await im.decode().catch(() => {}); av.appendChild(im); requestAnimationFrame(() => av.classList.add('cargada')); cargadas++; stat(); } catch (e) { /* se quedan las iniciales */ } }); ob.observe(av); }
+  });
+
+  $('#latencia').addEventListener('input', e => { $('#outLat').textContent = e.target.value + ' ms'; });
+  $('#fallos').addEventListener('input', e => { $('#outFal').textContent = e.target.value + '%'; });
+  $('#btnRecargar').addEventListener('click', () => { cargadas = 0; document.querySelectorAll('.img').forEach(d => { d.classList.remove('cargada', 'error'); cargarImagen(d); }); stat(); });
+})();
+</script>
+</body>
+</html>

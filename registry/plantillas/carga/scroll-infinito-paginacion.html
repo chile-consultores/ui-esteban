@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Scroll infinito y paginación · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: 6 patrones para listas largas: scroll infinito con sentinel, botón "Cargar más", paginación con prefetch, lista virtualizada (10.000 filas), pull-to-refresh y aviso de nuevos elementos.
+  Proyecto: bandejas de CRM, listados de encuestas/clientes de Clima y Mystery, feeds de actividad.
+  Cómo aplicarlo: cada pestaña es autónoma. Reemplaza `api(pagina)` por tu consulta paginada (ej. supabase.from('clientes').select('*',{count:'exact'}).range(desde, hasta)).
+  El panel de arriba simula latencia y fallos; bórralo en producción.
+  Ganchos: #lista-inf (contenedor con scroll), #centinela, #btn-mas, #tabla-pag, #virt, #pull, #pastilla-nuevos, funciones cargarMas()/irPagina(n)/refrescar().
+-->
+<style>
+  .pagina{max-width:980px;margin:0 auto;padding:24px 16px 64px}
+  .panel{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:18px 0 18px;padding:12px 16px;border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie)}
+  .tabs{margin-bottom:16px;overflow-x:auto}
+  .vista{display:none}.vista.on{display:block}
+  .caja{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);overflow:hidden}
+  .scroll{height:420px;overflow:auto;position:relative;overscroll-behavior:contain}
+  .item{display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--borde);align-items:center;min-height:64px}
+  .item .ic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font:600 .9rem var(--display);flex:none;background:var(--marca-l);color:#c7bfff}
+  .item .tx{min-width:0;flex:1}.item .tx b{display:block;font-size:var(--fs-s);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.item .tx span{font-size:var(--fs-xs);color:var(--texto-2)}
+  .item time{font-size:var(--fs-xs);color:var(--texto-3);white-space:nowrap}
+  .item.nuevo{animation:resalta 2s ease}
+  @keyframes resalta{from{background:var(--marca-l)}to{background:transparent}}
+  .sk-fila{display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--borde);align-items:center;min-height:64px}
+  .sk-fila .s{background:var(--superficie-2);border-radius:8px;animation:pulso 1.4s ease-in-out infinite}
+  @keyframes pulso{0%,100%{opacity:1}50%{opacity:.45}}
+  .pie-lista{padding:14px;text-align:center;font-size:var(--fs-s);color:var(--texto-2);min-height:56px}
+  .pie-lista .aviso{justify-content:center;align-items:center;gap:12px}
+  .contador{font-size:var(--fs-s);color:var(--texto-2);text-align:center;margin:12px 0 8px}
+  .barra-cont{height:4px;border-radius:99px;background:var(--superficie-2);overflow:hidden;max-width:280px;margin:0 auto 14px}
+  .barra-cont span{display:block;height:100%;background:linear-gradient(90deg,var(--marca),var(--acento));width:0;transition:width .4s}
+  .mas{display:flex;flex-direction:column;align-items:center;padding:6px 14px 18px}
+  /* paginación */
+  .tabla-pag{position:relative;transition:opacity .2s}
+  .tabla-pag.cargando{opacity:.45;pointer-events:none}
+  .nav-pag{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;padding:14px}
+  .nav-pag button{min-width:38px;height:38px;border-radius:9px;border:1px solid var(--borde);background:var(--superficie);cursor:pointer}
+  .nav-pag button[aria-current="page"]{background:var(--marca);border-color:var(--marca);color:#fff}
+  .nav-pag button:disabled{opacity:.4;cursor:not-allowed}
+  .nav-pag .el{display:grid;place-items:center;min-width:24px;color:var(--texto-3)}
+  /* virtual */
+  .virt-int{position:relative}.virt-fila{position:absolute;left:0;right:0;height:44px;display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid var(--borde);font-size:var(--fs-s)}
+  .virt-fila .n{width:64px;color:var(--texto-3);font-variant-numeric:tabular-nums}
+  /* pull to refresh */
+  .telefono{width:min(100%,340px);margin:0 auto;border:8px solid #20203a;border-radius:34px;overflow:hidden;background:var(--fondo-2);position:relative}
+  .telefono .scroll{height:460px;touch-action:pan-y}
+  .ptr{position:absolute;left:0;right:0;top:0;display:flex;justify-content:center;pointer-events:none;z-index:3;height:0}
+  .ptr .bola{width:36px;height:36px;border-radius:50%;background:var(--superficie-2);border:1px solid var(--borde-2);display:grid;place-items:center;margin-top:-44px;transition:transform .25s}
+  .ptr .bola svg{width:18px;height:18px;transition:transform .15s}
+  .ptr.cargando .bola svg{animation:g .8s linear infinite}
+  @keyframes g{to{transform:rotate(360deg)}}
+  .lista-ptr{transition:transform .25s}
+  /* nuevos */
+  .pastilla{position:sticky;top:10px;z-index:5;display:flex;justify-content:center;height:0}
+  .pastilla button{margin-top:0;box-shadow:var(--sombra-f);transform:translateY(-60px);opacity:0;transition:transform .3s var(--ease-salida),opacity .3s;pointer-events:none}
+  .pastilla.on button{transform:translateY(0);opacity:1;pointer-events:auto}
+  .estado-api{font-size:var(--fs-xs);color:var(--texto-3);margin:8px 2px 0}
+  @media (prefers-reduced-motion:reduce){.item.nuevo,.sk-fila .s,.ptr.cargando .bola svg{animation:none}.pastilla button,.lista-ptr,.tabla-pag{transition:none}}
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="pagina" id="contenido">
+  <h1>Scroll infinito y <span class="gradient-text">paginación</span></h1>
+  <p class="muted">Seis maneras de mostrar listas largas, cada una con sus estados de carga, error y fin de lista.</p>
+
+  <div class="panel" role="group" aria-label="Condiciones de red simuladas">
+    <label class="small muted" for="in-lat">Latencia</label><input id="in-lat" type="range" min="0" max="2500" step="100" value="700"><output class="mono small" id="outLat" for="in-lat">700 ms</output>
+    <label class="small muted" for="in-fal">Fallos</label><input id="in-fal" type="range" min="0" max="80" step="5" value="0"><output class="mono small" id="outFal" for="in-fal">0%</output>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Patrones">
+    <button role="tab" aria-selected="true" aria-controls="v1" id="tb1" type="button">Scroll infinito</button>
+    <button role="tab" aria-selected="false" aria-controls="v2" id="tb2" type="button" tabindex="-1">Cargar más</button>
+    <button role="tab" aria-selected="false" aria-controls="v3" id="tb3" type="button" tabindex="-1">Paginación</button>
+    <button role="tab" aria-selected="false" aria-controls="v4" id="tb4" type="button" tabindex="-1">Virtualizada</button>
+    <button role="tab" aria-selected="false" aria-controls="v5" id="tb5" type="button" tabindex="-1">Pull to refresh</button>
+    <button role="tab" aria-selected="false" aria-controls="v6" id="tb6" type="button" tabindex="-1">Nuevos elementos</button>
+  </div>
+
+  <section class="vista on" id="v1" role="tabpanel" aria-labelledby="tb1">
+    <div class="caja"><div class="scroll" id="lista-inf" tabindex="0" aria-label="Actividad reciente, scroll infinito"><div id="items-inf" role="list"></div><div class="pie-lista" id="pie-inf" aria-live="polite"></div><div id="centinela" aria-hidden="true" style="height:1px"></div></div></div>
+    <p class="estado-api" id="estado-inf" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="vista" id="v2" role="tabpanel" aria-labelledby="tb2" hidden>
+    <div class="caja"><div id="items-mas" role="list"></div>
+      <div class="contador" id="cont-mas" role="status" aria-live="polite"></div><div class="barra-cont" aria-hidden="true"><span id="barra-mas"></span></div>
+      <div class="mas"><button class="btn" type="button" id="btn-mas">Cargar más</button></div></div>
+  </section>
+
+  <section class="vista" id="v3" role="tabpanel" aria-labelledby="tb3" hidden>
+    <div class="caja"><div class="tabla-wrap"><table class="tabla tabla-pag" id="tabla-pag" aria-busy="false"><caption class="sr-only">Clientes, página actual</caption><thead><tr><th>ID</th><th>Cliente</th><th>Estado</th><th>Monto</th></tr></thead><tbody></tbody></table></div>
+      <nav class="nav-pag" id="nav-pag" aria-label="Paginación de clientes"></nav></div>
+    <p class="estado-api" id="estado-pag" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="vista" id="v4" role="tabpanel" aria-labelledby="tb4" hidden>
+    <div class="panel" style="margin-top:0"><label class="small muted" for="in-fila">Ir a la fila</label><input id="in-fila" name="fila" class="input" type="number" min="1" max="10000" value="5000" inputmode="numeric" style="width:120px"><button class="btn btn-sec btn-sm" type="button" id="btn-ir">Ir</button><span class="small muted" id="st-virt" role="status" aria-live="polite"></span></div>
+    <div class="caja"><div class="scroll" id="virt" tabindex="0" aria-label="Lista de 10.000 filas virtualizada"><div class="virt-int" id="virt-int"></div></div></div>
+  </section>
+
+  <section class="vista" id="v5" role="tabpanel" aria-labelledby="tb5" hidden>
+    <div class="fila" style="display:flex;justify-content:center;margin-bottom:12px"><button class="btn btn-sec btn-sm" type="button" id="btn-refrescar">Actualizar</button></div>
+    <p class="small muted" style="text-align:center;margin:0 0 12px">Arrastra hacia abajo desde el inicio de la lista (o usa el botón).</p>
+    <div class="telefono"><div class="ptr" id="ptr"><div class="bola"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></div></div>
+      <div class="scroll" id="pull" tabindex="0" aria-label="Bandeja con actualización por arrastre"><div class="lista-ptr" id="lista-ptr" role="list"></div></div></div>
+    <p class="estado-api" id="estado-ptr" role="status" aria-live="polite" style="text-align:center"></p>
+  </section>
+
+  <section class="vista" id="v6" role="tabpanel" aria-labelledby="tb6" hidden>
+    <div class="caja"><div class="scroll" id="feed-nuevos" tabindex="0" aria-label="Feed con avisos de nuevos elementos"><div class="pastilla" id="pastilla"><button class="btn btn-sm" type="button" id="btn-nuevos">0 nuevos</button></div><div id="items-nuevos" role="list"></div></div></div>
+    <p class="estado-api">Cada 6 segundos llega algo nuevo. Si estás leyendo más abajo, no se mueve nada: aparece el aviso.</p>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  const NS = 'http://www.w3.org/2000/svg';
+
+  /* ---------- Datos y API simulada ---------- */
+  const NOMBRES = ['Minera Aconcagua', 'Retail Mapocho', 'Constructora Lenga', 'Logística Huemul', 'Agro Maule', 'Clínica Bellavista', 'Colegio Los Alerces', 'Banco Andino', 'Transportes Copihue', 'Seguros Pehuén'];
+  const ACC = ['respondió la encuesta de clima', 'aprobó el plan de acción', 'subió un informe', 'agendó una visita', 'comentó el estudio', 'descargó el reporte'];
+  const TOTAL = 120, TAM = 12;
+  const dato = i => ({ id: i + 1, cliente: NOMBRES[i % NOMBRES.length] + (i >= 10 ? ' ' + (Math.floor(i / 10) + 1) : ''), accion: ACC[(i * 7) % ACC.length], estado: ['Activo', 'Pendiente', 'Moroso'][i % 3], monto: 120000 + ((i * 7919) % 900000), hace: (i % 59) + 1 });
+  const lat = () => +$('#in-lat').value, fal = () => +$('#in-fal').value / 100;
+  /* api(pagina): sustituir por tu consulta real */
+  async function api(pagina, tam = TAM) {
+    await esperar(lat() * (.6 + Math.random() * .8));
+    if (Math.random() < fal()) throw new Error('Error de red');
+    const ini = (pagina - 1) * tam; return { items: Array.from({ length: Math.max(0, Math.min(tam, TOTAL - ini)) }, (_, k) => dato(ini + k)), total: TOTAL };
+  }
+  const CLP = n => '$' + new Intl.NumberFormat('es-CL').format(n);
+  function fila(d, nuevo) {
+    const f = el('div', 'item' + (nuevo ? ' nuevo' : '')); f.setAttribute('role', 'listitem');
+    const ic = el('div', 'ic', d.cliente[0]); const tx = el('div', 'tx'); tx.append(el('b', '', d.cliente), el('span', '', d.accion)); f.append(ic, tx, el('time', '', 'hace ' + d.hace + ' min')); return f;
+  }
+  const skFilas = n => { const w = document.createDocumentFragment(); for (let i = 0; i < n; i++) { const f = el('div', 'sk-fila'); f.setAttribute('aria-hidden', 'true'); const a = el('div', 's'); a.style.cssText = 'width:40px;height:40px;border-radius:10px;flex:none'; const b = el('div'); b.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:8px'; const l1 = el('div', 's'); l1.style.cssText = 'height:12px;width:55%'; const l2 = el('div', 's'); l2.style.cssText = 'height:10px;width:80%'; b.append(l1, l2); f.append(a, b); w.appendChild(f); } return w; };
+
+  /* ---------- Pestañas con restauración de posición ---------- */
+  const tabs = [...document.querySelectorAll('[role=tab]')]; const posiciones = new Map();
+  function activar(t) {
+    const act = document.querySelector('.vista.on'); if (act) { const sc = act.querySelector('.scroll'); if (sc) posiciones.set(act.id, sc.scrollTop); act.classList.remove('on'); act.hidden = true; }
+    tabs.forEach(x => { const on = x === t; x.setAttribute('aria-selected', String(on)); x.tabIndex = on ? 0 : -1; });
+    const p = $('#' + t.getAttribute('aria-controls')); p.hidden = false; p.classList.add('on');
+    const sc = p.querySelector('.scroll'); if (sc && posiciones.has(p.id)) sc.scrollTop = posiciones.get(p.id);
+    if (p.id === 'v3' && !pagInit) { pagInit = true; irPagina(1); } if (p.id === 'v4') pintaVirt(); if (p.id === 'v5' && !ptrInit) { ptrInit = true; iniPtr(); } if (p.id === 'v6' && !nvInit) { nvInit = true; iniNuevos(); }
+    if (p.id === 'v2' && !masInit) { masInit = true; cargarMasBoton(); }
+  }
+  tabs.forEach((t, i) => { t.addEventListener('click', () => activar(t)); t.addEventListener('keydown', e => { let j = null; if (e.key === 'ArrowRight') j = (i + 1) % tabs.length; if (e.key === 'ArrowLeft') j = (i - 1 + tabs.length) % tabs.length; if (j != null) { e.preventDefault(); tabs[j].focus(); activar(tabs[j]); } }); });
+  let pagInit = false, ptrInit = false, nvInit = false, masInit = false;
+  $('#in-lat').addEventListener('input', e => { $('#outLat').textContent = e.target.value + ' ms'; });
+  $('#in-fal').addEventListener('input', e => { $('#outFal').textContent = e.target.value + '%'; });
+
+  /* ===== 1. Scroll infinito con sentinel ===== */
+  const inf = { pag: 0, cargando: false, fin: false };
+  async function cargarMas() {
+    if (inf.cargando || inf.fin) return; inf.cargando = true; const lista = $('#items-inf'), pie = $('#pie-inf');
+    pie.replaceChildren(); const sk = skFilas(3); const marca = el('div'); marca.appendChild(sk); lista.appendChild(marca); $('#lista-inf').setAttribute('aria-busy', 'true');
+    try {
+      const r = await api(inf.pag + 1); marca.remove(); r.items.forEach(d => lista.appendChild(fila(d))); inf.pag++;
+      $('#estado-inf').textContent = 'Mostrando ' + lista.children.length + ' de ' + r.total + ' actividades';
+      if (inf.pag * TAM >= r.total) { inf.fin = true; pie.textContent = 'Llegaste al final: no hay más actividades.'; io.disconnect(); }
+    } catch (e) {
+      marca.remove(); const av = el('div', 'aviso bad'); av.setAttribute('role', 'alert'); av.append(el('span', '', 'No pudimos cargar más. ' + e.message + '.')); const b = el('button', 'btn btn-sec btn-sm', 'Reintentar'); b.type = 'button'; b.addEventListener('click', () => { pie.replaceChildren(); cargarMas(); }); av.appendChild(b); pie.appendChild(av);
+    }
+    $('#lista-inf').removeAttribute('aria-busy'); inf.cargando = false;
+    // si la lista no llena el contenedor, sigue cargando
+    if (!inf.fin && !pie.firstChild && $('#centinela').getBoundingClientRect().top < $('#lista-inf').getBoundingClientRect().bottom + 200) cargarMas();
+  }
+  const io = new IntersectionObserver(es => { if (es[0].isIntersecting) cargarMas(); }, { root: $('#lista-inf'), rootMargin: '200px' });
+  io.observe($('#centinela'));
+
+  /* ===== 2. Botón "Cargar más" ===== */
+  const mas = { pag: 0, n: 0, cargando: false };
+  async function cargarMasBoton() {
+    if (mas.cargando) return; mas.cargando = true; const b = $('#btn-mas'); b.disabled = true; b.textContent = 'Cargando…'; b.setAttribute('aria-busy', 'true');
+    try {
+      const r = await api(mas.pag + 1); r.items.forEach(d => $('#items-mas').appendChild(fila(d))); mas.pag++; mas.n += r.items.length;
+      $('#cont-mas').textContent = 'Mostrando ' + mas.n + ' de ' + r.total; $('#barra-mas').style.width = (mas.n / r.total * 100) + '%';
+      if (mas.n >= r.total) { b.textContent = 'No hay más resultados'; b.disabled = true; } else { b.textContent = 'Cargar ' + Math.min(TAM, r.total - mas.n) + ' más'; b.disabled = false; }
+    } catch (e) { b.textContent = 'Error, reintentar'; b.disabled = false; $('#cont-mas').textContent = 'No se pudo cargar: ' + e.message + '.'; }
+    b.removeAttribute('aria-busy'); mas.cargando = false;
+  }
+  $('#btn-mas').addEventListener('click', cargarMasBoton);
+
+  /* ===== 3. Paginación con prefetch ===== */
+  const P = { pag: 1, total: Math.ceil(TOTAL / TAM), cache: new Map() };
+  async function traer(n) { if (P.cache.has(n)) return { r: P.cache.get(n), cache: true }; const r = await api(n); P.cache.set(n, r); return { r, cache: false }; }
+  async function irPagina(n) {
+    n = Math.max(1, Math.min(P.total, n)); const t = $('#tabla-pag'); t.classList.add('cargando'); t.setAttribute('aria-busy', 'true');
+    try {
+      const { r, cache } = await traer(n); P.pag = n; const tb = $('tbody', t); tb.replaceChildren();
+      r.items.forEach(d => { const tr = el('tr'); tr.append(el('td', 'mono', '#' + d.id), el('td', '', d.cliente)); const td = el('td'); td.appendChild(el('span', 'badge ' + (d.estado === 'Activo' ? 'ok' : d.estado === 'Pendiente' ? 'warn' : 'bad'), d.estado)); tr.append(td, el('td', 'num', CLP(d.monto))); tb.appendChild(tr); });
+      $('#estado-pag').textContent = 'Página ' + n + ' de ' + P.total + (cache ? ' (desde caché, instantánea)' : '') + '.';
+      pintaNav(); if (n < P.total && !P.cache.has(n + 1)) traer(n + 1).then(() => { $('#estado-pag').textContent += ' La página ' + (n + 1) + ' ya está precargada.'; }).catch(() => {});
+    } catch (e) { $('#estado-pag').textContent = 'Error al cargar la página ' + n + ': ' + e.message + '. Vuelve a intentarlo.'; }
+    t.classList.remove('cargando'); t.setAttribute('aria-busy', 'false');
+  }
+  function pintaNav() {
+    const nav = $('#nav-pag'); nav.replaceChildren(); const mk = (txt, n, aria, dis) => { const b = el('button', '', txt); b.type = 'button'; b.setAttribute('aria-label', aria); b.disabled = !!dis; if (n === P.pag && !aria.startsWith('Página anterior') && !aria.startsWith('Página siguiente')) b.setAttribute('aria-current', 'page'); b.addEventListener('click', () => irPagina(n)); return b; };
+    nav.appendChild(mk('‹', P.pag - 1, 'Página anterior', P.pag === 1));
+    const set = new Set([1, P.total, P.pag - 1, P.pag, P.pag + 1]); let ult = 0;
+    [...set].filter(x => x >= 1 && x <= P.total).sort((a, b) => a - b).forEach(x => { if (x - ult > 1) nav.appendChild(el('span', 'el', '…')); nav.appendChild(mk(String(x), x, 'Página ' + x)); ult = x; });
+    nav.appendChild(mk('›', P.pag + 1, 'Página siguiente', P.pag === P.total));
+  }
+
+  /* ===== 4. Lista virtualizada: solo se pintan las filas visibles ===== */
+  const V = { n: 10000, h: 44, buf: 6 }; const vs = $('#virt'), vi = $('#virt-int'); vi.style.height = (V.n * V.h) + 'px';
+  function pintaVirt() {
+    if (!vs.clientHeight) return; const ini = Math.max(0, Math.floor(vs.scrollTop / V.h) - V.buf), fin = Math.min(V.n, Math.ceil((vs.scrollTop + vs.clientHeight) / V.h) + V.buf);
+    const frag = document.createDocumentFragment();
+    for (let i = ini; i < fin; i++) { const d = dato(i); const f = el('div', 'virt-fila'); f.style.top = (i * V.h) + 'px'; f.setAttribute('role', 'row'); f.append(el('span', 'n', '#' + (i + 1)), el('span', '', d.cliente), el('span', 'muted', CLP(d.monto))); frag.appendChild(f); }
+    vi.replaceChildren(frag); $('#st-virt').textContent = 'Filas en el DOM: ' + (fin - ini) + ' de ' + new Intl.NumberFormat('es-CL').format(V.n);
+  }
+  let rafV = 0; vs.addEventListener('scroll', () => { cancelAnimationFrame(rafV); rafV = requestAnimationFrame(pintaVirt); });
+  $('#btn-ir').addEventListener('click', () => { const n = Math.max(1, Math.min(V.n, +$('#in-fila').value || 1)); vs.scrollTop = (n - 1) * V.h; pintaVirt(); });
+
+  /* ===== 5. Pull to refresh (puntero táctil o mouse) ===== */
+  let pull = { y0: null, dy: 0, activo: false }, nPtr = 0;
+  function iniPtr() { for (let i = 0; i < 8; i++) $('#lista-ptr').appendChild(fila(dato(i + 30))); }
+  async function refrescar() {
+    if (pull.activo) return; pull.activo = true; const ptr = $('#ptr'), lista = $('#lista-ptr'); ptr.classList.add('cargando'); ptr.querySelector('.bola').style.transform = 'translateY(70px)'; lista.style.transform = 'translateY(56px)'; $('#estado-ptr').textContent = 'Actualizando…';
+    try { await esperar(Math.max(500, lat())); if (Math.random() < fal()) throw new Error('Sin conexión'); nPtr++; const d = dato(50 + nPtr); d.cliente = 'Nueva actividad ' + nPtr; lista.insertBefore(fila(d, true), lista.firstChild); $('#estado-ptr').textContent = 'Actualizado hace un instante.'; }
+    catch (e) { $('#estado-ptr').textContent = 'No se pudo actualizar: ' + e.message + '.'; }
+    ptr.classList.remove('cargando'); ptr.querySelector('.bola').style.transform = ''; lista.style.transform = ''; pull.activo = false;
+  }
+  $('#btn-refrescar').addEventListener('click', refrescar);
+  const pl = $('#pull');
+  pl.addEventListener('pointerdown', e => { if (pl.scrollTop <= 0 && !pull.activo) { pull.y0 = e.clientY; pull.dy = 0; } });
+  pl.addEventListener('pointermove', e => {
+    if (pull.y0 == null || pull.activo) return; const dy = e.clientY - pull.y0; if (dy <= 0 || pl.scrollTop > 0) { pull.dy = 0; return; }
+    pull.dy = Math.min(90, dy * .5); $('#ptr .bola').style.transition = 'none'; $('#ptr .bola').style.transform = 'translateY(' + (pull.dy * .8 + 44) + 'px)'; $('#ptr svg').style.transform = 'rotate(' + (pull.dy * 4) + 'deg)'; $('#lista-ptr').style.transition = 'none'; $('#lista-ptr').style.transform = 'translateY(' + pull.dy * .6 + 'px)';
+  });
+  const suelta = () => { if (pull.y0 == null) return; const dis = pull.dy; pull.y0 = null; $('#ptr .bola').style.transition = ''; $('#lista-ptr').style.transition = ''; $('#ptr svg').style.transform = ''; if (dis > 55) refrescar(); else { $('#ptr .bola').style.transform = ''; $('#lista-ptr').style.transform = ''; } pull.dy = 0; };
+  pl.addEventListener('pointerup', suelta); pl.addEventListener('pointercancel', suelta); pl.addEventListener('pointerleave', suelta);
+
+  /* ===== 6. Aviso de nuevos elementos (no mueve lo que lees) ===== */
+  const NV = { pend: [], timer: null, n: 0 };
+  function iniNuevos() {
+    const cont = $('#items-nuevos'); for (let i = 0; i < 14; i++) cont.appendChild(fila(dato(i + 60)));
+    NV.timer = setInterval(() => { const d = dato(80 + NV.n++); d.cliente = 'Novedad ' + NV.n; NV.pend.push(d); const sc = $('#feed-nuevos'); if (sc.scrollTop < 8) vaciar(); else muestraAviso(); }, 6000);
+  }
+  function muestraAviso() { const b = $('#btn-nuevos'); b.textContent = NV.pend.length + (NV.pend.length === 1 ? ' nuevo' : ' nuevos') + ' (subir)'; $('#pastilla').classList.add('on'); }
+  function vaciar() { const cont = $('#items-nuevos'); NV.pend.reverse().forEach(d => cont.insertBefore(fila(d, true), cont.firstChild)); NV.pend = []; $('#pastilla').classList.remove('on'); }
+  $('#btn-nuevos').addEventListener('click', () => { $('#feed-nuevos').scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); vaciar(); });
+  $('#feed-nuevos').addEventListener('scroll', () => { if ($('#feed-nuevos').scrollTop < 8 && NV.pend.length) vaciar(); });
+
+  cargarMas();
+})();
+</script>
+</body>
+</html>

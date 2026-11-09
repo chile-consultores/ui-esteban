@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Sidebars laterales · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: 4 sidebars (colapsable a iconos con tooltip, acordeón con submenús, rail con flyout, drawer móvil con overlay) y selector de variante.
+  Proyecto: apps privadas de Chile Consultores (Clima, CRM, DataDash, Helpdesk).
+  Cómo aplicarlo: copia el CSS `.sb` y la función `crearSidebar(contenedor, items, opciones)`. Los items vienen del arreglo ITEMS (icono, texto, hijos).
+  Conectar: cambia ITEMS por tu menú real y reemplaza `activar(id)` por tu router. El estado colapsado se guarda en localStorage (con try/catch).
+  Ganchos: .sb, [data-sb], .sb-item[aria-current], .sb[data-colapsado], window.SB.activar(id).
+  Accesibilidad: <nav aria-label>, aria-expanded en submenús, aria-current en el activo, Escape cierra drawer y flyout, foco atrapado en drawer.
+-->
+<style>
+  .pagina{max-width:1100px;margin:0 auto;padding:24px 16px 64px;display:flex;flex-direction:column;gap:20px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .demo{display:grid;grid-template-columns:auto 1fr;min-height:460px;border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);overflow:clip;position:relative}
+  .contenido{padding:22px;display:flex;flex-direction:column;gap:12px;min-width:0}
+  .contenido h2{margin:0;font-size:1.2rem}
+  .contenido .linea{height:12px;border-radius:6px;background:var(--superficie-2)}
+  .selec{display:flex;gap:8px;flex-wrap:wrap}
+  .ico{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+  /* === COMPONENTE: sidebar base === */
+  .sb{--ancho:248px;width:var(--ancho);background:var(--superficie-2);border-right:1px solid var(--borde);display:flex;flex-direction:column;padding:12px 10px;gap:4px;transition:width .3s var(--ease-salida);overflow:visible;position:relative;z-index:2}
+  .sb[data-colapsado=true]{--ancho:64px}
+  .sb-cab{display:flex;align-items:center;gap:10px;padding:6px 8px 14px;font-weight:800;white-space:nowrap;overflow:hidden}
+  .sb-cab b{width:28px;height:28px;border-radius:8px;flex:none;background:linear-gradient(135deg,var(--marca),var(--acento))}
+  .sb-sec{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--texto-2);padding:10px 12px 4px;white-space:nowrap;overflow:hidden;transition:opacity .2s}
+  .sb[data-colapsado=true] .sb-sec{opacity:0;height:8px;padding:0}
+  .sb-item{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border-radius:10px;border:0;background:none;color:var(--texto-2);font:inherit;font-weight:600;cursor:pointer;text-align:left;text-decoration:none;position:relative;white-space:nowrap}
+  .sb-item:hover{background:rgba(255,255,255,.06);color:var(--texto)}
+  .sb-item[aria-current=page]{background:rgba(124,109,242,.2);color:var(--texto)}
+  .sb-item[aria-current=page]::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--marca)}
+  .sb-item .txt{flex:1;overflow:hidden;text-overflow:ellipsis;transition:opacity .2s}
+  .sb[data-colapsado=true] .sb-item .txt,.sb[data-colapsado=true] .sb-item .flecha,.sb[data-colapsado=true] .sb-cab span{opacity:0;width:0;flex:0}
+  .sb-item .flecha{transition:transform .25s}
+  .sb-item[aria-expanded=true] .flecha{transform:rotate(90deg)}
+  .sb-ins{font-size:.7rem;padding:1px 7px;border-radius:99px;background:var(--marca);color:#fff}
+  .sb-sub{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s var(--ease-salida)}
+  .sb-sub > div{overflow:hidden;display:flex;flex-direction:column;gap:2px;margin-left:22px;border-left:1px solid var(--borde);padding-left:8px}
+  .sb-sub.on{grid-template-rows:1fr}
+  .sb-sub .sb-item{padding:8px 10px;font-weight:500}
+  .sb[data-colapsado=true] .sb-sub{display:none}
+  .sb-pie{margin-top:auto;padding-top:10px;border-top:1px solid var(--borde);display:flex;flex-direction:column;gap:4px}
+  [data-tip]{position:relative}
+  .sb[data-colapsado=true] [data-tip]:hover::after,.sb[data-colapsado=true] [data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);background:#000;color:#fff;font-size:.78rem;padding:5px 9px;border-radius:8px;white-space:nowrap;z-index:30;pointer-events:none;border:1px solid var(--borde)}
+
+  /* === COMPONENTE: rail con flyout === */
+  .sb.rail{--ancho:72px;align-items:center}
+  .sb.rail .sb-item{flex-direction:column;gap:3px;padding:10px 4px;width:56px;font-size:.66rem;justify-content:center;align-items:center}
+  .sb.rail .sb-item .txt{flex:none;opacity:1;width:auto;font-weight:600}
+  .sb.rail .sb-item .flecha,.sb.rail .sb-sec,.sb.rail .sb-sub{display:none}
+  .sb.rail .sb-item[aria-current=page]::before{left:-8px}
+  .sb.rail .sb-cab span{display:none}
+  .fly{position:absolute;left:calc(100% + 6px);top:0;min-width:200px;background:var(--superficie-2);border:1px solid var(--borde);border-radius:12px;padding:8px;z-index:20;box-shadow:0 20px 44px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:2px;animation:izq .18s var(--ease-salida)}
+  .fly[hidden]{display:none}
+  .fly h4{margin:2px 8px 6px;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--texto-2)}
+  .sb.rail .fly .sb-item{flex-direction:row;width:100%;font-size:.9rem;justify-content:flex-start;align-items:center;padding:8px 10px;gap:10px}
+  .sb.rail .fly .sb-item .txt{flex:1;text-align:left}
+  @keyframes izq{from{opacity:0;transform:translateX(-6px)}}
+
+  /* === COMPONENTE: drawer movil === */
+  .barra-m{display:none}
+  @media(max-width:760px){
+    .demo.v-fija{grid-template-columns:1fr}
+    .demo.v-fija .sb{position:absolute;inset:0 auto 0 0;transform:translateX(-102%);transition:transform .3s var(--ease-salida);z-index:40;width:min(280px,82%)}
+    .demo.v-fija .sb.abierto{transform:none}
+    .demo.v-fija .barra-m{display:flex}
+  }
+  .barra-m{align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--borde)}
+  .velo{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(2px);z-index:35;opacity:0;pointer-events:none;transition:opacity .25s}
+  .velo.on{opacity:1;pointer-events:auto}
+  .drawer-demo .sb{position:absolute;inset:0 auto 0 0;transform:translateX(-102%);transition:transform .3s var(--ease-salida);z-index:40;width:280px;max-width:86%}
+  .drawer-demo .sb.abierto{transform:none}
+  .drawer-demo{grid-template-columns:1fr}
+  .drawer-demo .barra-m{display:flex}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header><h1 class="gradient-text" style="margin:0 0 6px">Sidebars laterales</h1><p class="small" style="margin:0">Elige una variante. En móvil las dos primeras se convierten en drawer.</p></header>
+  <div class="selec" id="selec" role="tablist" aria-label="Variante">
+    <button class="btn btn-sm" role="tab" aria-selected="true" data-v="colapsable" type="button">Colapsable</button>
+    <button class="btn btn-sm btn-sec" role="tab" aria-selected="false" data-v="acordeon" type="button">Acordeón</button>
+    <button class="btn btn-sm btn-sec" role="tab" aria-selected="false" data-v="rail" type="button">Rail con flyout</button>
+    <button class="btn btn-sm btn-sec" role="tab" aria-selected="false" data-v="drawer" type="button">Drawer con overlay</button>
+  </div>
+  <div id="escena"></div>
+  <p class="small">Atajo: Ctrl + B colapsa o expande en la variante colapsable.</p>
+</main>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const NS = 'http://www.w3.org/2000/svg';
+  const IC = { inicio: 'M3 11l9-8 9 8v10H3z', clientes: 'M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0', estudios: 'M4 20V10M10 20V4M16 20v-8M22 20H2', informes: 'M6 2h9l5 5v15H6zM14 2v6h6', ajustes: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19 12l2-1-2-4-2 1-2-1-1-2h-4l-1 2-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1 1 2h4l1-2 2-1 2 1 2-4-2-1z', ayuda: 'M12 22a10 10 0 100-20 10 10 0 000 20zM9.5 9a2.5 2.5 0 115 0c0 2-2.5 2-2.5 4M12 17h.01', flecha: 'M9 6l6 6-6 6', menu: 'M4 6h16M4 12h16M4 18h16', plegar: 'M15 6l-6 6 6 6' };
+  const icono = k => { const s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'ico'); s.setAttribute('aria-hidden', 'true'); const p = document.createElementNS(NS, 'path'); p.setAttribute('d', IC[k]); s.appendChild(p); return s; };
+
+  /* === COMPONENTE: datos del menu (reemplazar) === */
+  const ITEMS = [
+    { sec: 'General' },
+    { id: 'inicio', t: 'Inicio', i: 'inicio' },
+    { id: 'clientes', t: 'Clientes', i: 'clientes', ins: '12' },
+    { id: 'estudios', t: 'Estudios', i: 'estudios', hijos: [['clima', 'Clima laboral'], ['mystery', 'Mystery shopper'], ['rotacion', 'Rotación']] },
+    { id: 'informes', t: 'Informes', i: 'informes', hijos: [['borradores', 'Borradores'], ['enviados', 'Enviados']] },
+    { sec: 'Cuenta' },
+    { id: 'ajustes', t: 'Ajustes', i: 'ajustes' }
+  ];
+  const PIE = [{ id: 'ayuda', t: 'Ayuda', i: 'ayuda' }];
+
+  let activo = 'inicio'; const cbs = [];
+  function activar(id) { activo = id; cbs.forEach(f => f()); const t = $('#tit-demo'); if (t) t.textContent = id.charAt(0).toUpperCase() + id.slice(1); }
+  window.SB = { activar };
+
+  /* === COMPONENTE: crearSidebar === */
+  function crearSidebar(op) {
+    const nav = el('nav', 'sb' + (op.rail ? ' rail' : '')); nav.setAttribute('aria-label', 'Principal'); nav.dataset.sb = '';
+    let col = false; try { col = op.recordar && localStorage.getItem('sb-col') === '1'; } catch (e) {}
+    if (op.colapsable) nav.dataset.colapsado = String(col);
+    const cab = el('div', 'sb-cab'); cab.append(el('b'), el('span', '', 'Chile Consultores')); nav.appendChild(cab);
+    const refs = [];
+    const flyEl = op.rail ? el('div', 'fly') : null; if (flyEl) { flyEl.hidden = true; flyEl.setAttribute('role', 'menu'); }
+    function item(d, padre) {
+      const b = el(op.rail ? 'button' : 'button', 'sb-item'); b.type = 'button'; b.dataset.id = d.id; b.dataset.tip = d.t;
+      if (!padre || !op.rail) b.append(d.i ? icono(d.i) : el('span'), el('span', 'txt', d.t));
+      if (d.ins) { const i = el('span', 'sb-ins', d.ins); b.appendChild(i); }
+      return b;
+    }
+    ITEMS.forEach(d => {
+      if (d.sec) { nav.appendChild(el('div', 'sb-sec', d.sec)); return; }
+      const b = item(d); nav.appendChild(b); refs.push([b, d.id, d]);
+      if (d.hijos) {
+        const fl = icono('flecha'); fl.classList.add('flecha'); b.appendChild(fl);
+        if (op.rail) {
+          b.addEventListener('click', e => { e.stopPropagation(); abrirFly(b, d); });
+        } else {
+          const sub = el('div', 'sb-sub'); const in_ = el('div'); sub.appendChild(in_);
+          d.hijos.forEach(([id, t]) => { const h = el('button', 'sb-item'); h.type = 'button'; h.dataset.id = id; h.append(el('span', 'txt', t)); h.addEventListener('click', () => activar(id)); in_.appendChild(h); refs.push([h, id, null]); });
+          nav.appendChild(sub); b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-controls', 'sub-' + d.id); sub.id = 'sub-' + d.id;
+          b.addEventListener('click', () => { const on = b.getAttribute('aria-expanded') !== 'true'; if (op.unico) nav.querySelectorAll('.sb-item[aria-expanded]').forEach(o => { o.setAttribute('aria-expanded', 'false'); o.nextElementSibling.classList.remove('on'); }); b.setAttribute('aria-expanded', String(on)); sub.classList.toggle('on', on); });
+          return;
+        }
+      }
+      if (!d.hijos) b.addEventListener('click', () => activar(d.id));
+    });
+    const pie = el('div', 'sb-pie'); PIE.forEach(d => { const b = item(d); b.addEventListener('click', () => activar(d.id)); pie.appendChild(b); refs.push([b, d.id, d]); });
+    if (op.colapsable) { const tg = el('button', 'sb-item'); tg.type = 'button'; tg.setAttribute('aria-label', 'Colapsar menú'); tg.append(icono('plegar'), el('span', 'txt', 'Colapsar')); tg.dataset.tip = 'Expandir'; tg.addEventListener('click', alternar); pie.appendChild(tg); }
+    nav.appendChild(pie);
+    function alternar() { const c = nav.dataset.colapsado !== 'true'; nav.dataset.colapsado = String(c); try { if (op.recordar) localStorage.setItem('sb-col', c ? '1' : '0'); } catch (e) {} const t = nav.querySelector('.sb-pie .sb-item:last-child'); if (t) t.setAttribute('aria-label', c ? 'Expandir menú' : 'Colapsar menú'); }
+    nav.alternar = alternar;
+    function pintar() { refs.forEach(([b, id, d]) => { const hijoActivo = d && d.hijos && d.hijos.some(h => h[0] === activo); if (id === activo || hijoActivo) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }); }
+    cbs.push(pintar); pintar();
+    function abrirFly(b, d) {
+      if (!flyEl.hidden && flyEl.dataset.id === d.id) { cerrarFly(); return; }
+      flyEl.replaceChildren(el('h4', '', d.t)); d.hijos.forEach(([id, t]) => { const h = el('button', 'sb-item'); h.type = 'button'; h.setAttribute('role', 'menuitem'); h.append(el('span', 'txt', t)); h.addEventListener('click', () => { activar(id); cerrarFly(); }); flyEl.appendChild(h); });
+      flyEl.dataset.id = d.id; flyEl.style.top = b.offsetTop + 'px'; flyEl.hidden = false; const p = flyEl.querySelector('.sb-item'); if (p) p.focus(); b.setAttribute('aria-expanded', 'true');
+    }
+    function cerrarFly() { if (!flyEl) return; flyEl.hidden = true; nav.querySelectorAll('[aria-expanded]').forEach(x => x.setAttribute('aria-expanded', 'false')); }
+    if (flyEl) { nav.appendChild(flyEl); document.addEventListener('click', e => { if (!e.target.closest('.fly') && !flyEl.hidden) cerrarFly(); }); document.addEventListener('keydown', e => { if (e.key === 'Escape' && !flyEl.hidden) { const id = flyEl.dataset.id; cerrarFly(); const b = nav.querySelector('[data-id="' + id + '"]'); if (b) b.focus(); } }); }
+    return nav;
+  }
+
+  function contenido() {
+    const c = el('div', 'contenido'); const h = el('h2', '', 'Inicio'); h.id = 'tit-demo'; c.appendChild(h);
+    c.appendChild(el('p', 'small', 'Aquí va el contenido de la página. El menú marca la sección activa y los submenús abren sin salto.'));
+    for (let i = 0; i < 6; i++) c.appendChild(el('div', 'linea')).style.width = [100, 92, 70, 85, 50, 78][i] + '%'; return c;
+  }
+
+  /* === variantes === */
+  const escena = $('#escena'); let limpiar = null; const sel = [...document.querySelectorAll('#selec [role=tab]')];
+  const kd = e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { const s = $('.sb[data-colapsado]'); if (s && s.alternar && !matchMedia('(max-width:760px)').matches) { e.preventDefault(); s.alternar(); } } };
+  document.addEventListener('keydown', kd);
+  function drawerComun(demo, nav, tipo) {
+    const barra = el('div', 'barra-m'); const bt = el('button', 'btn btn-sec btn-sm'); bt.type = 'button'; bt.setAttribute('aria-label', 'Abrir menú'); bt.append(icono('menu')); barra.append(bt, el('b', '', 'Chile Consultores'));
+    const velo = el('div', 'velo'); const cont = demo.querySelector('.contenido'); const col = el('div'); col.style.cssText = 'display:flex;flex-direction:column;min-width:0'; col.append(barra, cont); demo.appendChild(col);
+    demo.appendChild(velo); let ult = null;
+    const abrir = () => { ult = document.activeElement; nav.classList.add('abierto'); velo.classList.add('on'); bt.setAttribute('aria-expanded', 'true'); const p = nav.querySelector('.sb-item'); if (p) p.focus(); };
+    const cerrar = () => { nav.classList.remove('abierto'); velo.classList.remove('on'); bt.setAttribute('aria-expanded', 'false'); if (ult) ult.focus(); };
+    bt.addEventListener('click', abrir); velo.addEventListener('click', cerrar);
+    demo.addEventListener('keydown', e => { if (!nav.classList.contains('abierto')) return; if (e.key === 'Escape') cerrar(); if (e.key === 'Tab') { const f = [...nav.querySelectorAll('button')].filter(x => x.offsetParent); const i = f.indexOf(document.activeElement); if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); } } });
+    nav.addEventListener('click', e => { if (e.target.closest('.sb-item') && !e.target.closest('[aria-expanded]') && matchMedia('(max-width:760px)').matches || tipo === 'drawer' && e.target.closest('.sb-item') && !e.target.closest('[aria-expanded]')) cerrar(); });
+  }
+  function montar(v) {
+    if (limpiar) limpiar(); escena.replaceChildren(); cbs.length = 0; activo = 'inicio';
+    sel.forEach(b => { const on = b.dataset.v === v; b.setAttribute('aria-selected', on); b.classList.toggle('btn-sec', !on); });
+    const demo = el('div', 'demo'); let nav;
+    if (v === 'colapsable') { nav = crearSidebar({ colapsable: true, recordar: true }); demo.classList.add('v-fija'); }
+    if (v === 'acordeon') { nav = crearSidebar({ unico: true }); demo.classList.add('v-fija'); }
+    if (v === 'rail') nav = crearSidebar({ rail: true });
+    if (v === 'drawer') { nav = crearSidebar({}); demo.classList.add('drawer-demo'); }
+    demo.append(nav, contenido()); escena.appendChild(demo);
+    if (v === 'drawer') drawerComun(demo, nav, 'drawer');
+    else if (v === 'colapsable' || v === 'acordeon') drawerComun(demo, nav, 'fija');
+  }
+  sel.forEach(b => b.addEventListener('click', () => montar(b.dataset.v)));
+  montar('colapsable');
+});
+</script>
+</body>
+</html>

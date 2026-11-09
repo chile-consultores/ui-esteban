@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Calendario de reservas · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: reserva de reuniones en 4 pasos (servicio, día, hora, datos): calendario mensual con días sin disponibilidad deshabilitados, horarios en bloques según duración, zona horaria visible, navegación por teclado en la cuadrícula (flechas, Inicio, Fin, RePág), bloqueo anti doble reserva, resumen siempre visible y confirmación con botón "Agregar a mi calendario" (.ics).
+  Proyecto: agendamiento de demos, reuniones de seguimiento y visitas de Chile Consultores.
+  Cómo aplicarlo: define SERVICIOS y la función `disponibilidad(fecha)` (devuelve horas libres). Conecta `reservar()` a tu tabla de reservas en Supabase con una restricción única (fecha+hora) para evitar choques.
+  Conectar: la hora local del visitante se detecta con Intl; guarda siempre en UTC.
+  Ganchos: #cal, [data-dia], #horas, window.Reservas.
+  Reglas UX: nunca mostrar horas que no se pueden tomar, mostrar la zona horaria, recordar el último servicio, permitir cambiar de día sin perder el servicio, el día de hoy marcado, el primer día con cupo preseleccionable ("Próximo disponible") y confirmación con todos los datos y un siguiente paso claro.
+-->
+<style>
+  .pagina{max-width:960px;margin:0 auto;padding:24px 16px 80px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .layout{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start;margin-top:16px}
+  @media(max-width:820px){.layout{grid-template-columns:1fr}.res{order:-1;position:static!important}}
+  .caja{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:20px;display:flex;flex-direction:column;gap:14px}
+  .pasos{display:flex;gap:6px;list-style:none;margin:0;padding:0}
+  .pasos li{flex:1;height:5px;border-radius:99px;background:var(--superficie-2)}
+  .pasos li.on{background:var(--marca)} .pasos li.ok{background:var(--acento)}
+  h2.t{margin:0;font-size:1.15rem}
+  [data-p][hidden]{display:none}
+
+  .servs{display:grid;gap:10px}
+  .serv{display:flex;gap:12px;align-items:center;padding:14px;border:1.5px solid var(--borde);border-radius:14px;background:var(--superficie-2);cursor:pointer;text-align:left;color:var(--texto);font:inherit;width:100%}
+  .serv:hover{border-color:var(--marca)}
+  .serv[aria-checked=true]{border-color:var(--marca);background:rgba(124,109,242,.16)}
+  .serv .min{margin-left:auto;font-size:.8rem;color:var(--texto-2);white-space:nowrap}
+  .serv b{display:block}
+
+  /* === COMPONENTE: calendario === */
+  .cal-cab{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .cal-cab h3{margin:0;text-transform:capitalize;font-size:1.05rem}
+  .cal-cab button{width:44px;height:44px;border-radius:12px;border:1px solid var(--borde);background:var(--superficie-2);color:var(--texto);cursor:pointer;font-size:1.1rem}
+  .cal-cab button:hover:not(:disabled){border-color:var(--marca)}
+  .cal-cab button:disabled{opacity:.35;cursor:not-allowed}
+  #cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:6px}
+  #cal .sem{font-size:.72rem;text-align:center;color:var(--texto-2);padding:6px 0;text-transform:uppercase}
+  #cal button{aspect-ratio:1;min-height:42px;border-radius:12px;border:1px solid transparent;background:var(--superficie-2);color:var(--texto);font:inherit;font-variant-numeric:tabular-nums;cursor:pointer;position:relative;transition:background .15s,border-color .15s}
+  #cal button:hover:not(:disabled){border-color:var(--marca)}
+  #cal button:disabled{background:transparent;color:var(--texto-2);opacity:.4;cursor:not-allowed}
+  #cal button.hoy{border-color:var(--acento)}
+  #cal button.hay::after{content:"";position:absolute;bottom:5px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--verde)}
+  #cal button[aria-pressed=true]{background:var(--marca);color:#fff;font-weight:800}
+  #cal .vacio{visibility:hidden}
+  .prox-d{align-self:flex-start}
+
+  .horas{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+  .horas button{padding:12px 8px;border-radius:12px;border:1.5px solid var(--borde);background:var(--superficie-2);color:var(--texto);font:inherit;font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer;min-height:46px}
+  .horas button:hover{border-color:var(--marca)}
+  .horas button[aria-pressed=true]{background:var(--marca);border-color:var(--marca);color:#fff}
+  .horas button.tomada{opacity:.35;text-decoration:line-through;cursor:not-allowed}
+  .zona{display:flex;gap:8px;align-items:center;font-size:.85rem;color:var(--texto-2)}
+  .grupo{display:flex;flex-direction:column;gap:14px}
+  .campo{display:flex;flex-direction:column;gap:6px}
+  .campo label{font-weight:600;font-size:.9rem}
+  .campo input,.campo textarea{width:100%;min-height:46px}
+  .campo .msg{display:none;color:var(--rojo);font-size:.82rem}
+  .campo[data-e] .msg{display:block}.campo[data-e] input{border-color:var(--rojo)}
+  .acc{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .res{position:sticky;top:12px}
+  .res h2{margin:0;font-size:1rem}
+  .res dl{margin:0;display:grid;gap:10px}
+  .res dt{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--texto-2)}
+  .res dd{margin:0;font-weight:600}
+  .res dd.pend{color:var(--texto-2);font-weight:400}
+  .final{text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px 0}
+  .final svg{width:72px;height:72px}
+  .final circle{stroke:var(--verde);stroke-width:3;fill:none;stroke-dasharray:166;stroke-dashoffset:166;animation:tr .6s .1s ease forwards}
+  .final path{stroke:var(--verde);stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:48;stroke-dashoffset:48;animation:tr .4s .6s ease forwards}
+  @keyframes tr{to{stroke-dashoffset:0}}
+  .btn.cargando{position:relative;color:transparent!important;pointer-events:none}
+  .btn.cargando::after{content:"";position:absolute;inset:0;margin:auto;width:18px;height:18px;border:2px solid #fff;border-right-color:transparent;border-radius:50%;animation:g .7s linear infinite}
+  @keyframes g{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}.final circle,.final path{stroke-dashoffset:0}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header><h1 class="gradient-text" style="margin:0 0 4px">Agenda una reunión</h1><p class="small" style="margin:0">Elige el tipo, el día y la hora. Recibirás la confirmación por correo.</p></header>
+  <div class="layout">
+    <div class="caja" id="caja">
+      <ol class="pasos" id="pasos" aria-label="Progreso"><li></li><li></li><li></li><li></li></ol>
+      <section data-p="1" class="grupo"><h2 class="t" id="t1" tabindex="-1">¿Qué reunión necesitas?</h2><div class="servs" id="servs" role="radiogroup" aria-labelledby="t1"></div></section>
+      <section data-p="2" class="grupo" hidden><h2 class="t" id="t2" tabindex="-1">Elige un día</h2>
+        <div class="cal-cab"><button type="button" id="c-prev" aria-label="Mes anterior">‹</button><h3 id="c-mes" aria-live="polite"></h3><button type="button" id="c-sig" aria-label="Mes siguiente">›</button></div>
+        <div id="cal" role="grid" aria-labelledby="c-mes"></div>
+        <button class="btn btn-sec btn-sm prox-d" id="b-prox" type="button">Ir al próximo día disponible</button><div class="small"><span style="color:var(--verde)">●</span> Días con horas libres</div></section>
+      <section data-p="3" class="grupo" hidden><h2 class="t" id="t3" tabindex="-1">Elige una hora</h2><div class="zona" id="zona"></div><div class="horas" id="horas" role="group" aria-labelledby="t3"></div><div class="small" id="h-vacio" hidden>No quedan horas libres este día. Prueba con otro.</div></section>
+      <section data-p="4" class="grupo" hidden><h2 class="t" id="t4" tabindex="-1">Tus datos</h2>
+        <div class="campo" id="c-n"><label for="in-n">Nombre</label><input class="input" id="in-n" name="nombre" autocomplete="name"><div class="msg" id="e-n">Escribe tu nombre</div></div>
+        <div class="campo" id="c-m"><label for="in-m">Correo</label><input class="input" id="in-m" name="mail" type="email" inputmode="email" autocomplete="email"><div class="msg" id="e-m">Escribe un correo válido</div></div>
+        <div class="campo"><label for="in-c">¿Algo que quieras contarnos? <span class="small">(opcional)</span></label><textarea class="input" id="in-c" name="com" rows="3"></textarea></div></section>
+      <section data-p="5" class="final" hidden aria-live="polite"><svg viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="26.5"/><path d="M17 31l9 9 17-19"/></svg><h2 class="t" id="t5" tabindex="-1">Reunión confirmada</h2><p id="f-txt" style="margin:0"></p><p class="small" style="margin:0">Te enviamos la invitación a tu correo. Puedes reagendar con el enlace que incluye.</p><div class="acc"><button class="btn" type="button" id="b-ics">Agregar a mi calendario</button><button class="btn btn-sec" type="button" id="b-otra">Agendar otra</button></div></section>
+      <div class="acc" id="acc"><button class="btn btn-sec" type="button" id="b-atras" hidden>Atrás</button><button class="btn" type="button" id="b-sig" style="margin-left:auto" disabled>Continuar</button></div>
+    </div>
+    <aside class="caja res" aria-label="Resumen de tu reserva"><h2>Tu reserva</h2><dl><div><dt>Reunión</dt><dd id="r-s" class="pend">Sin elegir</dd></div><div><dt>Día</dt><dd id="r-d" class="pend">Sin elegir</dd></div><div><dt>Hora</dt><dd id="r-h" class="pend">Sin elegir</dd></div></dl></aside>
+  </div>
+</main>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Santiago';
+
+  /* === datos (reemplazar) === */
+  const SERVICIOS = [{ id: 'demo', t: 'Demo de la plataforma', d: 'Recorrido guiado de Clima y Mystery', min: 30 }, { id: 'seg', t: 'Reunión de seguimiento', d: 'Revisión de resultados con tu equipo', min: 45 }, { id: 'prop', t: 'Propuesta a medida', d: 'Definimos alcance y presupuesto', min: 60 }];
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0); const LIM = new Date(hoy); LIM.setDate(LIM.getDate() + 75);
+  const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const hash = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
+  const tomadas = new Set(); /* reservas hechas en esta sesion */
+  /* disponibilidad: lunes a viernes, 9:00 a 17:30, algunos bloques ya ocupados (simulado) */
+  function horasDe(fecha, min) { const dw = fecha.getDay(); if (dw === 0 || dw === 6 || fecha < hoy || fecha > LIM) return []; const k = ymd(fecha); const out = []; const paso = 30; const ahora = new Date(); for (let m = 9 * 60; m + min <= 18 * 60; m += paso) { const h = String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); const ocupado = hash(k + h) % 100 < 38 || tomadas.has(k + ' ' + h); const pasada = fecha.getTime() === hoy.getTime() && m <= ahora.getHours() * 60 + ahora.getMinutes() + 60; out.push({ h, libre: !ocupado && !pasada }); } return out; }
+  const libres = (f, min) => horasDe(f, min).filter(x => x.libre);
+  const S = { serv: null, dia: null, hora: null, mes: new Date(hoy.getFullYear(), hoy.getMonth(), 1), paso: 1 }; try { const u = localStorage.getItem('res-serv'); if (u) S.serv = SERVICIOS.find(s => s.id === u) || null; } catch (e) {}
+  const fFecha = d => d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  /* === servicios === */
+  const sv = $('#servs');
+  function pintarServ() { sv.replaceChildren(); SERVICIOS.forEach(s => { const b = el('button', 'serv'); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(S.serv && S.serv.id === s.id)); const c = el('span'); c.append(el('b', '', s.t), el('span', 'small', s.d)); b.append(c, el('span', 'min', s.min + ' min')); b.addEventListener('click', () => { S.serv = s; S.hora = null; if (S.dia && !libres(S.dia, s.min).length) S.dia = null; try { localStorage.setItem('res-serv', s.id); } catch (e) {} pintarServ(); resumen(); }); sv.appendChild(b); }); }
+
+  /* === calendario === */
+  const cal = $('#cal'); let foco = null;
+  function pintarCal() {
+    cal.replaceChildren(); const y = S.mes.getFullYear(), m = S.mes.getMonth(); $('#c-mes').textContent = S.mes.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
+    ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach((d, i) => { const s = el('div', 'sem', d); s.setAttribute('aria-hidden', 'true'); cal.appendChild(s); });
+    const ini = (new Date(y, m, 1).getDay() + 6) % 7; for (let i = 0; i < ini; i++) cal.appendChild(el('span', 'vacio'));
+    const n = new Date(y, m + 1, 0).getDate(); const min = S.serv ? S.serv.min : 30;
+    for (let d = 1; d <= n; d++) { const f = new Date(y, m, d); const lib = libres(f, min).length; const b = el('button', (+f === +hoy ? 'hoy ' : '') + (lib ? 'hay' : ''), String(d)); b.type = 'button'; b.dataset.dia = ymd(f); b.disabled = !lib; b.setAttribute('aria-label', fFecha(f) + (lib ? ', ' + lib + ' horas libres' : ', sin disponibilidad')); b.setAttribute('aria-pressed', String(!!S.dia && +S.dia === +f)); b.tabIndex = -1; b.addEventListener('click', () => { S.dia = f; S.hora = null; pintarCal(); resumen(); const sel = cal.querySelector('[aria-pressed=true]'); if (sel) sel.focus(); }); cal.appendChild(b); }
+    const ini2 = cal.querySelector('[aria-pressed=true]') || cal.querySelector('button:not(:disabled)'); if (ini2) ini2.tabIndex = 0;
+    $('#c-prev').disabled = S.mes <= new Date(hoy.getFullYear(), hoy.getMonth(), 1); $('#c-sig').disabled = new Date(y, m + 1, 1) > LIM;
+  }
+  cal.addEventListener('keydown', e => { const bs = $$('button:not(:disabled)', cal); const i = bs.indexOf(document.activeElement); if (i < 0) return; const todos = $$('button', cal); const k = todos.indexOf(document.activeElement); let t = null; const mv = d => { for (let j = k + d; j >= 0 && j < todos.length; j += d > 0 ? 1 : -1) { if (!todos[j].disabled) return todos[j]; if (Math.abs(d) > 1) break; } return null; }; const step = (d, paso) => { for (let j = k + d; j >= 0 && j < todos.length; j += paso) { if (!todos[j].disabled) return todos[j]; } return null; }; if (e.key === 'ArrowRight') t = step(1, 1); else if (e.key === 'ArrowLeft') t = step(-1, -1); else if (e.key === 'ArrowDown') t = step(7, 7); else if (e.key === 'ArrowUp') t = step(-7, -7); else if (e.key === 'Home') t = bs[0]; else if (e.key === 'End') t = bs[bs.length - 1]; else if (e.key === 'PageDown' && !$('#c-sig').disabled) { e.preventDefault(); cambiarMes(1); return; } else if (e.key === 'PageUp' && !$('#c-prev').disabled) { e.preventDefault(); cambiarMes(-1); return; } if (t) { e.preventDefault(); todos.forEach(b => b.tabIndex = -1); t.tabIndex = 0; t.focus(); } });
+  function cambiarMes(d) { S.mes = new Date(S.mes.getFullYear(), S.mes.getMonth() + d, 1); pintarCal(); const b = cal.querySelector('button[tabindex="0"]'); b && b.focus(); }
+  $('#c-prev').addEventListener('click', () => cambiarMes(-1)); $('#c-sig').addEventListener('click', () => cambiarMes(1));
+  $('#b-prox').addEventListener('click', () => { const min = S.serv.min; for (let d = new Date(hoy); d <= LIM; d.setDate(d.getDate() + 1)) { if (libres(d, min).length) { S.dia = new Date(d); S.mes = new Date(d.getFullYear(), d.getMonth(), 1); S.hora = null; pintarCal(); resumen(); const b = cal.querySelector('[aria-pressed=true]'); b && b.focus(); return; } } });
+
+  /* === horas === */
+  function pintarHoras() { const H = $('#horas'); H.replaceChildren(); $('#zona').textContent = 'Horarios en tu zona: ' + TZ.replace('_', ' ') + ' (' + new Date().toLocaleTimeString('es-CL', { timeZoneName: 'short' }).split(' ').pop() + ')'; const l = horasDe(S.dia, S.serv.min).filter(x => x.libre); $('#h-vacio').hidden = l.length > 0; l.forEach(x => { const b = el('button', '', x.h); b.type = 'button'; b.setAttribute('aria-pressed', String(S.hora === x.h)); b.setAttribute('aria-label', x.h + ' horas'); b.addEventListener('click', () => { S.hora = x.h; pintarHoras(); resumen(); }); H.appendChild(b); }); }
+
+  /* === pasos === */
+  const secs = $$('[data-p]');
+  function puedeSeguir() { return S.paso === 1 ? !!S.serv : S.paso === 2 ? !!S.dia : S.paso === 3 ? !!S.hora : true; }
+  function resumen() { const set = (id, v) => { const d = $(id); d.textContent = v || 'Sin elegir'; d.classList.toggle('pend', !v); }; set('#r-s', S.serv && S.serv.t + ' (' + S.serv.min + ' min)'); set('#r-d', S.dia && fFecha(S.dia)); set('#r-h', S.hora && S.hora + ' h'); $('#b-sig').disabled = !puedeSeguir(); if (S.paso === 2) { $('#b-prox').hidden = false; } }
+  function ir(n, foco = true) { S.paso = n; secs.forEach(s => s.hidden = +s.dataset.p !== n); $$('#pasos li').forEach((l, i) => { l.className = i + 1 < n ? 'ok' : i + 1 === n ? 'on' : ''; }); const fin = n === 5; $('#acc').hidden = fin; $('#pasos').hidden = fin; $('#b-atras').hidden = n === 1; $('#b-sig').textContent = n === 4 ? 'Confirmar reserva' : 'Continuar'; if (n === 1) pintarServ(); if (n === 2) pintarCal(); if (n === 3) pintarHoras(); resumen(); if (foco) { const h = $('#t' + n); h && h.focus(); } }
+  $('#b-atras').addEventListener('click', () => ir(S.paso - 1));
+  $('#b-sig').addEventListener('click', async () => { if (S.paso < 4) { ir(S.paso + 1); return; } const n = $('#in-n'), m = $('#in-m'); let ok = true; [[n, '#c-n', !n.value.trim()], [m, '#c-m', !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m.value.trim())]].forEach(([i, c, mal]) => { const w = $(c); if (mal) { w.dataset.e = '1'; i.setAttribute('aria-invalid', 'true'); if (ok) i.focus(); ok = false; } else { delete w.dataset.e; i.removeAttribute('aria-invalid'); } }); if (!ok) return; await reservar(); });
+  ['#in-n', '#in-m'].forEach(i => $(i).addEventListener('input', () => { const c = $(i).closest('.campo'); delete c.dataset.e; }));
+  async function reservar() { const b = $('#b-sig'); b.classList.add('cargando'); await esperar(1000); const k = ymd(S.dia) + ' ' + S.hora; if (tomadas.has(k)) { b.classList.remove('cargando'); S.hora = null; ir(3); if (window.UI && UI.toast) UI.toast('Esa hora se acaba de ocupar. Elige otra.', 'error'); return; } tomadas.add(k); b.classList.remove('cargando'); $('#f-txt').textContent = S.serv.t + ', ' + fFecha(S.dia) + ' a las ' + S.hora + ' h.'; ir(5); }
+  $('#b-otra').addEventListener('click', () => { S.dia = null; S.hora = null; $('#in-n').value = ''; $('#in-m').value = ''; $('#in-c').value = ''; ir(1); });
+  $('#b-ics').addEventListener('click', () => { const [hh, mm] = S.hora.split(':').map(Number); const ini = new Date(S.dia); ini.setHours(hh, mm, 0, 0); const fin = new Date(ini.getTime() + S.serv.min * 60000); const f = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''); const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Chile Consultores//Reservas//ES', 'BEGIN:VEVENT', 'UID:' + Date.now() + '@chileconsultores', 'DTSTAMP:' + f(new Date()), 'DTSTART:' + f(ini), 'DTEND:' + f(fin), 'SUMMARY:' + S.serv.t + ' con Chile Consultores', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n'); const a = el('a'); a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' })); a.download = 'reunion.ics'; document.body.appendChild(a); a.click(); a.remove(); });
+  window.Reservas = { S, horasDe };
+  if (S.serv) { /* recuerda el ultimo servicio */ } ir(1, false);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Checkout por pasos · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: checkout de 3 pasos (datos, entrega y pago, revisión) con resumen de compra fijo, cupón con validación, cálculo de IVA 19 %, selector de plan con ahorro anual, formato de tarjeta con detección de marca, total siempre visible, y pantalla de confirmación con número de pedido.
+  Proyecto: venta de planes y servicios de Chile Consultores (Clima, Mystery, plataformas).
+  Cómo aplicarlo: cambia PLANES y CUPONES. `calcular()` devuelve el desglose; el resumen se redibuja solo. Reemplaza `pagar()` por tu pasarela (Webpay, Flow, Stripe).
+  Conectar: nunca guardes datos de tarjeta propios; en producción usa el formulario alojado de la pasarela. Aquí el número de tarjeta solo se formatea en pantalla.
+  Ganchos: #resumen, [data-paso], window.Checkout.
+  Reglas UX: precio total y desglose visibles desde el primer paso (sin sorpresas al final), invitado sin obligar a crear cuenta, volver atrás sin perder datos, errores junto al campo, botón de pago con el monto ("Pagar $95.200"), y confirmación clara de lo que pasa después.
+-->
+<style>
+  .pagina{max-width:1000px;margin:0 auto;padding:24px 16px 80px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .layout{display:grid;grid-template-columns:1fr 340px;gap:22px;align-items:start;margin-top:16px}
+  @media(max-width:860px){.layout{grid-template-columns:1fr}.resumen{order:-1;position:static!important}}
+  .caja{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:20px;display:flex;flex-direction:column;gap:16px}
+  .pasos{display:flex;gap:8px;list-style:none;margin:0 0 4px;padding:0;counter-reset:p}
+  .pasos li{flex:1;display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--texto-2);min-width:0}
+  .pasos li::before{content:counter(p);counter-increment:p;width:26px;height:26px;border-radius:50%;border:2px solid var(--borde);display:grid;place-items:center;font-weight:700;flex:none;font-size:.8rem}
+  .pasos li[aria-current=step]{color:var(--texto);font-weight:700}
+  .pasos li[aria-current=step]::before{border-color:var(--marca);background:var(--marca);color:#fff}
+  .pasos li.ok::before{content:"✓";background:var(--verde);border-color:var(--verde);color:#06070d}
+  .pasos li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @media(max-width:520px){.pasos li:not([aria-current=step]){flex:none}.pasos li:not([aria-current=step]) span{display:none}.pasos li[aria-current=step]{flex:1}}
+  [data-paso][hidden]{display:none}
+  .grupo{display:flex;flex-direction:column;gap:14px}
+  .campo{display:flex;flex-direction:column;gap:6px}
+  .campo label{font-weight:600;font-size:.9rem}
+  .campo input,.campo select{min-height:46px;width:100%}
+  .campo .msg{display:none;color:var(--rojo);font-size:.82rem}
+  .campo[data-e] .msg{display:block}
+  .campo[data-e] input,.campo[data-e] select{border-color:var(--rojo)}
+  .dos{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:480px){.dos{grid-template-columns:1fr}}
+
+  /* === COMPONENTE: selector de plan === */
+  .planes{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;border:0;padding:0;margin:0}
+  .planes legend{font-weight:700;margin-bottom:8px;padding:0}
+  .plan{position:relative;display:block;cursor:pointer}
+  .plan input{position:absolute;opacity:0}
+  .plan .c{display:flex;flex-direction:column;gap:2px;padding:14px;border:1.5px solid var(--borde);border-radius:14px;background:var(--superficie-2);transition:border-color .2s,background .2s}
+  .plan input:checked + .c{border-color:var(--marca);background:rgba(124,109,242,.16)}
+  .plan input:focus-visible + .c{outline:2px solid var(--acento);outline-offset:2px}
+  .plan b{font-size:1rem}
+  .plan .p{font-size:1.3rem;font-weight:800;font-variant-numeric:tabular-nums}
+  .plan .ah{font-size:.75rem;color:var(--verde);font-weight:700}
+  .pagos{display:grid;gap:8px}
+  .met{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1.5px solid var(--borde);border-radius:12px;cursor:pointer;background:var(--superficie-2)}
+  .met input{width:18px;height:18px;accent-color:var(--marca)}
+  .met:has(input:checked){border-color:var(--marca)}
+  .tarj{position:relative}
+  .tarj .marca-t{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:.75rem;font-weight:800;color:var(--acento)}
+  .acc{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .btn.cargando{position:relative;color:transparent!important;pointer-events:none}
+  .btn.cargando::after{content:"";position:absolute;inset:0;margin:auto;width:18px;height:18px;border:2px solid #fff;border-right-color:transparent;border-radius:50%;animation:g .7s linear infinite}
+  @keyframes g{to{transform:rotate(360deg)}}
+
+  /* === COMPONENTE: resumen === */
+  .resumen{position:sticky;top:12px}
+  .resumen h2{margin:0;font-size:1.05rem}
+  .linea{display:flex;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+  .linea.desc{color:var(--verde)}
+  .linea.total{font-size:1.2rem;font-weight:800;border-top:1px solid var(--borde);padding-top:12px}
+  .cupon{display:flex;gap:8px}
+  .cupon input{flex:1;min-width:0;text-transform:uppercase}
+  .cup-msg{font-size:.82rem;min-height:1.2em}
+  .cup-msg.ok{color:var(--verde)}.cup-msg.mal{color:var(--rojo)}
+  .rev dl{display:grid;grid-template-columns:auto 1fr auto;gap:6px 14px;margin:0}
+  .rev dt{color:var(--texto-2)}.rev dd{margin:0}
+  .rev button{all:unset;color:var(--acento);cursor:pointer;text-decoration:underline;font-size:.85rem}
+  .final{text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;padding:24px 0}
+  .final svg{width:72px;height:72px}
+  .final circle{stroke:var(--verde);stroke-width:3;fill:none;stroke-dasharray:166;stroke-dashoffset:166;animation:tr .6s .1s ease forwards}
+  .final path{stroke:var(--verde);stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:48;stroke-dashoffset:48;animation:tr .4s .6s ease forwards}
+  @keyframes tr{to{stroke-dashoffset:0}}
+  .sig{text-align:left;display:grid;gap:6px;font-size:.9rem;color:var(--texto-2);padding:0;list-style:none;max-width:380px}
+  .sig li::before{content:"→ ";color:var(--acento)}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}.final circle,.final path{stroke-dashoffset:0}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header><h1 class="gradient-text" style="margin:0 0 4px">Contratar plan</h1><p class="small" style="margin:0">Sin sorpresas: ves el total completo desde el primer paso.</p></header>
+  <div class="layout">
+    <form class="caja" id="form" novalidate>
+      <ol class="pasos" id="pasos" aria-label="Pasos"><li><span>Tus datos</span></li><li><span>Pago</span></li><li><span>Revisión</span></li></ol>
+      <section data-paso="1" class="grupo" aria-labelledby="t1"><h2 id="t1" style="margin:0;font-size:1.1rem" tabindex="-1">Tus datos</h2>
+        <fieldset class="planes" id="planes"><legend>Elige tu plan</legend></fieldset>
+        <div class="dos"><div class="campo" data-v="req"><label for="in-nom">Nombre</label><input class="input" id="in-nom" name="nom" autocomplete="name" required><div class="msg" id="e-nom"></div></div>
+        <div class="campo" data-v="email"><label for="in-mail">Correo</label><input class="input" id="in-mail" name="mail" type="email" inputmode="email" autocomplete="email" required><div class="msg" id="e-mail"></div></div></div>
+        <div class="campo" data-v="req"><label for="in-emp">Empresa</label><input class="input" id="in-emp" name="emp" autocomplete="organization" required><div class="msg" id="e-emp"></div></div>
+        <div class="small">Sin crear cuenta. Te enviamos el acceso por correo.</div></section>
+      <section data-paso="2" class="grupo" hidden aria-labelledby="t2"><h2 id="t2" style="margin:0;font-size:1.1rem" tabindex="-1">Método de pago</h2>
+        <div class="pagos" role="radiogroup" aria-label="Método de pago"><label class="met"><input type="radio" name="met" value="tarjeta" checked><span>Tarjeta de crédito o débito</span></label><label class="met"><input type="radio" name="met" value="transf"><span>Transferencia bancaria <span class="small">(activación en 1 día hábil)</span></span></label></div>
+        <div class="grupo" id="g-tarjeta"><div class="campo tarj" data-v="tarjeta"><label for="in-tar">Número de tarjeta</label><div style="position:relative"><input class="input" id="in-tar" name="tar" inputmode="numeric" autocomplete="cc-number" placeholder="1234 5678 9012 3456" maxlength="19"><span class="marca-t" id="marca-t"></span></div><div class="msg" id="e-tar"></div></div>
+        <div class="dos"><div class="campo" data-v="venc"><label for="in-ven">Vencimiento</label><input class="input" id="in-ven" name="ven" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" maxlength="5"><div class="msg" id="e-ven"></div></div><div class="campo" data-v="cvv"><label for="in-cvv">CVV</label><input class="input" id="in-cvv" name="cvv" inputmode="numeric" autocomplete="cc-csc" maxlength="4" placeholder="123"><div class="msg" id="e-cvv"></div></div></div>
+        <div class="small">Demo: no se envía ni guarda nada. En producción usa el formulario seguro de tu pasarela.</div></div>
+        <div id="g-transf" hidden class="small">Te mostraremos los datos bancarios en el último paso y enviaremos una copia a tu correo.</div></section>
+      <section data-paso="3" class="grupo rev" hidden aria-labelledby="t3"><h2 id="t3" style="margin:0;font-size:1.1rem" tabindex="-1">Revisa y confirma</h2><dl id="rev"></dl>
+        <label style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" id="in-ok" name="ok" style="width:20px;height:20px;margin-top:2px;accent-color:var(--marca)"><span>Acepto los términos y la política de privacidad.</span></label><div class="campo" data-e style="display:none" id="c-ok"><div class="msg" id="e-ok">Debes aceptar para continuar</div></div></section>
+      <section data-paso="4" class="final" hidden aria-live="polite"><svg viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="26.5"/><path d="M17 31l9 9 17-19"/></svg><h2 style="margin:0" id="t4" tabindex="-1">Pedido confirmado</h2><p class="small" style="margin:0" id="f-num"></p><ul class="sig" id="f-sig"></ul><button class="btn btn-sec" type="button" id="b-nuevo">Hacer otro pedido</button></section>
+      <div class="acc" id="acc"><button class="btn btn-sec" type="button" id="b-atras" hidden>Atrás</button><button class="btn" type="submit" id="b-sig" style="margin-left:auto">Continuar</button></div>
+    </form>
+    <aside class="caja resumen" id="resumen" aria-label="Resumen de tu compra">
+      <h2>Resumen</h2><div id="r-lineas" style="display:grid;gap:8px"></div>
+      <div class="cupon"><input class="input" id="in-cup" name="cup" placeholder="Código de descuento" aria-label="Código de descuento" autocomplete="off"><button class="btn btn-sec btn-sm" type="button" id="b-cup">Aplicar</button></div><div class="cup-msg" id="cup-msg" role="status"></div>
+    </aside>
+  </div>
+</main>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  const $$$ = n => '$' + Math.round(n).toLocaleString('es-CL');
+
+  /* === datos (reemplazar) === */
+  const PLANES = [
+    { id: 'mes', t: 'Mensual', precio: 89000, per: '/mes', meses: 1 },
+    { id: 'tri', t: 'Trimestral', precio: 79000, per: '/mes', meses: 3 },
+    { id: 'ani', t: 'Anual', precio: 69000, per: '/mes', meses: 12 }
+  ];
+  const CUPONES = { BIENVENIDA10: { tipo: 'pct', v: 10, msg: '10 % de descuento' }, CLIMA20: { tipo: 'pct', v: 20, msg: '20 % de descuento' }, AHORRA50: { tipo: 'monto', v: 50000, msg: '$50.000 de descuento' } };
+  const S = { plan: 'tri', cupon: null, paso: 1 };
+
+  /* === COMPONENTE: calcular === */
+  function calcular() { const p = PLANES.find(x => x.id === S.plan); const neto = p.precio * p.meses; let desc = 0; if (S.cupon) desc = S.cupon.tipo === 'pct' ? neto * S.cupon.v / 100 : Math.min(S.cupon.v, neto); const base = neto - desc; const iva = base * 0.19; return { p, neto, desc, base, iva, total: base + iva }; }
+  function pintarResumen() {
+    const c = calcular(), L = $('#r-lineas'); L.replaceChildren();
+    const f = (t, v, cl) => { const d = el('div', 'linea ' + (cl || '')); d.append(el('span', '', t), el('span', '', v)); L.appendChild(d); };
+    f('Plan ' + c.p.t + ' (' + c.p.meses + (c.p.meses === 1 ? ' mes' : ' meses') + ')', $$$(c.neto)); if (c.desc) f('Descuento ' + S.cupon.code, '-' + $$$(c.desc), 'desc'); f('Subtotal', $$$(c.base)); f('IVA 19 %', $$$(c.iva)); f('Total', $$$(c.total), 'total'); $('#b-sig').textContent = S.paso === 3 ? 'Pagar ' + $$$(c.total) : 'Continuar';
+  }
+  function pintarPlanes() {
+    const f = $('#planes'); $$('label', f).forEach(x => x.remove()); const base = PLANES[0].precio;
+    PLANES.forEach(p => { const l = el('label', 'plan'); const i = el('input'); i.type = 'radio'; i.name = 'plan'; i.value = p.id; i.checked = S.plan === p.id; const c = el('span', 'c'); c.append(el('b', '', p.t), el('span', 'p', $$$(p.precio) + ' '), el('span', 'small', 'por mes + IVA')); if (p.meses > 1) { const ah = Math.round((1 - p.precio / base) * 100); c.appendChild(el('span', 'ah', 'Ahorras ' + ah + ' %')); } l.append(i, c); f.appendChild(l); i.addEventListener('change', () => { S.plan = p.id; pintarResumen(); }); });
+  }
+
+  /* === validadores === */
+  const luhn = n => { let s = 0, d = false; for (let i = n.length - 1; i >= 0; i--) { let x = +n[i]; if (d) { x *= 2; if (x > 9) x -= 9; } s += x; d = !d; } return s % 10 === 0; };
+  const marca = n => /^4/.test(n) ? 'VISA' : /^(5[1-5]|2[2-7])/.test(n) ? 'MASTERCARD' : /^3[47]/.test(n) ? 'AMEX' : '';
+  const V = {
+    req: v => v.trim() ? '' : 'Este dato es obligatorio',
+    email: v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) ? '' : 'Escribe un correo válido, por ejemplo nombre@empresa.cl',
+    tarjeta: v => { const n = v.replace(/\s/g, ''); return n.length >= 13 && luhn(n) ? '' : 'El número de tarjeta no es válido. Revísalo'; },
+    venc: v => { const m = v.match(/^(\d\d)\/(\d\d)$/); if (!m) return 'Usa el formato MM/AA'; const mm = +m[1], aa = 2000 + +m[2]; if (mm < 1 || mm > 12) return 'El mes no es válido'; const hoy = new Date(); return aa > hoy.getFullYear() || (aa === hoy.getFullYear() && mm >= hoy.getMonth() + 1) ? '' : 'La tarjeta está vencida'; },
+    cvv: v => /^\d{3,4}$/.test(v) ? '' : 'Son 3 o 4 dígitos al reverso'
+  };
+  function validarCampo(c) { const i = $('input,select', c), m = $('.msg', c); const e = V[c.dataset.v](i.value); if (e) { c.dataset.e = '1'; m.textContent = e; i.setAttribute('aria-invalid', 'true'); i.setAttribute('aria-describedby', m.id); } else { delete c.dataset.e; i.removeAttribute('aria-invalid'); } return e; }
+  $$('.campo[data-v]').forEach(c => { const i = $('input', c); i.addEventListener('blur', () => { if (i.value || i.required) validarCampo(c); }); i.addEventListener('input', () => { if (c.dataset.e) validarCampo(c); }); });
+  $('#in-tar').addEventListener('input', e => { const d = e.target.value.replace(/\D/g, '').slice(0, 16); e.target.value = d.replace(/(.{4})/g, '$1 ').trim(); $('#marca-t').textContent = marca(d); });
+  $('#in-ven').addEventListener('input', e => { let d = e.target.value.replace(/\D/g, '').slice(0, 4); if (d.length >= 3) d = d.slice(0, 2) + '/' + d.slice(2); e.target.value = d; });
+  $('#in-cvv').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4); });
+  $$('input[name=met]').forEach(r => r.addEventListener('change', () => { const t = r.value === 'tarjeta' && r.checked; $('#g-tarjeta').hidden = !t && $('input[name=met]:checked').value !== 'tarjeta'; $('#g-transf').hidden = $('input[name=met]:checked').value === 'tarjeta'; }));
+
+  /* cupon */
+  async function aplicarCupon() { const code = $('#in-cup').value.trim().toUpperCase(), m = $('#cup-msg'), b = $('#b-cup'); if (!code) { m.className = 'cup-msg mal'; m.textContent = 'Escribe un código'; return; } b.disabled = true; m.className = 'cup-msg'; m.textContent = 'Verificando...'; await esperar(500); b.disabled = false; const c = CUPONES[code]; if (c) { S.cupon = { ...c, code }; m.className = 'cup-msg ok'; m.textContent = 'Listo: ' + c.msg; } else { S.cupon = null; m.className = 'cup-msg mal'; m.textContent = 'Ese código no existe o ya venció. Revisa que esté bien escrito.'; } pintarResumen(); }
+  $('#b-cup').addEventListener('click', aplicarCupon); $('#in-cup').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); aplicarCupon(); } });
+
+  /* === pasos === */
+  const secs = $$('[data-paso]'), lis = $$('#pasos li');
+  function ir(n, foco = true) { S.paso = n; secs.forEach(s => s.hidden = +s.dataset.paso !== n); lis.forEach((l, i) => { l.classList.toggle('ok', i + 1 < n); if (i + 1 === n) l.setAttribute('aria-current', 'step'); else l.removeAttribute('aria-current'); }); const fin = n === 4; $('#acc').hidden = fin; $('#pasos').hidden = fin; $('#b-atras').hidden = n === 1; if (n === 3) revisar(); pintarResumen(); if (foco) { const h = $('#t' + n); if (h) h.focus(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }
+  function validarPaso(n) { let primero = null; $$('[data-paso="' + n + '"] .campo[data-v]').forEach(c => { if (n === 2 && $('#g-tarjeta').hidden) return; if (n === 2 && !c.closest('#g-tarjeta')) return; if (validarCampo(c) && !primero) primero = $('input', c); }); if (n === 3 && !$('#in-ok').checked) { $('#c-ok').style.display = 'block'; if (!primero) primero = $('#in-ok'); } else $('#c-ok').style.display = 'none'; if (primero) { primero.focus(); return false; } return true; }
+  function revisar() { const c = calcular(), d = $('#rev'); d.replaceChildren(); const f = (k, v, p) => { d.append(el('dt', '', k), el('dd', '', v)); const b = el('button', '', 'Editar'); b.type = 'button'; b.addEventListener('click', () => ir(p)); const w = el('dd'); w.appendChild(b); d.appendChild(w); }; f('Plan', c.p.t + ' (' + c.p.meses + ' m)', 1); f('Contacto', $('#in-nom').value + ', ' + $('#in-mail').value, 1); f('Empresa', $('#in-emp').value, 1); const t = $('input[name=met]:checked').value === 'tarjeta'; f('Pago', t ? (marca($('#in-tar').value.replace(/\s/g, '')) || 'Tarjeta') + ' terminada en ' + $('#in-tar').value.replace(/\D/g, '').slice(-4) : 'Transferencia bancaria', 2); }
+  $('#b-atras').addEventListener('click', () => ir(S.paso - 1));
+  $('#form').addEventListener('submit', async e => { e.preventDefault(); if (!validarPaso(S.paso)) return; if (S.paso < 3) { ir(S.paso + 1); return; } const b = $('#b-sig'); b.classList.add('cargando'); await esperar(1300); b.classList.remove('cargando'); const c = calcular(); const num = 'CC-' + Math.floor(100000 + Math.random() * 900000); $('#f-num').textContent = 'Pedido ' + num + ' por ' + $$$(c.total) + '. Enviamos el comprobante a ' + $('#in-mail').value + '.'; const u = $('#f-sig'); u.replaceChildren(...['Recibirás el acceso en unos minutos.', 'Un ejecutivo te contactará para la puesta en marcha.', 'Puedes cambiar o cancelar el plan cuando quieras.'].map(t => el('li', '', t))); ir(4); });
+  $('#b-nuevo').addEventListener('click', () => { $('#form').reset(); S.cupon = null; S.plan = 'tri'; $('#cup-msg').textContent = ''; pintarPlanes(); ir(1); });
+  window.Checkout = { S, calcular };
+  pintarPlanes(); ir(1, false);
+});
+</script>
+</body>
+</html>

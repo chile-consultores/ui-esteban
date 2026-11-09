@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Registro de actividad · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: log de auditoría con filtros (usuario, acción, rango de fechas), búsqueda, chips de filtros activos, paginación por cursor ("Cargar más"), fila expandible con diff antes/después y exportación a CSV.
+  Proyecto: panel admin de Clima, Mystery, CRM y DataDash (tabla sugerida: audit_log con id, user_id, accion, entidad, entidad_nombre, ip, creado_en, antes jsonb, despues jsonb).
+  Cómo aplicarlo: edita ACCIONES y ENTIDADES (opciones del filtro y datos de ejemplo). El cursor es keyset: en Supabase usa .lt('id', cursor).order('id', {ascending:false}).limit(n).
+  Conectar: reemplaza API.listar y API.exportar (los datos de ejemplo salen de generarLog, determinista con semilla).
+  Ganchos: #demo, #q, #usuario, #accion, #desde, #hasta, #chips, #cuerpo, #mas, #exportar.
+  Reglas UX: filtros visibles como chips que se quitan uno a uno, detalle bajo demanda, el CSV respeta los filtros y neutraliza fórmulas, en móvil la tabla pasa a tarjetas.
+-->
+<style>
+  [hidden]{display:none!important}
+  .act-pagina{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+  .btn,.input,.select{min-height:44px}
+  .btn,.btn-icon{min-width:44px}
+  .act-barra{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 12px;margin-top:12px}
+  #chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .act-chip .btn{margin:-4px -8px -4px 0}
+  .act-det{width:100%}
+  del{color:var(--rojo)} ins{color:var(--verde)}
+  @media (max-width:760px){
+    #lista .tabla-wrap{border:0;background:none;overflow:visible}
+    .act-t thead{display:none}
+    .act-t,.act-t>tbody,.act-t>tbody>tr,.act-t>tbody>tr>td{display:block}
+    .act-t>tbody>tr{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:8px 12px;margin-bottom:8px}
+    .act-t>tbody>tr>td{display:flex;justify-content:space-between;align-items:center;gap:12px;border:0;padding:6px 0}
+    .act-t>tbody>tr>td[data-label]::before{content:attr(data-label);color:var(--texto-2);font-size:var(--fs-xs);flex:none}
+  }
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="act-pagina">
+  <div class="page-head">
+    <div>
+      <div class="breadcrumb"><span>Administración</span><span>/</span><span aria-current="page">Registro de actividad</span></div>
+      <h1>Registro de actividad</h1>
+      <p class="muted small">Agrícola Los Aromos SpA. Quién hizo qué, cuándo y desde dónde.</p>
+    </div>
+    <div class="acciones">
+      <label class="sr-only" for="demo">Estado de la vista (demo)</label>
+      <select id="demo" class="select" style="width:auto;flex:none"><option value="contenido">Demo: con datos</option><option value="cargando">Demo: cargando</option><option value="vacio">Demo: vacío</option><option value="error">Demo: error</option></select>
+      <button class="btn btn-sec" id="exportar" type="button" data-busy="Exportando…">Exportar CSV</button>
+    </div>
+  </div>
+
+  <div class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+    <label class="sr-only" for="q">Buscar en el registro</label><input id="q" class="input" type="search" placeholder="Buscar por usuario, entidad o IP" autocomplete="off"></div>
+  <div class="act-barra">
+    <div class="campo"><label for="usuario">Usuario</label><select id="usuario" class="select"></select></div>
+    <div class="campo"><label for="accion">Acción</label><select id="accion" class="select"></select></div>
+    <div class="campo"><label for="desde">Desde</label><input id="desde" class="input" type="date"></div>
+    <div class="campo"><label for="hasta">Hasta</label><input id="hasta" class="input" type="date" aria-describedby="e-fechas"><div class="error-msg" id="e-fechas" role="alert"></div></div>
+  </div>
+  <div id="chips" aria-label="Filtros activos"></div>
+
+  <div id="sk" aria-busy="true"><span class="sr-only" role="status">Cargando registros</span>
+    <div class="skeleton bloque"></div><div class="skeleton linea"></div><div class="skeleton linea"></div></div>
+  <div id="err" class="estado" role="alert" hidden><div class="ico" aria-hidden="true">!</div><h3>No pudimos cargar el registro</h3><p>Revisa tu conexión e inténtalo de nuevo.</p><button class="btn" id="reintentar" type="button">Reintentar</button></div>
+  <div id="vacio" class="estado" hidden><div class="ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg></div>
+    <h3 id="vacio-t"></h3><p id="vacio-p"></p><button class="btn btn-sec" id="limpiar" type="button">Limpiar filtros</button></div>
+  <div id="lista" hidden>
+    <div class="tabla-wrap"><table class="tabla act-t"><caption class="sr-only">Registro de actividad</caption>
+      <thead><tr><th scope="col">Fecha</th><th scope="col">Usuario</th><th scope="col">Acción</th><th scope="col">Entidad</th><th scope="col">IP</th><th scope="col"><span class="sr-only">Detalle</span></th></tr></thead>
+      <tbody id="cuerpo"></tbody></table></div>
+    <div class="row between wrap mt-16"><span class="muted small" id="cuenta" aria-live="polite"></span><button class="btn btn-sec" id="mas" type="button" data-busy="Cargando…">Cargar más</button></div>
+  </div>
+</main>
+
+<script src="../[base]/base.js"></script>
+<script>
+(function () {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+
+  const ACCIONES = { login: ['Inicio de sesión', ''], crear: ['Creación', 'ok'], editar: ['Edición', 'info'], eliminar: ['Eliminación', 'bad'], exportar: ['Exportación', 'warn'], invitar: ['Invitación', 'marca'] };
+  const PERSONAS = ['Camila Reyes', 'Matías Fuentes', 'Javiera Contreras', 'Sebastián Araya', 'Francisca Muñoz', 'Valentina Soto'];
+  const ENTIDADES = {
+    Usuario: { nombres: ['nicolas.parra@aromos.cl', 'diego.olivares@aromos.cl', 'daniela.lagos@aromos.cl'], campos: { rol: ['Admin', 'Gestor', 'Analista', 'Lector'], estado: ['Activo', 'Suspendido'] } },
+    Encuesta: { nombres: ['Clima laboral 2026', 'Mystery Shopper Providencia', 'Pulso trimestral Q3'], campos: { estado: ['Borrador', 'Activa', 'Cerrada'], cierre: ['30-11-2026', '15-12-2026', '31-01-2027'], anonima: ['Sí', 'No'] } },
+    Cliente: { nombres: ['Frutícola Maipo Ltda.', 'Transportes del Sur SpA', 'Panadería La Espiga'], campos: { contacto: ['Paola Núñez', 'Ricardo Bravo', 'Andrea Silva'], plan: ['Básico', 'Pro', 'Empresa'] } },
+    Factura: { nombres: ['F-10482', 'F-10483', 'F-10491'], campos: { monto: ['$1.250.000', '$890.000', '$2.340.500'], estado: ['Emitida', 'Pagada', 'Anulada'] } }
+  };
+  const FECHA = new Intl.DateTimeFormat('es-CL', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Santiago' });
+  const DIA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago' });
+
+  function semilla(a) { return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+  function generarLog(n) {
+    const r = semilla(2026), pick = a => a[Math.floor(r() * a.length)], out = [];
+    const sig = (e, k, v) => { const p = ENTIDADES[e].campos[k]; return p[(p.indexOf(v) + 1) % p.length]; };
+    let t = Date.UTC(2026, 10, 9, 18, 0);
+    for (let i = 0; i < n; i++) {
+      t -= Math.floor(r() * 5400e3) + 600e3;
+      const accion = pick(Object.keys(ACCIONES));
+      const entidad = accion === 'login' ? 'Sesión' : accion === 'invitar' ? 'Usuario' : pick(Object.keys(ENTIDADES));
+      const e = { id: i + 1, fecha: new Date(t).toISOString(), dia: DIA.format(t), usuario: pick(PERSONAS), accion, entidad,
+        ip: '200.14.' + Math.floor(r() * 250) + '.' + (1 + Math.floor(r() * 250)), antes: null, despues: null };
+      if (accion === 'login') e.nombre = 'Acceso al panel';
+      else if (accion === 'exportar') e.nombre = 'Listado completo';
+      else {
+        const c = ENTIDADES[entidad].campos, ks = Object.keys(c);
+        e.nombre = pick(ENTIDADES[entidad].nombres);
+        const base = Object.fromEntries(ks.map(k => [k, pick(c[k])]));
+        if (accion === 'editar') { const k0 = pick(ks); e.antes = base; e.despues = Object.fromEntries(ks.map(k => [k, k === k0 || r() < .4 ? sig(entidad, k, base[k]) : base[k]])); }
+        else if (accion === 'eliminar') e.antes = base;
+        else e.despues = accion === 'invitar' ? { correo: e.nombre, rol: base.rol } : base;
+      }
+      out.push(e);
+    }
+    return out;
+  }
+
+  const LOG = generarLog(240);
+  let demo = 'contenido';
+  const espera = () => new Promise(r => setTimeout(r, 250));
+  const filtrar = f => { const q = (f.q || '').toLowerCase(); return LOG.filter(e => (!f.usuario || e.usuario === f.usuario) && (!f.accion || e.accion === f.accion)
+    && (!f.desde || e.dia >= f.desde) && (!f.hasta || e.dia <= f.hasta)
+    && (!q || [e.usuario, ACCIONES[e.accion][0], e.entidad, e.nombre, e.ip].join(' ').toLowerCase().includes(q))); };
+  /* PUNTO DE CONEXION: reemplaza estas dos funciones por consultas a Supabase sobre audit_log (cursor = id del último registro) */
+  const API = {
+    async listar({ cursor, limite, ...f }) {
+      await espera();
+      if (demo === 'error') throw new Error('sin conexión');
+      if (demo === 'cargando') return new Promise(() => {});
+      const resto = demo === 'vacio' ? [] : filtrar(f).filter(e => !cursor || e.id > cursor), items = resto.slice(0, limite);
+      return { items, siguiente: resto.length > limite ? items[items.length - 1].id : null };
+    },
+    async exportar(f) { await espera(); if (demo === 'error') throw new Error('sin conexión'); return demo === 'vacio' ? [] : filtrar(f); }
+  };
+
+  const ids = { usuario: 'Usuario', accion: 'Acción', desde: 'Desde', hasta: 'Hasta', q: 'Búsqueda' };
+  const filtros = () => Object.fromEntries(Object.keys(ids).map(k => [k, $('#' + k).value.trim()]));
+  const hayFiltros = () => Object.values(filtros()).some(Boolean);
+  let cursor = null, cargados = 0, pedido = 0;
+
+  function mostrar(x) { ['sk', 'err', 'vacio', 'lista'].forEach(k => { $('#' + k).hidden = k !== x; }); }
+  const alEspanol = d => d.split('-').reverse().join('-');
+
+  function chips() {
+    const f = filtros();
+    $('#chips').replaceChildren(...Object.keys(ids).filter(k => f[k]).map(k => {
+      const v = k === 'accion' ? ACCIONES[f[k]][0] : /^(desde|hasta)$/.test(k) ? alEspanol(f[k]) : f[k];
+      const c = h('span', 'chip act-chip', ids[k] + ': ' + v), x = h('button', 'btn btn-ghost btn-icon', '×');
+      x.type = 'button'; x.dataset.k = k; x.setAttribute('aria-label', 'Quitar filtro ' + ids[k] + ': ' + v);
+      c.append(x); return c;
+    }));
+  }
+
+  function detalle(e) {
+    const a = e.antes || {}, d = e.despues || {}, box = h('div', 'act-det');
+    const ks = [...new Set([...Object.keys(a), ...Object.keys(d)])].filter(k => a[k] !== d[k]);
+    if (!ks.length) { box.append(h('p', 'muted small', 'Esta acción no modifica campos.')); return box; }
+    const val = (o, k, tag) => o[k] === undefined ? h('span', 'muted', '(vacío)') : h(tag, null, o[k]);
+    const t = h('table', 'tabla'), cab = h('tr');
+    cab.append(h('th', null, 'Campo'), h('th', null, 'Antes'), h('th', null, 'Después')); t.createTHead().append(cab);
+    t.createTBody().append(...ks.map(k => {
+      const tr = h('tr'), x = h('td'), y = h('td'); x.append(val(a, k, 'del')); y.append(val(d, k, 'ins'));
+      tr.append(h('td', null, k), x, y); return tr;
+    }));
+    box.append(t); return box;
+  }
+
+  function filas(e) {
+    const [lab, cls] = ACCIONES[e.accion], tr = h('tr'), dt = h('tr'), td = h('td');
+    const cel = (et, n) => { const c = h('td'); if (et) c.dataset.label = et; c.append(n); return c; };
+    const b = h('button', 'btn btn-sec btn-sm', 'Ver detalle'); b.type = 'button'; b.dataset.d = e.id;
+    b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-controls', 'd' + e.id);
+    tr.append(cel('Fecha', h('span', null, FECHA.format(new Date(e.fecha)))), cel('Usuario', h('strong', null, e.usuario)), cel('Acción', h('span', 'badge ' + cls, lab)),
+      cel('Entidad', h('span', null, e.entidad + ': ' + e.nombre)), cel('IP', h('span', 'mono', e.ip)), cel(null, b));
+    dt.id = 'd' + e.id; dt.hidden = true; td.colSpan = 6; td.append(detalle(e)); dt.append(td);
+    return [tr, dt];
+  }
+
+  async function pagina(reset) {
+    const n = ++pedido;
+    if (reset) { cursor = null; $('#cuerpo').replaceChildren(); mostrar('sk'); }
+    try {
+      const r = await API.listar({ ...filtros(), cursor, limite: 20 });
+      if (n !== pedido) return;
+      cargados = reset ? r.items.length : cargados + r.items.length; cursor = r.siguiente;
+      if (!cargados) {
+        const f = hayFiltros();
+        $('#vacio-t').textContent = f ? 'Sin resultados' : 'Aún no hay actividad';
+        $('#vacio-p').textContent = f ? 'Ningún registro coincide con los filtros.' : 'Los movimientos de tu equipo aparecerán aquí.';
+        $('#limpiar').hidden = !f; return mostrar('vacio');
+      }
+      $('#cuerpo').append(...r.items.flatMap(filas));
+      $('#cuenta').textContent = 'Mostrando ' + cargados + (cursor ? ' registros' : ' registros, es todo') + '.';
+      $('#mas').hidden = !cursor; mostrar('lista');
+    } catch (e) {
+      if (n !== pedido) return;
+      if (reset) mostrar('err'); else UI.toast('No pudimos cargar más registros. Inténtalo de nuevo.', 'error');
+    }
+  }
+
+  function recargar() {
+    const f = filtros(), mal = f.desde && f.hasta && f.desde > f.hasta;
+    $('#e-fechas').textContent = mal ? 'La fecha inicial no puede ser posterior a la final.' : '';
+    $('#hasta').setAttribute('aria-invalid', !!mal); chips();
+    if (!mal) pagina(true);
+  }
+
+  const celda = v => { v = String(v ?? ''); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
+  $('#exportar').addEventListener('click', ev => UI.busy(ev.currentTarget, async () => {
+    try {
+      const todos = await API.exportar(filtros());
+      if (!todos.length) return UI.toast('No hay registros para exportar con estos filtros.', 'info');
+      const filasCsv = todos.map(e => [FECHA.format(new Date(e.fecha)), e.usuario, ACCIONES[e.accion][0], e.entidad + ': ' + e.nombre, e.ip,
+        Object.keys({ ...e.antes, ...e.despues }).filter(k => (e.antes || {})[k] !== (e.despues || {})[k]).map(k => k + ': ' + ((e.antes || {})[k] ?? '') + ' > ' + ((e.despues || {})[k] ?? '')).join(' | ')]);
+      const csv = '﻿' + [['Fecha', 'Usuario', 'Acción', 'Entidad', 'IP', 'Cambios'], ...filasCsv].map(f => f.map(celda).join(';')).join('\r\n');
+      const a = h('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'registro-actividad.csv';
+      document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+      UI.toast(todos.length + ' registros exportados.', 'ok');
+    } catch (e) { UI.toast('No pudimos exportar. Inténtalo de nuevo.', 'error'); }
+  }));
+
+  $('#cuerpo').addEventListener('click', e => {
+    const b = e.target.closest('button[data-d]'); if (!b) return;
+    const d = $('#d' + b.dataset.d), abre = d.hidden; d.hidden = !abre;
+    b.setAttribute('aria-expanded', abre); b.textContent = abre ? 'Ocultar detalle' : 'Ver detalle';
+  });
+  $('#chips').addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (b) { $('#' + b.dataset.k).value = ''; recargar(); } });
+  $('#limpiar').addEventListener('click', () => { Object.keys(ids).forEach(k => { $('#' + k).value = ''; }); recargar(); });
+  $('#mas').addEventListener('click', e => UI.busy(e.currentTarget, () => pagina(false)));
+  $('#reintentar').addEventListener('click', recargar);
+  $('#demo').addEventListener('change', e => { demo = e.target.value; recargar(); });
+  let espN; $('#q').addEventListener('input', () => { clearTimeout(espN); espN = setTimeout(recargar, 300); });
+  ['usuario', 'accion', 'desde', 'hasta'].forEach(k => $('#' + k).addEventListener('change', recargar));
+
+  $('#usuario').append(new Option('Todos', ''), ...PERSONAS.map(p => new Option(p, p)));
+  $('#accion').append(new Option('Todas', ''), ...Object.entries(ACCIONES).map(([k, v]) => new Option(v[0], k)));
+  recargar();
+})();
+</script>
+</body>
+</html>

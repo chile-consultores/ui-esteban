@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Laboratorio de skeletons · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: Laboratorio de skeletons (8 patrones de carga con transición suave a contenido real, sin saltos de layout).
+  Proyecto: cualquier app de Chile Consultores (Clima, Mystery, CRM, DataDash).
+  Cómo aplicarlo: copia el CSS marcado "COMPONENTE: skeleton" + la función cargar() y reemplaza `construirReal()` por el render de tus datos reales.
+  Conectar: cada demo simula un fetch con `esperar(ms)`; cámbialo por tu llamada a Supabase (ej. supabase.from('clientes').select()).
+  Ganchos: [data-anim] en <body> (shimmer|pulso|onda), --vel (duración), .sk (bloque), .caja[data-demo], botones [data-simular].
+-->
+<style>
+  /* === COMPONENTE: skeleton === (variables personalizables) */
+  :root{--vel:1.4s;--sk-base:rgba(255,255,255,.07);--sk-luz:rgba(255,255,255,.16);--sk-r:8px}
+  .sk{position:relative;display:block;background:var(--sk-base);border-radius:var(--sk-r);overflow:hidden;min-height:12px}
+  .sk.redondo{border-radius:50%}
+  .sk.l1{height:12px;width:100%} .sk.l2{height:12px;width:78%} .sk.l3{height:12px;width:54%}
+  .sk.t{height:20px;width:46%} .sk.img{height:140px} .sk.av{width:44px;height:44px;border-radius:50%;flex:none}
+  .sk.btn{height:36px;width:110px;border-radius:var(--pill)}
+  /* shimmer */
+  body[data-anim="shimmer"] .sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,var(--sk-luz),transparent);animation:sk-shimmer var(--vel) ease-in-out infinite}
+  @keyframes sk-shimmer{to{transform:translateX(100%)}}
+  /* pulso */
+  body[data-anim="pulso"] .sk{animation:sk-pulso var(--vel) ease-in-out infinite}
+  @keyframes sk-pulso{0%,100%{opacity:1}50%{opacity:.4}}
+  /* onda: cada fila arranca con un desfase (--i) */
+  body[data-anim="onda"] .sk{animation:sk-onda var(--vel) ease-in-out infinite;animation-delay:calc(var(--i,0) * 90ms)}
+  @keyframes sk-onda{0%,100%{opacity:1;transform:scaleX(1)}50%{opacity:.45;transform:scaleX(.985)}}
+  /* entrada escalonada al aparecer el skeleton */
+  .entra > *{animation:sk-entra .4s var(--ease-salida) both;animation-delay:calc(var(--i,0) * 60ms)}
+  @keyframes sk-entra{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  /* contenedor que reserva alto: evita saltos (CLS 0) */
+  .caja{position:relative;border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:16px;overflow:hidden}
+  .caja .capa{transition:opacity .35s ease}
+  .caja .capa[hidden]{display:none}
+  .caja.saliendo .capa.real{opacity:0}
+  .real{opacity:1}
+  @media (prefers-reduced-motion:reduce){
+    body[data-anim] .sk,body[data-anim] .sk::after{animation:none!important}
+    .sk{background:linear-gradient(90deg,var(--sk-base),var(--sk-luz),var(--sk-base))}
+    .entra > *{animation:none}
+  }
+
+  /* layout de la demo */
+  .pagina{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+  .barra{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin:20px 0 24px;padding:12px 16px;border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie)}
+  .barra .grupo{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--borde-2);border-radius:var(--pill);padding:3px;gap:2px}
+  .seg button{border:0;background:none;padding:6px 14px;border-radius:var(--pill);cursor:pointer;color:var(--texto-2);font-size:var(--fs-s)}
+  .seg button[aria-pressed="true"]{background:var(--marca);color:#fff}
+  .rejilla{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px}
+  .cab{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+  .cab h3{font-size:1rem}
+  .fila{display:flex;gap:12px;align-items:center}
+  .col{display:flex;flex-direction:column;gap:8px;flex:1;min-width:0}
+  .tbl{width:100%;border-collapse:collapse;font-size:var(--fs-s)}
+  .tbl th,.tbl td{padding:10px 8px;text-align:left;border-bottom:1px solid var(--borde);height:44px}
+  .tbl th{color:var(--texto-2);font-weight:500}
+  .barras{display:flex;align-items:flex-end;gap:8px;height:150px}
+  .barras > *{flex:1;border-radius:6px 6px 0 0}
+  .barras .b{background:linear-gradient(180deg,var(--marca),var(--acento))}
+  .burbuja{max-width:78%;padding:10px 14px;border-radius:14px;font-size:var(--fs-s)}
+  .burbuja.yo{align-self:flex-end;background:var(--marca);color:#fff;border-bottom-right-radius:4px}
+  .burbuja.otro{align-self:flex-start;background:var(--superficie-2);border-bottom-left-radius:4px}
+  .chat{display:flex;flex-direction:column;gap:10px}
+  .prod{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .prod .p{border:1px solid var(--borde);border-radius:var(--r-s);padding:8px}
+  .prod .foto{height:84px;border-radius:6px;background:linear-gradient(135deg,var(--marca-l),var(--acento-l));margin-bottom:8px;display:grid;place-items:center}
+  .estado-nota{font-size:var(--fs-xs);color:var(--texto-3)}
+  @media (max-width:520px){.barra{flex-direction:column;align-items:stretch}}
+</style>
+</head>
+<body data-anim="shimmer">
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="pagina" id="contenido">
+  <h1>Laboratorio de <span class="gradient-text">skeletons</span></h1>
+  <p class="muted">Ocho patrones listos para copiar. Cada caja reserva su alto antes de cargar, así el contenido real aparece sin mover nada.</p>
+
+  <div class="barra" role="group" aria-label="Controles de demo">
+    <div class="grupo">
+      <span class="small muted">Animación</span>
+      <div class="seg" role="group" aria-label="Tipo de animación">
+        <button type="button" data-anim="shimmer" aria-pressed="true">Shimmer</button>
+        <button type="button" data-anim="pulso" aria-pressed="false">Pulso</button>
+        <button type="button" data-anim="onda" aria-pressed="false">Onda</button>
+      </div>
+    </div>
+    <div class="grupo">
+      <label class="small muted" for="in-vel">Velocidad</label>
+      <input id="in-vel" type="range" min="0.6" max="3" step="0.1" value="1.4" aria-describedby="velTxt">
+      <output id="velTxt" class="small mono">1.4 s</output>
+    </div>
+    <div class="grupo">
+      <button class="btn" type="button" id="btnTodo">Simular todas</button>
+      <button class="btn btn-sec" type="button" id="btnSkel">Congelar en skeleton</button>
+    </div>
+  </div>
+
+  <div class="rejilla" id="rejilla"></div>
+  <p class="estado-nota mt-16" id="estadoGlobal" role="status" aria-live="polite"></p>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  const sk = (cls, i) => { const e = el('span', 'sk ' + cls); e.style.setProperty('--i', i || 0); return e; };
+  const filaSk = (...hijos) => { const f = el('div', 'fila'); f.append(...hijos); return f; };
+  const colSk = (...hijos) => { const c = el('div', 'col'); c.append(...hijos); return c; };
+
+  /* ---------- Definición de las 8 demos: skeleton() y real() ---------- */
+  const DEMOS = [
+    { id: 'tarjeta', titulo: 'Tarjeta con imagen',
+      skeleton() { const d = el('div', 'entra'); d.append(sk('img', 0), sk('t', 1), sk('l1', 2), sk('l2', 3), (() => { const b = sk('btn', 4); b.style.marginTop = '12px'; return b; })()); d.querySelectorAll('.sk').forEach(s => s.style.marginBottom = '10px'); return d; },
+      real() { const d = el('div'); const f = el('div', 'img'); f.style.cssText = 'height:140px;border-radius:8px;margin-bottom:10px;background:linear-gradient(135deg,var(--marca),var(--acento))'; const t = el('h3', '', 'Informe de clima laboral 2026'); t.style.marginBottom = '6px'; const p = el('p', 'muted small', 'Resultados por gerencia, brechas y plan de acción para el segundo semestre.'); p.style.marginBottom = '10px'; const b = el('button', 'btn btn-sm', 'Ver informe'); b.type = 'button'; d.append(f, t, p, b); return d; } },
+    { id: 'tabla', titulo: 'Tabla de datos',
+      skeleton() { const d = el('div', 'entra'); for (let i = 0; i < 5; i++) { const f = filaSk(sk('l3', i), sk('l2', i), sk('l1', i)); f.style.cssText = 'height:44px;border-bottom:1px solid var(--borde)'; f.style.setProperty('--i', i); d.appendChild(f); } return d; },
+      real() { const t = el('table', 'tbl'); const h = el('thead'); const hr = el('tr'); ['Cliente', 'Estado', 'Monto'].forEach(x => hr.appendChild(el('th', '', x))); h.appendChild(hr); const b = el('tbody'); [['Minera Aconcagua SpA', 'Activo', '$1.250.000'], ['Retail Mapocho Ltda.', 'Pendiente', '$480.000'], ['Constructora Lenga', 'Activo', '$2.900.000'], ['Logística Huemul', 'Moroso', '$760.000'], ['Agro Maule S.A.', 'Activo', '$1.100.000']].forEach(r => { const tr = el('tr'); r.forEach(x => tr.appendChild(el('td', '', x))); b.appendChild(tr); }); t.append(h, b); return t; } },
+    { id: 'feed', titulo: 'Feed social',
+      skeleton() { const d = el('div', 'entra'); for (let i = 0; i < 3; i++) { const f = filaSk(sk('av', i), colSk(sk('l3', i), sk('l1', i), sk('l2', i))); f.style.marginBottom = '14px'; f.style.alignItems = 'flex-start'; f.style.setProperty('--i', i); d.appendChild(f); } return d; },
+      real() { const d = el('div'); [['Camila R.', 'Cerramos la medición de clima en 3 sucursales con 96% de participación.'], ['Diego P.', 'Nueva pauta de mystery shopper lista para revisión.'], ['Fernanda L.', 'Subí el borrador de la propuesta para el cliente de retail.']].forEach(([n, x]) => { const f = el('div', 'fila'); f.style.cssText = 'align-items:flex-start;margin-bottom:14px'; const a = el('span', 'avatar', n[0]); const c = el('div', 'col'); c.append(el('b', 'small', n), el('p', 'small muted', x)); f.append(a, c); d.appendChild(f); }); return d; } },
+    { id: 'perfil', titulo: 'Perfil de usuario',
+      skeleton() { const d = el('div', 'entra'); const av = sk('av', 0); av.style.cssText = 'width:72px;height:72px'; const f = filaSk(av, colSk(sk('t', 1), sk('l3', 2))); f.style.marginBottom = '16px'; d.append(f, sk('l1', 3), sk('l2', 4)); const k = el('div', 'fila'); k.style.marginTop = '16px'; [5, 6, 7].forEach(i => { const c = sk('btn', i); c.style.flex = '1'; c.style.width = 'auto'; k.appendChild(c); }); d.appendChild(k); d.querySelectorAll('.sk.l1,.sk.l2').forEach(s => s.style.marginBottom = '8px'); return d; },
+      real() { const d = el('div'); const f = el('div', 'fila'); f.style.marginBottom = '16px'; const a = el('span', 'avatar', 'C'); a.style.cssText = 'width:72px;height:72px;font-size:1.6rem'; const c = el('div', 'col'); c.append(el('h3', '', 'Carolina Araya'), el('span', 'small muted', 'Gerenta de Personas, Minera Aconcagua')); f.append(a, c); const p = el('p', 'small muted', 'Lidera el programa de clima y bienestar. Responsable de seguimiento de planes de acción.'); p.style.marginBottom = '16px'; const k = el('div', 'fila'); [['12', 'Estudios'], ['4,6', 'Puntaje'], ['98%', 'Respuesta']].forEach(([v, l]) => { const x = el('div', 'kpi'); x.style.flex = '1'; x.append(el('span', 'valor', v), el('span', 'label', l)); k.appendChild(x); }); d.append(f, p, k); return d; } },
+    { id: 'chat', titulo: 'Conversación',
+      skeleton() { const d = el('div', 'chat entra'); [['otro', 70], ['yo', 55], ['otro', 82], ['yo', 40]].forEach(([q, w], i) => { const b = sk('l1', i); b.style.cssText = 'height:38px;width:' + w + '%;border-radius:14px;align-self:' + (q === 'yo' ? 'flex-end' : 'flex-start'); d.appendChild(b); }); return d; },
+      real() { const d = el('div', 'chat'); [['otro', 'Hola, ¿pudiste revisar el informe de ayer?'], ['yo', 'Sí, quedó muy bien. Solo ajustaría la portada.'], ['otro', 'Perfecto, te lo envío corregido hoy antes de las 17:00.'], ['yo', 'Genial, gracias.']].forEach(([q, x]) => d.appendChild(el('div', 'burbuja ' + q, x))); return d; } },
+    { id: 'grafico', titulo: 'Gráfico de barras',
+      skeleton() { const d = el('div', 'barras entra'); [60, 85, 45, 95, 70, 55, 80].forEach((h, i) => { const b = sk('', i); b.style.height = h + '%'; b.style.borderRadius = '6px 6px 0 0'; d.appendChild(b); }); return d; },
+      real() { const d = el('div', 'barras'); [60, 85, 45, 95, 70, 55, 80].forEach(h => { const b = el('div', 'b'); b.style.height = h + '%'; d.appendChild(b); }); return d; } },
+    { id: 'form', titulo: 'Formulario',
+      skeleton() { const d = el('div', 'entra'); for (let i = 0; i < 3; i++) { const l = sk('l3', i); l.style.width = '30%'; const c = sk('', i); c.style.cssText += ';height:40px;margin:6px 0 14px;border-radius:9px'; d.append(l, c); } d.appendChild(sk('btn', 4)); return d; },
+      real() { const d = el('form'); d.noValidate = true; [['Nombre', 'text', 'Carolina Araya'], ['Correo', 'email', 'carolina@ejemplo.cl'], ['Empresa', 'text', 'Minera Aconcagua SpA']].forEach(([l, t, v], i) => { const c = el('div', 'campo'); const lb = el('label', '', l); lb.htmlFor = 'f-' + i; const ip = el('input', 'input'); ip.id = 'f-' + i; ip.name = 'f' + i; ip.type = t; ip.value = v; c.append(lb, ip); d.appendChild(c); }); const b = el('button', 'btn', 'Guardar cambios'); b.type = 'submit'; d.addEventListener('submit', e => e.preventDefault()); d.appendChild(b); return d; } },
+    { id: 'productos', titulo: 'Grilla de productos',
+      skeleton() { const d = el('div', 'prod entra'); for (let i = 0; i < 4; i++) { const p = el('div', 'p'); p.style.setProperty('--i', i); const f = sk('', i); f.style.cssText += ';height:84px;margin-bottom:8px'; p.append(f, sk('l2', i), sk('l3', i)); p.querySelectorAll('.l2,.l3').forEach(s => s.style.marginBottom = '6px'); d.appendChild(p); } return d; },
+      real() { const d = el('div', 'prod'); [['Pack Clima Pro', '$390.000'], ['Mystery x10', '$520.000'], ['Dashboard RRHH', '$210.000'], ['Capacitación', '$180.000']].forEach(([n, pr]) => { const p = el('div', 'p'); const f = el('div', 'foto'); f.textContent = n[0]; p.append(f, el('b', 'small', n), el('div', 'small muted', pr)); d.appendChild(p); }); return d; } }
+  ];
+
+  /* ---------- Motor: construye cada caja con dos capas (skeleton + real) y reserva alto ---------- */
+  const rejilla = $('#rejilla');
+  const cajas = new Map();
+
+  function montar(d) {
+    const caja = el('section', 'caja'); caja.dataset.demo = d.id; caja.setAttribute('aria-labelledby', 'h-' + d.id);
+    const cab = el('div', 'cab'); const h = el('h3', '', d.titulo); h.id = 'h-' + d.id;
+    const b = el('button', 'btn btn-sec btn-sm', 'Simular'); b.type = 'button'; b.dataset.simular = d.id; cab.append(h, b);
+    const cuerpo = el('div', 'cuerpo'); cuerpo.style.position = 'relative';
+    const capaSk = el('div', 'capa skel'); capaSk.setAttribute('aria-hidden', 'true'); capaSk.appendChild(d.skeleton());
+    const capaReal = el('div', 'capa real'); capaReal.appendChild(d.real());
+    const sr = el('span', 'sr-only', 'Cargando…'); sr.setAttribute('role', 'status'); sr.hidden = true;
+    cuerpo.append(capaSk, capaReal, sr); caja.append(cab, cuerpo); rejilla.appendChild(caja);
+    cajas.set(d.id, { d, caja, cuerpo, capaSk, capaReal, sr, token: 0 });
+    reservarAlto(cajas.get(d.id));
+    capaSk.hidden = true;
+  }
+
+  /* Reserva el alto máximo entre skeleton y contenido => CLS 0 al alternar */
+  function reservarAlto(o) {
+    const skOculto = o.capaSk.hidden, realOculto = o.capaReal.hidden;
+    o.cuerpo.style.minHeight = '0';
+    o.capaSk.hidden = false; o.capaReal.hidden = false;
+    const h = Math.max(o.capaSk.offsetHeight, o.capaReal.offsetHeight);
+    o.cuerpo.style.minHeight = h + 'px';
+    o.capaSk.hidden = skOculto; o.capaReal.hidden = realOculto;
+  }
+
+  async function cargar(id, ms) {
+    const o = cajas.get(id); const mio = ++o.token;
+    o.caja.setAttribute('aria-busy', 'true'); o.sr.hidden = false;
+    o.capaReal.hidden = true; o.capaSk.hidden = false;
+    // reinicia animación de entrada escalonada
+    const ent = o.capaSk.firstElementChild; ent.classList.remove('entra'); void ent.offsetWidth; ent.classList.add('entra');
+    await esperar(ms || 1400 + Math.random() * 600);
+    if (mio !== o.token) return; // llegó una simulación más nueva
+    o.capaSk.hidden = true; o.capaReal.hidden = false;
+    o.capaReal.style.opacity = '0'; requestAnimationFrame(() => { o.capaReal.style.opacity = '1'; });
+    o.caja.removeAttribute('aria-busy'); o.sr.hidden = true;
+  }
+
+  function congelar() {
+    cajas.forEach(o => { o.token++; o.capaReal.hidden = true; o.capaSk.hidden = false; o.caja.setAttribute('aria-busy', 'true'); });
+    $('#estadoGlobal').textContent = 'Todos los skeletons congelados para que puedas inspeccionarlos.';
+  }
+
+  DEMOS.forEach(montar);
+
+  rejilla.addEventListener('click', e => { const b = e.target.closest('[data-simular]'); if (b) cargar(b.dataset.simular); });
+  $('#btnTodo').addEventListener('click', async () => {
+    $('#estadoGlobal').textContent = 'Cargando las ocho demos…';
+    await Promise.all(DEMOS.map(d => cargar(d.id)));
+    $('#estadoGlobal').textContent = 'Listo: contenido cargado sin saltos de layout.';
+  });
+  $('#btnSkel').addEventListener('click', congelar);
+
+  document.querySelectorAll('.seg [data-anim]').forEach(b => b.addEventListener('click', () => {
+    document.body.dataset.anim = b.dataset.anim;
+    document.querySelectorAll('.seg [data-anim]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  }));
+  const vel = $('#in-vel');
+  vel.addEventListener('input', () => { document.documentElement.style.setProperty('--vel', vel.value + 's'); $('#velTxt').textContent = Number(vel.value).toFixed(1) + ' s'; });
+  const recalcular = () => cajas.forEach(reservarAlto);
+  window.addEventListener('resize', recalcular);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(recalcular);
+  // primera carga automática
+  cajas.forEach(o => cargar(o.d.id, 900));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,910 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "items": [
+    {
+      "name": "plantillas-base",
+      "type": "registry:file",
+      "title": "Plantillas base",
+      "description": "base.css y base.js que usan todas las plantillas. Instalar primero.",
+      "categories": [
+        "plantillas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "base/base.css",
+          "type": "registry:file",
+          "target": "public/plantillas/[base]/base.css"
+        },
+        {
+          "path": "base/base.js",
+          "type": "registry:file",
+          "target": "public/plantillas/[base]/base.js"
+        }
+      ]
+    },
+    {
+      "name": "barras-progreso",
+      "type": "registry:file",
+      "title": "Barras de progreso",
+      "description": "10 patrones de progreso (lineal, indeterminada, buffer, NProgress superior, circular, gauge, pasos, multi-segmento, subida con velocidad y ETA, contador animado).",
+      "categories": [
+        "plantillas",
+        "carga"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "carga/barras-progreso.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[carga]/barras-progreso.html"
+        }
+      ]
+    },
+    {
+      "name": "carga-imagenes",
+      "type": "registry:file",
+      "title": "Carga de imágenes",
+      "description": "7 técnicas de carga de imágenes (lazy con IntersectionObserver, blur-up LQIP, color dominante, fallback con reintento, masonry, carga por franjas, avatar con iniciales) con medidor de CLS en vivo.",
+      "categories": [
+        "plantillas",
+        "carga"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "carga/carga-imagenes.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[carga]/carga-imagenes.html"
+        }
+      ]
+    },
+    {
+      "name": "carga-optimista-subidas",
+      "type": "registry:file",
+      "title": "Carga optimista y subidas",
+      "description": "UI optimista con rollback, subida de archivos multiple (drag and drop, progreso, cancelar, reintentar), autoguardado con estado y eliminar con deshacer.",
+      "categories": [
+        "plantillas",
+        "carga"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "carga/carga-optimista-subidas.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[carga]/carga-optimista-subidas.html"
+        }
+      ]
+    },
+    {
+      "name": "estados-vacio-error-offline",
+      "type": "registry:file",
+      "title": "Estados vacío, error y offline",
+      "description": "14 estados de interfaz listos para copiar (vacío primera vez, vacío por filtros, sin resultados, error de red con backoff, sin permiso, 404, 500, offline con cola, mantenimiento, cuota, error parcial,",
+      "categories": [
+        "plantillas",
+        "carga"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "carga/estados-vacio-error-offline.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[carga]/estados-vacio-error-offline.html"
+        }
+      ]
+    },
+    {
+      "name": "preloaders-pantalla-completa",
+      "type": "registry:file",
+      "title": "Preloaders de pantalla completa",
+      "description": "8 pantallas de carga inicial (splash) a pantalla completa, con salida animada que revela la página.",
+      "categories": [
+        "plantillas",
+        "carga"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "carga/preloaders-pantalla-completa.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[carga]/preloaders-pantalla-completa.html"
+        }
+      ]
+    },
+    {
+      "name": "scroll-infinito-paginacion",
+      "type": "registry:file",
+      "title": "Scroll infinito y paginación",
+      "description": "6 patrones para listas largas: scroll infinito con sentinel, botón \"Cargar más\", paginación con prefetch, lista virtualizada (10.000 filas), pull-to-refresh y aviso de nuevos elementos.",
+      "categories": [
+        "plantillas",
+        "carga"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "carga/scroll-infinito-paginacion.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[carga]/scroll-infinito-paginacion.html"
+        }
+      ]
+    },
+    {
+      "name": "skeletons-lab",
+      "type": "registry:file",
+      "title": "Laboratorio de skeletons",
+      "description": "Laboratorio de skeletons (8 patrones de carga con transición suave a contenido real, sin saltos de layout).",
+      "categories": [
+        "plantillas",
+        "carga"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "carga/skeletons-lab.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[carga]/skeletons-lab.html"
+        }
+      ]
+    },
+    {
+      "name": "spinners-y-loaders",
+      "type": "registry:file",
+      "title": "Spinners y loaders",
+      "description": "Galería de 36 loaders solo CSS (más 3 hechos con SVG) y 10 estados de botón en carga.",
+      "categories": [
+        "plantillas",
+        "carga"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "carga/spinners-y-loaders.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[carga]/spinners-y-loaders.html"
+        }
+      ]
+    },
+    {
+      "name": "transiciones-de-pagina",
+      "type": "registry:file",
+      "title": "Transiciones de página",
+      "description": "router de hash con 8 transiciones entre vistas (fundido, deslizar, apilar, zoom, cortina, difuminar, elevar, ninguna) y barra de progreso superior.",
+      "categories": [
+        "plantillas",
+        "carga"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "carga/transiciones-de-pagina.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[carga]/transiciones-de-pagina.html"
+        }
+      ]
+    },
+    {
+      "name": "dropdowns-y-contextuales",
+      "type": "registry:file",
+      "title": "Dropdowns y menús contextuales",
+      "description": "menú de usuario, menú de acciones con atajos, select personalizado con búsqueda, multiselect con chips, menú contextual (clic derecho o pulsación larga) y popover de notificaciones.",
+      "categories": [
+        "plantillas",
+        "menus"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "menus/dropdowns-y-contextuales.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[menus]/dropdowns-y-contextuales.html"
+        }
+      ]
+    },
+    {
+      "name": "menus-moviles",
+      "type": "registry:file",
+      "title": "Menús móviles",
+      "description": "4 patrones móviles dentro de un teléfono simulado (barra de pestañas inferior con indicador, menú pantalla completa, botón flotante con acciones, hoja inferior arrastrable).",
+      "categories": [
+        "plantillas",
+        "menus"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "menus/menus-moviles.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[menus]/menus-moviles.html"
+        }
+      ]
+    },
+    {
+      "name": "navbars-superiores",
+      "type": "registry:file",
+      "title": "Navbars superiores",
+      "description": "6 navbars listas para pegar (transparente a sólida al scrollear, oculta al bajar y aparece al subir, centrada, con buscador, con mega menú, con barra de progreso de lectura).",
+      "categories": [
+        "plantillas",
+        "menus"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "menus/navbars-superiores.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[menus]/navbars-superiores.html"
+        }
+      ]
+    },
+    {
+      "name": "navegacion-secundaria",
+      "type": "registry:file",
+      "title": "Navegación secundaria",
+      "description": "migas de pan (con colapso), pestañas con indicador deslizante, pestañas con scroll horizontal, stepper de pasos, paginación con elipsis, índice lateral con scrollspy y volver arriba.",
+      "categories": [
+        "plantillas",
+        "menus"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "menus/navegacion-secundaria.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[menus]/navegacion-secundaria.html"
+        }
+      ]
+    },
+    {
+      "name": "paleta-de-comandos",
+      "type": "registry:file",
+      "title": "Paleta de comandos",
+      "description": "paleta de comandos estilo Ctrl+K (búsqueda difusa con resaltado, grupos, recientes, atajos, acciones con parámetro y navegación por teclado).",
+      "categories": [
+        "plantillas",
+        "menus"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "menus/paleta-de-comandos.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[menus]/paleta-de-comandos.html"
+        }
+      ]
+    },
+    {
+      "name": "sidebars-laterales",
+      "type": "registry:file",
+      "title": "Sidebars laterales",
+      "description": "4 sidebars (colapsable a iconos con tooltip, acordeón con submenús, rail con flyout, drawer móvil con overlay) y selector de variante.",
+      "categories": [
+        "plantillas",
+        "menus"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "menus/sidebars-laterales.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[menus]/sidebars-laterales.html"
+        }
+      ]
+    },
+    {
+      "name": "busqueda-y-filtros",
+      "type": "registry:file",
+      "title": "Búsqueda y filtros",
+      "description": "catálogo con búsqueda y filtros por facetas: contadores que se recalculan, chips de filtros activos con \"limpiar todo\", rango de precio con doble control, orden, vistas guardadas, historial de búsqued",
+      "categories": [
+        "plantillas",
+        "ux"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "ux/busqueda-y-filtros.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[ux]/busqueda-y-filtros.html"
+        }
+      ]
+    },
+    {
+      "name": "formularios-ux",
+      "type": "registry:file",
+      "title": "Formularios con UX pro",
+      "description": "formulario de registro en 3 pasos con todas las reglas de UX aplicadas: validación al salir del campo (y en vivo después del primer error), resumen de errores con foco, RUT chileno con dígito verifica",
+      "categories": [
+        "plantillas",
+        "ux"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "ux/formularios-ux.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[ux]/formularios-ux.html"
+        }
+      ]
+    },
+    {
+      "name": "leyes-ux-interactivas",
+      "type": "registry:file",
+      "title": "Leyes de UX interactivas",
+      "description": "guía viva de 8 leyes de UX con una demo medible por cada una (Fitts, Hick, Miller, Doherty, Postel, Gradiente de meta, Von Restorff, Proximidad), cada una con \"cuándo aplicarla\" y una regla concreta p",
+      "categories": [
+        "plantillas",
+        "ux"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "ux/leyes-ux-interactivas.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[ux]/leyes-ux-interactivas.html"
+        }
+      ]
+    },
+    {
+      "name": "modales-y-confirmaciones",
+      "type": "registry:file",
+      "title": "Modales y confirmaciones",
+      "description": "sistema de diálogos con las reglas de UX aplicadas: modal estándar, confirmación simple, confirmación destructiva (escribir el nombre), deshacer en vez de preguntar, drawer lateral, hoja inferior en m",
+      "categories": [
+        "plantillas",
+        "ux"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "ux/modales-y-confirmaciones.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[ux]/modales-y-confirmaciones.html"
+        }
+      ]
+    },
+    {
+      "name": "onboarding-y-tour",
+      "type": "registry:file",
+      "title": "Onboarding y tour guiado",
+      "description": "onboarding en 3 capas: (1) tour con foco sobre elementos reales (spotlight, flechas del teclado, omitir, retomar), (2) checklist de activación con progreso que se marca solo al completar la acción rea",
+      "categories": [
+        "plantillas",
+        "ux"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "ux/onboarding-y-tour.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[ux]/onboarding-y-tour.html"
+        }
+      ]
+    },
+    {
+      "name": "tabla-de-datos-pro",
+      "type": "registry:file",
+      "title": "Tabla de datos pro",
+      "description": "tabla de datos completa: búsqueda con resaltado, filtros por chips, orden por columna (aria-sort), selección múltiple con Shift y \"seleccionar todo en los N resultados\", barra de acciones en lote, den",
+      "categories": [
+        "plantillas",
+        "ux"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "ux/tabla-de-datos-pro.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[ux]/tabla-de-datos-pro.html"
+        }
+      ]
+    },
+    {
+      "name": "calendario-de-reservas",
+      "type": "registry:file",
+      "title": "Calendario de reservas",
+      "description": "reserva de reuniones en 4 pasos (servicio, día, hora, datos): calendario mensual con días sin disponibilidad deshabilitados, horarios en bloques según duración, zona horaria visible, navegación por te",
+      "categories": [
+        "plantillas",
+        "flujos"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "flujos/calendario-de-reservas.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[flujos]/calendario-de-reservas.html"
+        }
+      ]
+    },
+    {
+      "name": "centro-de-notificaciones",
+      "type": "registry:file",
+      "title": "Centro de notificaciones",
+      "description": "centro de notificaciones completo: campana con contador y panel, bandeja con pestañas (todas, sin leer, menciones), agrupación por día, marcar leída al abrir, acciones por fila (leer, archivar, silenc",
+      "categories": [
+        "plantillas",
+        "flujos"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "flujos/centro-de-notificaciones.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[flujos]/centro-de-notificaciones.html"
+        }
+      ]
+    },
+    {
+      "name": "checkout-por-pasos",
+      "type": "registry:file",
+      "title": "Checkout por pasos",
+      "description": "checkout de 3 pasos (datos, entrega y pago, revisión) con resumen de compra fijo, cupón con validación, cálculo de IVA 19 %, selector de plan con ahorro anual, formato de tarjeta con detección de marc",
+      "categories": [
+        "plantillas",
+        "flujos"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "flujos/checkout-por-pasos.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[flujos]/checkout-por-pasos.html"
+        }
+      ]
+    },
+    {
+      "name": "kanban-con-arrastre",
+      "type": "registry:file",
+      "title": "Kanban con arrastre",
+      "description": "tablero kanban (embudo de ventas o tareas) con arrastre por puntero (mouse y táctil), reordenar dentro de la columna, mover con teclado (Espacio levanta, flechas mueven, Espacio suelta, Escape cancela",
+      "categories": [
+        "plantillas",
+        "flujos"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "flujos/kanban-con-arrastre.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[flujos]/kanban-con-arrastre.html"
+        }
+      ]
+    },
+    {
+      "name": "invitacion-y-bienvenida",
+      "type": "registry:file",
+      "title": "Invitación",
+      "description": "aceptar la invitación a una empresa (?token=): quién invita, empresa y rol, estados válida / expirada / ya usada, formulario de nombre y clave, y pantalla de bienvenida con 3 primeros pasos.",
+      "categories": [
+        "plantillas",
+        "auth"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "auth/invitacion-y-bienvenida.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[auth]/invitacion-y-bienvenida.html"
+        }
+      ]
+    },
+    {
+      "name": "login-y-registro",
+      "type": "registry:file",
+      "title": "Ingresar",
+      "description": "tarjeta de acceso con tabs Ingresar / Crear cuenta.",
+      "categories": [
+        "plantillas",
+        "auth"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "auth/login-y-registro.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[auth]/login-y-registro.html"
+        }
+      ]
+    },
+    {
+      "name": "perfil-y-seguridad",
+      "type": "registry:file",
+      "title": "Mi cuenta",
+      "description": "página \"Mi cuenta\" con 4 pestañas: Perfil (avatar con iniciales, aviso de cambios sin guardar), Seguridad (cambio de clave y 2FA con QR simulado y 8 códigos de recuperación), Sesiones activas y Zona d",
+      "categories": [
+        "plantillas",
+        "auth"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "auth/perfil-y-seguridad.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[auth]/perfil-y-seguridad.html"
+        }
+      ]
+    },
+    {
+      "name": "recuperar-clave",
+      "type": "registry:file",
+      "title": "Recuperar clave",
+      "description": "recuperar clave en una sola página: 1) pedir correo, 2) \"revisa tu correo\" con reenvío tras 60 s y cambio de correo, 3) nueva clave con token de la URL, más éxito y estados de token inválido o vencido",
+      "categories": [
+        "plantillas",
+        "auth"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "auth/recuperar-clave.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[auth]/recuperar-clave.html"
+        }
+      ]
+    },
+    {
+      "name": "verificacion-2-pasos",
+      "type": "registry:file",
+      "title": "Verificación en 2 pasos",
+      "description": "código de 6 dígitos con casillas separadas (autoavance, pegar el código completo, retroceso, flechas), autoenvío al completar, error con vibración suave, reenvío con cuenta regresiva, código de recupe",
+      "categories": [
+        "plantillas",
+        "auth"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "auth/verificacion-2-pasos.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[auth]/verificacion-2-pasos.html"
+        }
+      ]
+    },
+    {
+      "name": "base-de-conocimiento",
+      "type": "registry:file",
+      "title": "Centro de ayuda",
+      "description": "centro de ayuda público con búsqueda (resaltado y atajo \"/\"), categorías, populares, artículo con tabla de contenido que sigue el scroll, voto \"¿Te sirvió?\" y relacionados.",
+      "categories": [
+        "plantillas",
+        "plataformas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "plataformas/base-de-conocimiento.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[plataformas]/base-de-conocimiento.html"
+        }
+      ]
+    },
+    {
+      "name": "panel-de-metricas",
+      "type": "registry:file",
+      "title": "Panel de métricas",
+      "description": "panel con periodo (7, 30, 90 días) y comparación con el periodo anterior, 4 KPIs con delta, líneas SVG con tooltip por teclado y mouse, barras por gerencia, dona, heatmap semana por hora y exportar CS",
+      "categories": [
+        "plantillas",
+        "plataformas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "plataformas/panel-de-metricas.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[plataformas]/panel-de-metricas.html"
+        }
+      ]
+    },
+    {
+      "name": "portal-de-cliente",
+      "type": "registry:file",
+      "title": "Portal de cliente",
+      "description": "portal donde una empresa cliente ve sus estudios (Clima, Mystery) con estado y avance, descarga informes, paga facturas y pide soporte.",
+      "categories": [
+        "plantillas",
+        "plataformas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "plataformas/portal-de-cliente.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[plataformas]/portal-de-cliente.html"
+        }
+      ]
+    },
+    {
+      "name": "precios-comparador",
+      "type": "registry:file",
+      "title": "Precios",
+      "description": "página pública de precios con 3 planes, selector mensual/anual con ahorro calculado, tabla comparativa, plan recomendado, FAQ y CTA a ?plan=x.",
+      "categories": [
+        "plantillas",
+        "plataformas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "plataformas/precios-comparador.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[plataformas]/precios-comparador.html"
+        }
+      ]
+    },
+    {
+      "name": "configuracion-de-empresa",
+      "type": "registry:file",
+      "title": "Configuración de empresa",
+      "description": "ajustes de empresa por secciones (Empresa con logo y color en vivo, Notificaciones por evento y canal, Integraciones con claves de API y webhooks, Dominio personalizado con registros DNS).",
+      "categories": [
+        "plantillas",
+        "admin"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "admin/configuracion-de-empresa.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[admin]/configuracion-de-empresa.html"
+        }
+      ]
+    },
+    {
+      "name": "facturacion-y-suscripcion",
+      "type": "registry:file",
+      "title": "Facturación y suscripción",
+      "description": "panel admin de facturación.",
+      "categories": [
+        "plantillas",
+        "admin"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "admin/facturacion-y-suscripcion.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[admin]/facturacion-y-suscripcion.html"
+        }
+      ]
+    },
+    {
+      "name": "registro-de-actividad",
+      "type": "registry:file",
+      "title": "Registro de actividad",
+      "description": "log de auditoría con filtros (usuario, acción, rango de fechas), búsqueda, chips de filtros activos, paginación por cursor (\"Cargar más\"), fila expandible con diff antes/después y exportación a CSV.",
+      "categories": [
+        "plantillas",
+        "admin"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "admin/registro-de-actividad.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[admin]/registro-de-actividad.html"
+        }
+      ]
+    },
+    {
+      "name": "usuarios-y-roles",
+      "type": "registry:file",
+      "title": "Usuarios y roles",
+      "description": "administración de usuarios de una empresa: tabla con búsqueda, filtros, selección múltiple y acciones masivas, invitaciones, rol inline, suspender/reactivar, eliminar con deshacer y matriz de permisos",
+      "categories": [
+        "plantillas",
+        "admin"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "admin/usuarios-y-roles.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[admin]/usuarios-y-roles.html"
+        }
+      ]
+    },
+    {
+      "name": "ficha-de-cliente",
+      "type": "registry:file",
+      "title": "Ficha de cliente",
+      "description": "vista 360 de un cliente con cabecera y acciones (llamar, correo, agendar), pestañas Resumen (KPIs, próximos pasos, datos editables inline), Contactos, Actividad (filtro por tipo, nota rápida con Ctrl+",
+      "categories": [
+        "plantillas",
+        "crm"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "crm/ficha-de-cliente.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[crm]/ficha-de-cliente.html"
+        }
+      ]
+    },
+    {
+      "name": "leads-y-seguimiento",
+      "type": "registry:file",
+      "title": "Leads y seguimiento",
+      "description": "lista de leads con resumen (abiertos, valor en pipeline, tasa de cierre), búsqueda, filtros, orden, vencidos con texto, alta con validación (+56 9), cambio de etapa con línea de tiempo automática, mot",
+      "categories": [
+        "plantillas",
+        "crm"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "crm/leads-y-seguimiento.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[crm]/leads-y-seguimiento.html"
+        }
+      ]
+    },
+    {
+      "name": "encuesta-publica",
+      "type": "registry:file",
+      "title": "Encuesta de clima",
+      "description": "encuesta pública de clima laboral por enlace con token (?t=...).",
+      "categories": [
+        "plantillas",
+        "publico"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "publico/encuesta-publica.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[publico]/encuesta-publica.html"
+        }
+      ]
+    },
+    {
+      "name": "formulario-contacto",
+      "type": "registry:file",
+      "title": "Contacto",
+      "description": "landing corta de contacto pública con formulario validado, consentimiento explícito, honeypot, límite de reintentos y estados enviando, éxito con resumen y error con reintentar.",
+      "categories": [
+        "plantillas",
+        "publico"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "publico/formulario-contacto.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[publico]/formulario-contacto.html"
+        }
+      ]
+    }
+  ]
+}

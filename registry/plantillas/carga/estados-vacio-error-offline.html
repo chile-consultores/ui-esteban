@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Estados vacío, error y offline · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<script src="../[base]/base.js" defer></script>
+<!--
+  Plantilla: 14 estados de interfaz listos para copiar (vacío primera vez, vacío por filtros, sin resultados, error de red con backoff, sin permiso, 404, 500, offline con cola, mantenimiento, cuota, error parcial, éxito, sesión expirada, tiempo de espera).
+  Proyecto: cualquier app de Chile Consultores (Clima, Mystery, CRM, DataDash).
+  Cómo aplicarlo: copia la función estado({ilus,titulo,texto,acciones}) y el CSS ".est". Cada estado trae su ilustración SVG propia (función ilus) y una acción clara.
+  Conectar: reemplaza los reintentos simulados por tu fetch real; para offline escucha window 'online'/'offline' (ya conectado) y vacía la cola en `sincronizar()`.
+  Ganchos: .est (contenedor), [data-estado] (botones del menú), #banner-offline, window.EST.mostrar(id).
+-->
+<style>
+  .pagina{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+  .layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:18px;margin-top:20px;align-items:start}
+  @media (max-width:760px){.layout{grid-template-columns:1fr}.menu-est{display:none}.sel-m{display:block!important}}
+  .sel-m{display:none;margin-bottom:12px}
+  .menu-est{display:flex;flex-direction:column;gap:2px;position:sticky;top:12px;border:1px solid var(--borde);border-radius:var(--r);padding:8px;background:var(--superficie);max-height:calc(100vh - 40px);overflow:auto}
+  .menu-est .grupo{font-size:var(--fs-xs);color:var(--texto-3);text-transform:uppercase;letter-spacing:.08em;padding:10px 10px 4px}
+  .menu-est button{text-align:left;padding:8px 10px;border-radius:8px;border:0;background:none;color:var(--texto-2);cursor:pointer;font-size:var(--fs-s)}
+  .menu-est button:hover{background:var(--superficie-2);color:var(--texto)}
+  .menu-est button[aria-current="true"]{background:var(--marca-l);color:#fff}
+  .escenario{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);min-height:520px;position:relative;overflow:hidden;display:flex;flex-direction:column}
+  .escenario .encabezado{display:flex;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--borde);font-size:var(--fs-xs);color:var(--texto-3);align-items:center}
+  .escenario .cuerpo{flex:1;display:grid;place-items:center;padding:24px 16px}
+
+  /* === COMPONENTE: estado vacío / error === */
+  .est{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;max-width:440px;width:100%}
+  .est svg.ilus{width:170px;height:130px;margin-bottom:6px}
+  .est h2{font-size:1.35rem}
+  .est p{color:var(--texto-2);margin:0;font-size:var(--fs-s)}
+  .est .acciones{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+  .est .codigo{font:500 .75rem ui-monospace,monospace;color:var(--texto-3);background:var(--superficie-2);padding:3px 8px;border-radius:6px}
+  .est .extra{width:100%;margin-top:6px}
+  .ilus .tr{fill:none;stroke:url(#gIl);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+  .ilus .sol{fill:url(#gIl);opacity:.9} .ilus .sua{fill:rgba(255,255,255,.07);stroke:rgba(255,255,255,.18);stroke-width:2}
+  .ilus .rojo{fill:none;stroke:#EF4444;stroke-width:3.5;stroke-linecap:round} .ilus .verde{fill:none;stroke:#22C55E;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+  .ilus .flota{animation:flota 3.2s ease-in-out infinite}
+  @keyframes flota{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  .ilus .draw{stroke-dasharray:80;stroke-dashoffset:80;animation:dibuja .8s .1s ease forwards}
+  @keyframes dibuja{to{stroke-dashoffset:0}}
+  /* registro de intentos */
+  .log{width:100%;text-align:left;font:400 .75rem ui-monospace,monospace;color:var(--texto-2);background:var(--fondo-2);border:1px solid var(--borde);border-radius:var(--r-s);padding:10px;max-height:120px;overflow:auto}
+  .log div{padding:1px 0}.log .ok{color:var(--verde)}.log .mal{color:#f87171}
+  .barra{height:6px;border-radius:99px;background:var(--superficie-2);overflow:hidden;width:100%}
+  .barra span{display:block;height:100%;background:linear-gradient(90deg,var(--marca),var(--acento));width:0;transition:width .3s linear}
+  .barra.peligro span{background:linear-gradient(90deg,#F59E0B,#EF4444)}
+  #banner-offline{display:none;background:rgba(245,158,11,.15);border-bottom:1px solid rgba(245,158,11,.4);color:#fcd34d;padding:8px 16px;font-size:var(--fs-s);align-items:center;gap:10px;position:sticky;top:0;z-index:4}
+  #banner-offline.on{display:flex}
+  .cola{width:100%;text-align:left;display:flex;flex-direction:column;gap:6px}
+  .cola .it{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;background:var(--superficie-2);border-radius:8px;font-size:var(--fs-xs)}
+  .parcial{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+  .w{border:1px solid var(--borde);border-radius:var(--r-s);padding:12px;min-height:96px;display:flex;flex-direction:column;gap:6px;text-align:left}
+  .w b{font-size:var(--fs-s)}.w .v{font:600 1.4rem var(--display)}.w.mal{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.06)}
+  .sk{height:22px;border-radius:6px;background:var(--superficie-2);animation:pul 1.3s infinite}@keyframes pul{50%{opacity:.4}}
+  @media (prefers-reduced-motion:reduce){.ilus .flota,.sk{animation:none}.ilus .draw{animation:none;stroke-dashoffset:0}}
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="pagina" id="contenido">
+  <h1>Estados de <span class="gradient-text">vacío, error y offline</span></h1>
+  <p class="muted">Catorce estados con ilustración propia y una acción clara. Elige uno a la izquierda; los que tienen comportamiento (reintento con backoff, cola offline, mantenimiento) son funcionales.</p>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="gIl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7C6DF2"/><stop offset="1" stop-color="#38BDF8"/></linearGradient></defs></svg>
+
+  <div class="layout">
+    <div>
+      <label class="sel-m small muted" for="in-sel">Estado<select id="in-sel" name="est" class="select"></select></label>
+      <nav class="menu-est" id="menu" aria-label="Estados disponibles"></nav>
+    </div>
+    <section class="escenario" aria-label="Vista previa del estado">
+      <div id="banner-offline" role="status"><span>Sin conexión. Tus cambios se guardan y se enviarán al volver.</span></div>
+      <div class="encabezado"><span id="nom-est">Estado</span><span id="cat-est"></span></div>
+      <div class="cuerpo" id="cuerpo" aria-live="polite"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const sv = (t, a) => { const e = document.createElementNS(NS, t); Object.keys(a || {}).forEach(k => e.setAttribute(k, a[k])); return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  const toast = (m, t) => { if (window.UI && UI.toast) UI.toast(m, t || 'info'); };
+  const hora = () => new Date().toLocaleTimeString('es-CL', { hour12: false });
+
+  /* ---------- Ilustraciones (cada una: lista de [tag, attrs]) ---------- */
+  const IL = {
+    caja: [['path', { class: 'sua', d: 'M35 55l50-20 50 20v45l-50 20-50-20z' }], ['path', { class: 'tr', d: 'M35 55l50 20 50-20M85 75v45' }], ['path', { class: 'tr flota draw', d: 'M85 22v22M74 33h22' }]],
+    filtro: [['path', { class: 'sua', d: 'M30 30h110l-42 48v34l-26-14V78z' }], ['path', { class: 'tr', d: 'M30 30h110l-42 48v34l-26-14V78z' }], ['path', { class: 'rojo draw', d: 'M120 100l20 20M140 100l-20 20' }]],
+    buscar: [['circle', { class: 'sua', cx: 78, cy: 60, r: 34 }], ['circle', { class: 'tr', cx: 78, cy: 60, r: 34 }], ['path', { class: 'tr', d: 'M103 86l28 28' }], ['path', { class: 'tr draw', d: 'M68 52a10 10 0 1 1 14 9c-3 2-4 4-4 8M78 80v1' }]],
+    wifi: [['path', { class: 'tr', d: 'M30 62a80 80 0 0 1 110 0M48 80a54 54 0 0 1 74 0M66 98a28 28 0 0 1 38 0' }], ['circle', { class: 'sol', cx: 85, cy: 114, r: 5 }], ['path', { class: 'rojo draw', d: 'M44 30l82 90' }]],
+    candado: [['rect', { class: 'sua', x: 50, y: 62, width: 70, height: 54, rx: 10 }], ['rect', { class: 'tr', x: 50, y: 62, width: 70, height: 54, rx: 10 }], ['path', { class: 'tr', d: 'M64 62V48a21 21 0 0 1 42 0v14' }], ['circle', { class: 'sol', cx: 85, cy: 88, r: 6 }], ['path', { class: 'tr', d: 'M85 94v10' }]],
+    mapa: [['path', { class: 'sua', d: 'M25 40l40-12 40 12 40-12v72l-40 12-40-12-40 12z' }], ['path', { class: 'tr', d: 'M65 28v72M105 40v72' }], ['path', { class: 'rojo draw', d: 'M70 52l30 30M100 52L70 82' }]],
+    servidor: [['rect', { class: 'sua', x: 38, y: 30, width: 94, height: 30, rx: 8 }], ['rect', { class: 'sua', x: 38, y: 68, width: 94, height: 30, rx: 8 }], ['rect', { class: 'tr', x: 38, y: 30, width: 94, height: 30, rx: 8 }], ['rect', { class: 'tr', x: 38, y: 68, width: 94, height: 30, rx: 8 }], ['circle', { class: 'sol', cx: 54, cy: 45, r: 4 }], ['circle', { class: 'sol', cx: 54, cy: 83, r: 4 }], ['path', { class: 'rojo draw', d: 'M85 104v8M85 120v1' }]],
+    nube: [['path', { class: 'sua', d: 'M52 96a24 24 0 0 1 2-47 32 32 0 0 1 62 8 20 20 0 0 1-2 39z' }], ['path', { class: 'tr', d: 'M52 96a24 24 0 0 1 2-47 32 32 0 0 1 62 8 20 20 0 0 1-2 39z' }], ['path', { class: 'rojo draw', d: 'M40 28l92 96' }]],
+    llave: [['circle', { class: 'sua', cx: 85, cy: 66, r: 36 }], ['circle', { class: 'tr', cx: 85, cy: 66, r: 36 }], ['circle', { class: 'tr', cx: 85, cy: 66, r: 12 }], ['path', { class: 'tr flota', d: 'M85 30v12M85 90v12M49 66h12M109 66h12M60 41l8 8M102 83l8 8M110 41l-8 8M68 83l-8 8' }]],
+    medidor: [['path', { class: 'sua', d: 'M24 100a62 62 0 0 1 122 0z' }], ['path', { class: 'tr', d: 'M24 100a62 62 0 0 1 122 0' }], ['path', { class: 'rojo draw', d: 'M85 100l38-40' }], ['circle', { class: 'sol', cx: 85, cy: 100, r: 7 }]],
+    grilla: [['rect', { class: 'sua', x: 28, y: 28, width: 52, height: 40, rx: 8 }], ['rect', { class: 'sua', x: 90, y: 28, width: 52, height: 40, rx: 8 }], ['rect', { class: 'sua', x: 28, y: 76, width: 52, height: 40, rx: 8 }], ['rect', { x: 90, y: 76, width: 52, height: 40, rx: 8, fill: 'rgba(239,68,68,.1)', stroke: '#EF4444', 'stroke-width': 2 }], ['path', { class: 'rojo', d: 'M106 92l20 8M126 92l-20 8' }]],
+    ok: [['circle', { class: 'sua', cx: 85, cy: 66, r: 40 }], ['circle', { class: 'tr', cx: 85, cy: 66, r: 40 }], ['path', { class: 'verde draw', d: 'M65 68l14 14 28-30' }]],
+    reloj: [['circle', { class: 'sua', cx: 85, cy: 66, r: 40 }], ['circle', { class: 'tr', cx: 85, cy: 66, r: 40 }], ['path', { class: 'tr flota', d: 'M85 42v24l16 10' }], ['path', { class: 'rojo draw', d: 'M125 34l12-12M45 34L33 22' }]],
+    sesion: [['rect', { class: 'sua', x: 46, y: 60, width: 78, height: 54, rx: 10 }], ['rect', { class: 'tr', x: 46, y: 60, width: 78, height: 54, rx: 10 }], ['path', { class: 'tr', d: 'M60 60V46a25 25 0 0 1 50-6' }], ['path', { class: 'rojo draw', d: 'M85 80v10M85 98v1' }]]
+  };
+  function ilus(k) { const s = sv('svg', { viewBox: '0 0 170 130', class: 'ilus', 'aria-hidden': 'true', focusable: 'false' }); IL[k].forEach(([t, a]) => s.appendChild(sv(t, a))); return s; }
+
+  /* === COMPONENTE: estado({ilus,titulo,texto,codigo,acciones,extra}) === */
+  function estado(o) {
+    const d = el('div', 'est'); d.appendChild(ilus(o.ilus)); d.appendChild(el('h2', '', o.titulo)); d.appendChild(el('p', '', o.texto));
+    if (o.codigo) d.appendChild(el('span', 'codigo', o.codigo));
+    if (o.extra) { const x = el('div', 'extra'); x.appendChild(o.extra); d.appendChild(x); }
+    if (o.acciones && o.acciones.length) { const a = el('div', 'acciones'); o.acciones.forEach(([txt, fn, sec]) => { const b = el('button', 'btn' + (sec ? ' btn-sec' : ''), txt); b.type = 'button'; b.addEventListener('click', () => fn(b)); a.appendChild(b); }); d.appendChild(a); }
+    return d;
+  }
+
+  /* ---------- Los 14 estados ---------- */
+  let timers = [];
+  const limpiar = () => { timers.forEach(t => { clearTimeout(t); clearInterval(t); }); timers = []; $('#banner-offline').classList.remove('on'); };
+  const ESTADOS = [
+    { id: 'vacio1', g: 'Vacíos', n: 'Primera vez', render: () => estado({ ilus: 'caja', titulo: 'Aún no tienes estudios', texto: 'Crea tu primer estudio de clima para empezar a medir cómo se siente tu equipo.', acciones: [['Crear estudio', () => toast('Abriendo el creador de estudios', 'info')], ['Ver una demo', () => toast('Cargando datos de ejemplo', 'info'), true]] }) },
+    { id: 'vacio2', g: 'Vacíos', n: 'Por filtros', render: () => estado({ ilus: 'filtro', titulo: 'Ningún resultado con estos filtros', texto: 'Tienes 3 filtros activos: Estado = Cerrado, Región = Los Lagos, Año = 2024.', acciones: [['Quitar filtros', () => toast('Filtros quitados', 'ok')], ['Cambiar filtros', () => toast('Abriendo filtros', 'info'), true]] }) },
+    { id: 'vacio3', g: 'Vacíos', n: 'Sin resultados de búsqueda', render: () => { const w = el('div'); const b = el('div', 'extra'); const c = el('div', 'campo'); const l = el('label', '', 'Buscar'); l.htmlFor = 'in-bus'; const i = el('input', 'input'); i.id = 'in-bus'; i.name = 'q'; i.value = 'clima laborl'; c.append(l, i); w.appendChild(c); return estado({ ilus: 'buscar', titulo: 'No encontramos "clima laborl"', texto: 'Revisa la ortografía o prueba con menos palabras. ¿Quisiste decir "clima laboral"?', extra: w, acciones: [['Buscar "clima laboral"', () => { i.value = 'clima laboral'; toast('Mostrando 12 resultados', 'ok'); }], ['Limpiar búsqueda', () => { i.value = ''; i.focus(); }, true]] }); } },
+    { id: 'red', g: 'Errores', n: 'Error de red con backoff', render: errorRed },
+    { id: 'permiso', g: 'Errores', n: 'Sin permiso (403)', render: () => { const d = estado({ ilus: 'candado', titulo: 'No tienes acceso a este informe', texto: 'Solo las jefaturas de Personas pueden ver los resultados por gerencia. Puedes pedir acceso al administrador.', codigo: 'Error 403 · acceso denegado', acciones: [['Solicitar acceso', b => { b.disabled = true; b.textContent = 'Solicitud enviada'; toast('Aviso enviado al administrador', 'ok'); }], ['Volver al inicio', () => toast('Volviendo al inicio', 'info'), true]] }); return d; } },
+    { id: '404', g: 'Errores', n: 'No encontrado (404)', render: () => estado({ ilus: 'mapa', titulo: 'No encontramos esta página', texto: 'El enlace puede estar mal escrito o el contenido fue movido o eliminado.', codigo: 'Error 404 · /estudios/2019-antiguo', acciones: [['Ir al inicio', () => toast('Yendo al inicio', 'info')], ['Reportar enlace roto', () => toast('Gracias, lo revisaremos', 'ok'), true]] }) },
+    { id: '500', g: 'Errores', n: 'Error del servidor (500)', render: () => { const id = 'INC-' + Math.random().toString(36).slice(2, 8).toUpperCase(); return estado({ ilus: 'servidor', titulo: 'Algo salió mal de nuestro lado', texto: 'Ya estamos al tanto. Si el problema sigue, comparte este código con soporte.', codigo: 'Error 500 · ' + id, acciones: [['Reintentar', () => toast('Reintentando…', 'info')], ['Copiar código', () => { if (navigator.clipboard) navigator.clipboard.writeText(id).catch(() => {}); toast('Código copiado: ' + id, 'ok'); }, true]] }); } },
+    { id: 'timeout', g: 'Errores', n: 'Tiempo de espera agotado', render: () => estado({ ilus: 'reloj', titulo: 'La consulta tardó demasiado', texto: 'El informe tiene muchos datos. Prueba con un rango de fechas más corto o pide que lo enviemos por correo.', codigo: 'Timeout · 30 s', acciones: [['Acotar fechas', () => toast('Rango acotado a 30 días', 'ok')], ['Enviármelo por correo', () => toast('Te lo enviaremos cuando esté listo', 'info'), true]] }) },
+    { id: 'sesion', g: 'Errores', n: 'Sesión expirada', render: () => estado({ ilus: 'sesion', titulo: 'Tu sesión expiró', texto: 'Por seguridad cerramos la sesión tras 30 minutos sin actividad. Tu trabajo sin guardar se conservó.', acciones: [['Iniciar sesión de nuevo', () => toast('Redirigiendo al login', 'info')]] }) },
+    { id: 'offline', g: 'Conexión', n: 'Offline con cola', render: offline },
+    { id: 'mant', g: 'Conexión', n: 'Mantenimiento programado', render: mantenimiento },
+    { id: 'cuota', g: 'Conexión', n: 'Límite de cuota', render: () => { const x = el('div'); const b = el('div', 'barra peligro'); b.setAttribute('role', 'progressbar'); b.setAttribute('aria-valuemin', '0'); b.setAttribute('aria-valuemax', '100'); b.setAttribute('aria-valuenow', '100'); b.setAttribute('aria-label', 'Uso del plan'); const s = el('span'); s.style.width = '100%'; b.appendChild(s); x.append(b, el('p', 'small', '500 de 500 respuestas este mes. Se renueva el 1 de noviembre.')); return estado({ ilus: 'medidor', titulo: 'Llegaste al límite de tu plan', texto: 'Ya no puedes recibir más respuestas hasta que se renueve el ciclo o subas de plan.', extra: x, acciones: [['Ver planes', () => toast('Abriendo planes', 'info')], ['Ver mi uso', () => toast('Abriendo uso', 'info'), true]] }); } },
+    { id: 'parcial', g: 'Parciales', n: 'Error parcial por módulo', render: parcial },
+    { id: 'exito', g: 'Parciales', n: 'Éxito tras una acción', render: () => { const d = estado({ ilus: 'ok', titulo: 'Estudio publicado', texto: 'Enviamos la invitación a 48 personas. Te avisaremos cuando llegue al 50% de participación.', acciones: [['Ver estudio', () => toast('Abriendo estudio', 'info')], ['Deshacer publicación', () => { UI.toast('Publicación deshecha', 'warn'); }, true]] }); return d; } }
+  ];
+
+  function errorRed() {
+    const log = el('div', 'log'); log.setAttribute('role', 'log'); log.setAttribute('aria-live', 'polite'); const barra = el('div', 'barra'); barra.setAttribute('aria-hidden', 'true'); const sp = el('span'); barra.appendChild(sp);
+    const sw = el('label', 'check'); const ck = el('input'); ck.type = 'checkbox'; ck.id = 'in-srv'; ck.name = 'srv'; sw.htmlFor = 'in-srv'; sw.append(ck, el('span', 'small', 'Simular que el servidor vuelve a responder'));
+    const extra = el('div'); extra.style.cssText = 'display:flex;flex-direction:column;gap:10px'; extra.append(sw, barra, log);
+    const add = (t, c) => { const r = el('div', c || '', '[' + hora() + '] ' + t); log.appendChild(r); log.scrollTop = log.scrollHeight; };
+    let cancel = false, corriendo = false;
+    const d = estado({ ilus: 'wifi', titulo: 'No pudimos conectar con el servidor', texto: 'Reintentaremos solos con esperas crecientes (1, 2, 4, 8 y 16 s, acelerado en esta demo).', codigo: 'ERR_NETWORK', extra,
+      acciones: [['Reintentar ahora', b => iniciar(b)], ['Cancelar', () => { cancel = true; }, true]] });
+    async function iniciar(btn) {
+      if (corriendo) return; corriendo = true; cancel = false; btn.disabled = true; log.replaceChildren();
+      for (let i = 0, espera = 1; i < 5; i++, espera *= 2) {
+        add('Intento ' + (i + 1) + ' de 5…'); await esperar(500);
+        if (ck.checked) { add('Conexión restablecida', 'ok'); sp.style.width = '100%'; toast('Conexión restablecida', 'ok'); corriendo = false; btn.disabled = false; return; }
+        add('Falló. Próximo intento en ' + espera + ' s', 'mal');
+        const ms = espera * 400, t0 = Date.now(); while (Date.now() - t0 < ms) { if (cancel) { add('Cancelado por ti'); corriendo = false; btn.disabled = false; return; } sp.style.width = ((Date.now() - t0) / ms * 100) + '%'; await esperar(60); }
+      }
+      add('Sin respuesta tras 5 intentos. Revisa tu conexión.', 'mal'); corriendo = false; btn.disabled = false;
+    }
+    return d;
+  }
+
+  function offline() {
+    const cola = []; const caja = el('div', 'cola'); const sw = el('label', 'check'); const ck = el('input'); ck.type = 'checkbox'; ck.id = 'in-off'; ck.name = 'off'; ck.checked = true; sw.htmlFor = 'in-off'; sw.append(ck, el('span', 'small', 'Estoy sin conexión'));
+    const campo = el('div', 'campo'); const l = el('label', '', 'Nota rápida'); l.htmlFor = 'in-nota'; const i = el('input', 'input'); i.id = 'in-nota'; i.name = 'nota'; i.value = 'Llamar a Minera Aconcagua'; campo.append(l, i);
+    const ban = $('#banner-offline'); const estadoTxt = el('p', 'small'); estadoTxt.setAttribute('role', 'status');
+    const pintar = () => { caja.replaceChildren(); cola.forEach(n => { const it = el('div', 'it'); it.append(el('span', '', n.t), el('span', 'muted', n.estado)); caja.appendChild(it); }); estadoTxt.textContent = cola.length ? cola.length + (cola.length === 1 ? ' acción en cola' : ' acciones en cola') : 'Sin acciones pendientes'; };
+    async function sincronizar() { const pend = cola.filter(n => n.estado === 'Pendiente'); for (const n of pend) { n.estado = 'Enviando…'; pintar(); await esperar(600); n.estado = 'Enviado'; pintar(); } if (pend.length) toast(pend.length + ' acciones sincronizadas', 'ok'); }
+    const aplicar = () => { ban.classList.toggle('on', ck.checked); if (!ck.checked) sincronizar(); };
+    ck.addEventListener('change', aplicar);
+    const hOff = () => { ck.checked = true; aplicar(); }, hOn = () => { ck.checked = false; aplicar(); };
+    window.addEventListener('offline', hOff); window.addEventListener('online', hOn); timers.push({ _limpia: true }); cleanups.push(() => { window.removeEventListener('offline', hOff); window.removeEventListener('online', hOn); });
+    const extra = el('div'); extra.style.cssText = 'display:flex;flex-direction:column;gap:10px;text-align:left'; extra.append(sw, campo, estadoTxt, caja);
+    const d = estado({ ilus: 'nube', titulo: 'Estás sin conexión', texto: 'Puedes seguir trabajando. Guardamos tus acciones y las enviamos apenas vuelva internet.', extra,
+      acciones: [['Guardar nota', () => { if (!i.value.trim()) { toast('Escribe una nota', 'warn'); return; } cola.push({ t: i.value.trim(), estado: ck.checked ? 'Pendiente' : 'Enviado' }); pintar(); if (!ck.checked) toast('Nota guardada', 'ok'); }]] });
+    aplicar(); pintar(); return d;
+  }
+
+  function mantenimiento() {
+    const fin = Date.now() + 90000; const t = el('div', 'valor mono', ''); t.style.cssText = 'font-size:2rem;font-weight:600;font-variant-numeric:tabular-nums'; const b = el('div', 'barra'); b.setAttribute('aria-hidden', 'true'); const s = el('span'); b.appendChild(s);
+    const x = el('div'); x.style.cssText = 'display:flex;flex-direction:column;gap:10px;align-items:center'; x.append(t, b); const sr = el('span', 'sr-only'); sr.setAttribute('role', 'timer'); x.appendChild(sr);
+    const tick = () => { const r = Math.max(0, fin - Date.now()), m = Math.floor(r / 60000), sec = Math.floor(r % 60000 / 1000); t.textContent = String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0'); s.style.width = (100 - r / 900) + '%'; if (sec % 30 === 0) sr.textContent = 'Quedan ' + m + ' minutos y ' + sec + ' segundos'; };
+    tick(); timers.push(setInterval(tick, 500));
+    return estado({ ilus: 'llave', titulo: 'Estamos mejorando la plataforma', texto: 'Volvemos en unos minutos. Tus datos están seguros y no se pierde nada.', extra: x, codigo: 'Mantenimiento programado · sábado 02:00', acciones: [['Avísame cuando vuelva', b => { b.disabled = true; b.textContent = 'Te avisaremos'; toast('Te enviaremos un correo', 'ok'); }], ['Ver estado del servicio', () => toast('Abriendo página de estado', 'info'), true]] });
+  }
+
+  function parcial() {
+    const g = el('div', 'parcial'); const W = [['Respuestas', '4.821'], ['Participación', '96%'], ['Puntaje', '4,6'], ['Comentarios', '312']]; const cajas = [];
+    W.forEach(([n, v], i) => { const w = el('div', 'w'); w.appendChild(el('b', '', n)); w.appendChild(el('div', 'sk')); g.appendChild(w); cajas.push(w); setTimeout(() => { if (i === 2) mal(w, n, v); else ok(w, n, v); }, 500 + i * 400); });
+    function ok(w, n, v) { w.className = 'w'; w.replaceChildren(el('b', '', n), el('div', 'v', v)); }
+    function mal(w, n, v) { w.className = 'w mal'; const b = el('button', 'btn btn-sec btn-sm', 'Reintentar'); b.type = 'button'; w.replaceChildren(el('b', '', n), el('span', 'small', 'No se pudo cargar este módulo'), b); b.addEventListener('click', async () => { w.replaceChildren(el('b', '', n), el('div', 'sk')); await esperar(900); ok(w, n, v); toast(n + ' actualizado', 'ok'); }); }
+    return estado({ ilus: 'grilla', titulo: 'Un módulo no respondió', texto: 'El resto del panel funciona. Reintenta solo el que falló, sin recargar toda la página.', extra: g, codigo: '1 de 4 módulos con error' });
+  }
+
+  /* ---------- Navegación entre estados ---------- */
+  const cleanups = [];
+  const menu = $('#menu'), cuerpo = $('#cuerpo'), sel = $('#in-sel'); let grupo = '';
+  ESTADOS.forEach(e => {
+    if (e.g !== grupo) { grupo = e.g; menu.appendChild(el('div', 'grupo', grupo)); }
+    const b = el('button', '', e.n); b.type = 'button'; b.dataset.estado = e.id; b.addEventListener('click', () => mostrar(e.id)); menu.appendChild(b);
+    const o = el('option', '', e.g + ': ' + e.n); o.value = e.id; sel.appendChild(o);
+  });
+  sel.addEventListener('change', () => mostrar(sel.value));
+  function mostrar(id) {
+    cleanups.splice(0).forEach(f => f()); limpiar();
+    const e = ESTADOS.find(x => x.id === id) || ESTADOS[0];
+    menu.querySelectorAll('button').forEach(b => b.setAttribute('aria-current', String(b.dataset.estado === e.id))); sel.value = e.id;
+    $('#nom-est').textContent = e.n; $('#cat-est').textContent = e.g; cuerpo.replaceChildren(e.render());
+    history.replaceState(null, '', '#' + e.id);
+  }
+  window.EST = { mostrar };
+  mostrar(location.hash.slice(1) || 'vacio1');
+})();
+</script>
+</body>
+</html>

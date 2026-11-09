@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Panel de métricas · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: panel con periodo (7, 30, 90 días) y comparación con el periodo anterior, 4 KPIs con delta, líneas SVG con tooltip por teclado y mouse, barras por gerencia, dona, heatmap semana por hora y exportar CSV.
+  Proyecto: DataDash y paneles de Clima Laboral de Chile Consultores.
+  Cómo aplicarlo: mantén la forma que devuelve datos(dias) y el resto se dibuja solo. KPIS define etiqueta, formato y si bajar es bueno (inv).
+  Conectar: reemplaza datos(dias) por supabase.rpc('metricas', { dias }) devolviendo { fechas, actual, anterior } con { serie, kpi, gerencias, dist, calor }. El CSV usa ; y BOM para Excel en es-CL.
+  Ganchos: #pm-linea, #pm-kpis, #pm-barras, #pm-dona, #pm-calor, #pm-csv, #pm-demo (selector solo para demo).
+-->
+<style>
+  [hidden]{display:none}
+  .pm{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+  .pm .btn,.pm .select{min-height:44px}
+  .pm-cab{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+  .pm-ctl{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap}
+  .pm-ctl .select{width:auto;flex:none}
+  .pm-seg{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--borde-2);border-radius:var(--pill);min-width:0;margin:0}
+  .pm-seg label{position:relative;display:flex;align-items:center;min-height:36px;padding:0 14px;border-radius:var(--pill);cursor:pointer;font-size:var(--fs-s);font-weight:500}
+  .pm-seg input{position:absolute;opacity:0;inset:0;cursor:pointer}
+  .pm-seg label:has(input:checked){background:var(--marca);color:#fff}
+  .pm-seg label:has(input:focus-visible){outline:2px solid var(--acento);outline-offset:2px}
+  .pm .card h2{font-size:var(--fs-b);font-family:var(--display)}
+  .pm-leyenda{display:flex;gap:16px;flex-wrap:wrap;font-size:var(--fs-xs);color:var(--texto-2)}
+  .pm-leyenda span{display:inline-flex;align-items:center;gap:6px}
+  #pm-linea{position:relative;border-radius:var(--r-s)}
+  #pm-linea svg{width:100%;height:auto;overflow:visible}
+  .pm-tip{position:absolute;top:0;left:0;pointer-events:none;opacity:0;white-space:pre-line;font-size:var(--fs-xs);background:#161624;border:1px solid var(--borde-2);border-radius:var(--r-xs);padding:6px 10px;box-shadow:var(--sombra-f);z-index:2}
+  .pm-tip.on{opacity:1}
+  .pm-fila{display:grid;grid-template-columns:96px 1fr 44px;gap:4px 8px;align-items:center;font-size:var(--fs-s);margin-bottom:12px}
+  .pm-pista{display:flex;flex-direction:column;gap:3px}
+  .pm-barra{height:12px;border-radius:3px;background:var(--marca)}
+  .pm-barra.ant{height:6px;background:repeating-linear-gradient(45deg,var(--acento) 0 3px,transparent 3px 6px)}
+  .pm-val{text-align:right;font-variant-numeric:tabular-nums}
+  .pm-dona{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+  .pm-dona>svg{width:150px;height:150px;flex:none}
+  .pm-dona ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:var(--fs-s)}
+  .pm-dona li{display:flex;align-items:center;gap:8px}
+  .pm-calor{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:2px;font-size:10px;font-variant-numeric:tabular-nums;text-align:center}
+  .pm-calor th{font-weight:500;color:var(--texto-2);text-align:center}
+  .pm-calor th[scope=row]{width:34px;text-align:left}
+  .pm-calor td{height:28px;border-radius:3px}
+  .pm-datos{max-height:280px;overflow:auto;margin-top:12px}
+  .pm summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:var(--fs-s);color:var(--texto-2)}
+  .pm-sin{position:absolute;width:0;height:0}
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<svg class="pm-sin" aria-hidden="true"><defs>
+  <pattern id="pt-amb" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#FBBF24"/><rect width="2" height="6" fill="#0B0B14"/></pattern>
+  <pattern id="pt-vio" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#A78BFA"/><circle cx="3" cy="3" r="1.4" fill="#0B0B14"/></pattern>
+</defs></svg>
+<div class="pm">
+  <header class="pm-cab">
+    <div><h1>Panel de métricas</h1><p class="muted small" id="pm-sub"></p></div>
+    <div class="pm-ctl">
+      <fieldset class="pm-seg"><legend class="sr-only">Periodo</legend>
+        <label><input type="radio" name="periodo" value="7">7 d</label><label><input type="radio" name="periodo" value="30" checked>30 d</label><label><input type="radio" name="periodo" value="90">90 d</label></fieldset>
+      <label class="check"><input type="checkbox" id="pm-comp" checked>Comparar con el periodo anterior</label>
+      <button class="btn btn-sec" id="pm-csv">Exportar CSV</button>
+      <span class="row"><label for="pm-demo" class="muted small">Demo</label><select id="pm-demo" class="select"><option value="contenido">Contenido</option><option value="cargando">Cargando</option><option value="error">Error</option><option value="vacio">Vacío</option></select></span>
+    </div>
+  </header>
+  <div id="pm-skel" aria-busy="true" hidden><div class="grid grid-4 mb-24"><div class="skeleton bloque"></div><div class="skeleton bloque"></div><div class="skeleton bloque"></div><div class="skeleton bloque"></div></div><div class="skeleton bloque" style="height:260px"></div></div>
+  <div id="pm-error" class="estado card" role="alert" tabindex="-1" hidden><h3>No pudimos cargar las métricas</h3><p>Revisa tu conexión e inténtalo de nuevo.</p><button class="btn" id="pm-reintentar">Reintentar</button></div>
+  <div id="pm-vacio" class="estado card" tabindex="-1" hidden><h3>Sin datos en este periodo</h3><p>Cuando lleguen respuestas verás aquí sus métricas.</p></div>
+  <div id="pm-contenido" hidden>
+    <div class="grid grid-4 mb-24" id="pm-kpis"></div>
+    <section class="card mb-24" aria-labelledby="pm-lt">
+      <div class="card-head"><h2 id="pm-lt">Respuestas por día</h2><div class="pm-leyenda" id="pm-ley"></div></div>
+      <div id="pm-linea" tabindex="0" role="group" aria-label="Gráfico de respuestas por día. Usa las flechas izquierda y derecha para recorrer los días."><div class="pm-tip" id="pm-tip" role="status"></div></div>
+      <details><summary>Ver datos como tabla</summary><div class="tabla-wrap pm-datos" tabindex="0" role="region" aria-label="Respuestas por día en tabla"><table class="tabla" id="pm-tabla"></table></div></details>
+    </section>
+    <div class="grid grid-2 mb-24">
+      <section class="card" aria-labelledby="pm-bt"><div class="card-head"><h2 id="pm-bt">Satisfacción por gerencia (%)</h2></div><div id="pm-barras"></div></section>
+      <section class="card" aria-labelledby="pm-dt"><div class="card-head"><h2 id="pm-dt">Distribución eNPS</h2></div><div class="pm-dona" id="pm-dona"></div></section>
+    </div>
+    <section class="card" aria-labelledby="pm-ht"><div class="card-head"><h2 id="pm-ht">Respuestas por día de la semana y hora</h2></div><table class="pm-calor" id="pm-calor"></table></section>
+  </div>
+</div>
+<script src="../[base]/base.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id), NS = 'http://www.w3.org/2000/svg';
+  const GERENCIAS = ['Operaciones', 'Comercial', 'Finanzas', 'Personas', 'Tecnología'], DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const KPIS = [{ k: 'respuestas', t: 'Respuestas', f: UI.formato.num }, { k: 'participacion', t: 'Participación', f: v => v + '%' }, { k: 'enps', t: 'eNPS', f: v => v }, { k: 'tiempo', t: 'Tiempo medio', f: v => String(v).replace('.', ',') + ' min', inv: true }];
+  const DIST = [['Promotores', '#34D399'], ['Pasivos', 'url(#pt-amb)'], ['Detractores', 'url(#pt-vio)']];
+  const HASTA = new Date(2026, 10, 8, 12);
+
+  /* CONECTAR: reemplaza datos() por supabase.rpc('metricas', { dias }). Devuelve { fechas, actual, anterior }. */
+  const rng = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  function bloque(semilla, dias) {
+    const r = rng(semilla + dias), suma = a => a.reduce((s, x) => s + x, 0);
+    const serie = Array.from({ length: dias }, (_, i) => Math.round(40 + 25 * Math.sin(i / 3.2 + semilla) + r() * 20));
+    const prom = Math.round(40 + r() * 20), det = Math.round(8 + r() * 14);
+    const calor = DIAS.map((_, d) => Array.from({ length: 12 }, (_, h) => Math.round((6 + 10 * Math.exp(-((h - 3) ** 2) / 6) + 8 * Math.exp(-((h - 8) ** 2) / 5)) * (d > 4 ? .3 : 1) * (.7 + r() * .6) * dias / 30)));
+    return { serie, kpi: { respuestas: suma(serie), participacion: Math.round(55 + r() * 30), enps: prom - det, tiempo: Math.round((4 + r() * 3) * 10) / 10 },
+      gerencias: GERENCIAS.map(() => Math.round(55 + r() * 40)), dist: [prom, 100 - prom - det, det], calor };
+  }
+  const datos = dias => ({ fechas: Array.from({ length: dias }, (_, i) => new Date(HASTA - (dias - 1 - i) * 864e5)), actual: bloque(1, dias), anterior: bloque(7, dias) });
+
+  const el = (tag, cls, texto) => { const e = document.createElement(tag); if (cls) e.className = cls; if (texto != null) e.textContent = texto; return e; };
+  const sv = (tag, attrs, padre) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); padre?.append(e); return e; };
+  const fecha = d => new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'short' }).format(d);
+  const periodo = () => +document.querySelector('[name=periodo]:checked').value, comparar = () => $('pm-comp').checked;
+  let D = null, marcar = () => {}, tok = 0, primera = true;
+
+  function kpis() {
+    $('pm-kpis').replaceChildren(...KPIS.map(({ k, t, f, inv }) => {
+      const c = el('div', 'card kpi'), a = D.actual.kpi[k], b = D.anterior.kpi[k];
+      c.append(el('span', 'label', t), el('span', 'valor', f(a)));
+      if (comparar()) {
+        const d = (a - b) / Math.abs(b), bien = inv ? d < 0 : d > 0, x = el('span', 'delta ' + (Math.abs(d) < .005 ? 'flat' : bien ? 'up' : 'down'), (d > 0 ? '▲ +' : d < 0 ? '▼ ' : '= ') + (d * 100).toFixed(1).replace('.', ',') + '% vs periodo anterior');
+        c.append(x);
+      }
+      return c;
+    }));
+  }
+
+  function linea() {
+    const c = $('pm-linea'), W = c.clientWidth || 600, H = 240, m = { l: 40, r: 12, t: 12, b: 28 }, n = D.fechas.length, comp = comparar();
+    const A = D.actual.serie, B = D.anterior.serie, max = Math.ceil(Math.max(...A, ...(comp ? B : [0])) / 20) * 20;
+    const x = i => m.l + i * (W - m.l - m.r) / (n - 1), y = v => H - m.b - v / max * (H - m.t - m.b);
+    c.querySelector('svg')?.remove();
+    const s = sv('svg', { viewBox: `0 0 ${W} ${H}`, 'aria-hidden': 'true' });
+    for (let t = 0; t <= 4; t++) { const v = max * t / 4;
+      sv('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: 'rgba(255,255,255,.09)' }, s);
+      sv('text', { x: m.l - 6, y: y(v) + 4, 'text-anchor': 'end', fill: '#A3A3B8', 'font-size': 11 }, s).textContent = Math.round(v); }
+    const nt = Math.min(n, W < 500 ? 3 : 5);
+    for (let t = 0; t < nt; t++) { const i = Math.round(t * (n - 1) / (nt - 1));
+      sv('text', { x: x(i), y: H - 8, 'text-anchor': t === 0 ? 'start' : t === nt - 1 ? 'end' : 'middle', fill: '#A3A3B8', 'font-size': 11 }, s).textContent = fecha(D.fechas[i]); }
+    const ruta = S => S.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join('');
+    if (comp) sv('path', { d: ruta(B), fill: 'none', stroke: '#38BDF8', 'stroke-width': 2, 'stroke-dasharray': '6 4' }, s);
+    sv('path', { d: ruta(A), fill: 'none', stroke: '#7C6DF2', 'stroke-width': 2.5 }, s);
+    const guia = sv('line', { y1: m.t, y2: H - m.b, stroke: 'rgba(255,255,255,.4)', visibility: 'hidden' }, s);
+    const pa = sv('circle', { r: 5, fill: '#7C6DF2', stroke: '#fff', 'stroke-width': 2, visibility: 'hidden' }, s);
+    const pb = sv('rect', { width: 9, height: 9, fill: '#38BDF8', stroke: '#fff', 'stroke-width': 2, visibility: 'hidden' }, s);
+    c.prepend(s);
+    marcar = (i, anunciar) => {
+      const tip = $('pm-tip');
+      if (i < 0) { [guia, pa, pb].forEach(e => e.setAttribute('visibility', 'hidden')); tip.classList.remove('on'); return; }
+      guia.setAttribute('x1', x(i)); guia.setAttribute('x2', x(i)); pa.setAttribute('cx', x(i)); pa.setAttribute('cy', y(A[i]));
+      pb.setAttribute('x', x(i) - 4.5); pb.setAttribute('y', y(B[i]) - 4.5);
+      [guia, pa].forEach(e => e.setAttribute('visibility', 'visible')); pb.setAttribute('visibility', comp ? 'visible' : 'hidden');
+      tip.textContent = fecha(D.fechas[i]) + '\nActual: ' + A[i] + (comp ? '\nAnterior: ' + B[i] : '');
+      tip.classList.add('on'); tip.style.transform = `translate(${Math.min(Math.max(x(i) + 12, 0), W - 110)}px,${m.t}px)`;
+    };
+    c.dataset.n = n; c.dataset.w = W; c.dataset.ml = m.l; c.dataset.mr = m.r;
+  }
+
+  function resto() {
+    const comp = comparar(), a = D.actual, b = D.anterior;
+    const ley = [['Actual', '#7C6DF2', ''], ['Periodo anterior', '#38BDF8', '4 3']].slice(0, comp ? 2 : 1);
+    $('pm-ley').replaceChildren(...ley.map(([t, col, dash]) => { const s = el('span'), g = sv('svg', { width: 24, height: 8, 'aria-hidden': 'true' }); sv('line', { x1: 0, x2: 24, y1: 4, y2: 4, stroke: col, 'stroke-width': 2.5, 'stroke-dasharray': dash }, g); s.append(g, t); return s; }));
+    const tb = el('tbody'), cab = el('thead'), tr = el('tr');
+    ['Fecha', 'Actual'].concat(comp ? ['Periodo anterior'] : []).forEach(t => { const th = el('th', null, t); th.scope = 'col'; tr.append(th); });
+    cab.append(tr);
+    D.fechas.forEach((f, i) => { const r = el('tr'); r.append(el('td', null, fecha(f)), el('td', 'num', a.serie[i])); if (comp) r.append(el('td', 'num', b.serie[i])); tb.append(r); });
+    $('pm-tabla').replaceChildren(cab, tb);
+    $('pm-barras').replaceChildren(...GERENCIAS.map((g, i) => {
+      const f = el('div', 'pm-fila'), p = el('div', 'pm-pista'), x = el('div', 'pm-barra'); x.style.width = a.gerencias[i] + '%'; p.append(x);
+      if (comp) { const y = el('div', 'pm-barra ant'); y.style.width = b.gerencias[i] + '%'; p.append(y); }
+      f.append(el('span', null, g), p, el('span', 'pm-val', a.gerencias[i] + '%')); return f;
+    }));
+    const s = sv('svg', { viewBox: '0 0 120 120', role: 'img', 'aria-label': 'Distribución de promotores, pasivos y detractores' }), ul = el('ul'), C = 2 * Math.PI * 42; let acum = 0;
+    a.dist.forEach((v, i) => {
+      sv('circle', { cx: 60, cy: 60, r: 42, fill: 'none', stroke: DIST[i][1], 'stroke-width': 22, 'stroke-dasharray': `${C * v / 100} ${C}`, 'stroke-dashoffset': -C * acum / 100, transform: 'rotate(-90 60 60)' }, s); acum += v;
+      const li = el('li'), sw = sv('svg', { width: 16, height: 16, 'aria-hidden': 'true' }); sv('rect', { width: 16, height: 16, rx: 3, fill: DIST[i][1] }, sw); li.append(sw, DIST[i][0] + ': ' + v + '%'); ul.append(li);
+    });
+    sv('text', { x: 60, y: 65, 'text-anchor': 'middle', fill: '#EDEDF4', 'font-size': 18, 'font-weight': 600 }, s).textContent = a.kpi.enps;
+    $('pm-dona').replaceChildren(s, ul);
+    const mx = Math.max(...a.calor.flat()), cab2 = el('thead'), t2 = el('tr', null), t0 = el('td'); t2.append(t0);
+    for (let h = 8; h < 20; h++) { const th = el('th', null, h); th.scope = 'col'; t2.append(th); } cab2.append(t2);
+    const cu = el('tbody'); a.calor.forEach((fila, d) => { const r = el('tr'), th = el('th', null, DIAS[d]); th.scope = 'row'; r.append(th);
+      fila.forEach((v, h) => { const td = el('td', null, v); td.style.background = `rgba(124,109,242,${(.1 + .75 * v / mx).toFixed(2)})`; td.title = DIAS[d] + ' ' + (h + 8) + ':00, ' + v + ' respuestas'; r.append(td); }); cu.append(r); });
+    $('pm-calor').replaceChildren(cab2, cu);
+  }
+
+  function mostrar(cual) {
+    ['skel', 'error', 'vacio', 'contenido'].forEach(n => { $('pm-' + n).hidden = n !== cual; });
+    if (!primera && (cual === 'error' || cual === 'vacio')) $('pm-' + cual).focus();
+    primera = false;
+  }
+  async function cargar() {
+    const mi = ++tok, modo = $('pm-demo').value; mostrar('skel');
+    if (modo === 'cargando') return;
+    await new Promise(r => setTimeout(r, 450)); if (mi !== tok) return;
+    if (modo === 'error') return mostrar('error');
+    if (modo === 'vacio') return mostrar('vacio');
+    D = datos(periodo()); mostrar('contenido');
+    $('pm-sub').textContent = 'Últimos ' + periodo() + ' días, hasta el ' + fecha(HASTA);
+    kpis(); linea(); resto();
+  }
+
+  const lin = $('pm-linea');
+  const desdeMouse = e => { const r = lin.getBoundingClientRect(), n = +lin.dataset.n, ml = +lin.dataset.ml, w = +lin.dataset.w - ml - +lin.dataset.mr; return Math.min(n - 1, Math.max(0, Math.round((e.clientX - r.left - ml) / w * (n - 1)))); };
+  let cur = -1;
+  lin.addEventListener('mousemove', e => { cur = desdeMouse(e); marcar(cur); });
+  lin.addEventListener('mouseleave', () => { if (document.activeElement !== lin) marcar(-1); });
+  lin.addEventListener('focus', () => { cur = +lin.dataset.n - 1; marcar(cur); });
+  lin.addEventListener('blur', () => marcar(-1));
+  lin.addEventListener('keydown', e => {
+    const n = +lin.dataset.n, mapa = { ArrowLeft: cur - 1, ArrowRight: cur + 1, Home: 0, End: n - 1 };
+    if (!(e.key in mapa)) return; e.preventDefault(); cur = Math.min(n - 1, Math.max(0, mapa[e.key])); marcar(cur);
+  });
+  new ResizeObserver(() => { if (D && lin.clientWidth && +lin.dataset.w !== lin.clientWidth) linea(); }).observe(lin);
+
+  document.querySelectorAll('[name=periodo]').forEach(r => r.addEventListener('change', cargar));
+  $('pm-comp').addEventListener('change', () => { if (D && !$('pm-contenido').hidden) { kpis(); linea(); resto(); } });
+  $('pm-demo').addEventListener('change', cargar);
+  $('pm-reintentar').addEventListener('click', () => { $('pm-demo').value = 'contenido'; cargar(); });
+  $('pm-csv').addEventListener('click', () => {
+    if (!D || $('pm-contenido').hidden) return UI.toast('No hay datos para exportar.', 'warn');
+    const a = D.actual, b = D.anterior, f = [['seccion', 'etiqueta', 'actual', 'anterior']];
+    D.fechas.forEach((d, i) => f.push(['respuestas', d.toISOString().slice(0, 10), a.serie[i], b.serie[i]]));
+    KPIS.forEach(k => f.push(['kpi', k.t, a.kpi[k.k], b.kpi[k.k]]));
+    GERENCIAS.forEach((g, i) => f.push(['satisfaccion', g, a.gerencias[i], b.gerencias[i]]));
+    DIST.forEach((d, i) => f.push(['enps', d[0], a.dist[i], b.dist[i]]));
+    const csv = '﻿' + f.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+    const l = document.createElement('a'); l.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); l.download = 'metricas-' + periodo() + 'd.csv'; l.click(); URL.revokeObjectURL(l.href);
+    UI.toast('CSV descargado', 'ok');
+  });
+  cargar();
+})();
+</script>
+</body>
+</html>

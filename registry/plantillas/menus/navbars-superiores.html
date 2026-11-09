@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Navbars superiores · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: 6 navbars listas para pegar (transparente a sólida al scrollear, oculta al bajar y aparece al subir, centrada, con buscador, con mega menú, con barra de progreso de lectura).
+  Proyecto: landings y sitio corporativo de Chile Consultores; también apps con barra superior.
+  Cómo aplicarlo: copia el bloque `.nav-X` (HTML + CSS) y su función si la tiene. Cambia enlaces y logo. Todo vive dentro de su `.demo` para que puedas verlos juntos.
+  Conectar: enlaces con href reales o data-ir para tu router. Mega menú se alimenta del arreglo MEGA.
+  Ganchos: .nav-X, [data-megabtn], [aria-expanded], .progreso-lectura.
+  Accesibilidad: <nav aria-label>, botones con aria-expanded, Escape cierra, flechas navegan el mega menú, foco visible.
+-->
+<style>
+  .pagina{max-width:1100px;margin:0 auto;padding:24px 16px 64px;display:flex;flex-direction:column;gap:28px}
+  h2{font-size:1.05rem;margin:0 0 4px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .demo{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);overflow:hidden;position:relative}
+  .demo-cab{padding:14px 18px 0}
+  .scroll{height:260px;overflow:auto;position:relative;background:radial-gradient(600px 220px at 20% 0,rgba(124,109,242,.18),transparent),var(--fondo,#0b0b14)}
+  .relleno{padding:22px 24px;display:grid;gap:12px}
+  .relleno i{display:block;height:12px;border-radius:6px;background:var(--superficie-2)}
+  .relleno i:nth-child(3n){width:70%} .relleno i:nth-child(4n){width:45%}
+  .marca{display:inline-flex;align-items:center;gap:8px;font-weight:800;color:var(--texto);text-decoration:none;letter-spacing:.2px}
+  .marca b{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--marca),var(--acento));display:inline-block}
+  .enl{display:flex;gap:2px;align-items:center}
+  .enl a,.enl button{padding:8px 12px;border-radius:99px;color:var(--texto-2);text-decoration:none;background:none;border:0;font:inherit;font-weight:600;cursor:pointer;transition:color .2s,background .2s}
+  .enl a:hover,.enl button:hover,.enl [aria-expanded=true]{color:var(--texto);background:rgba(255,255,255,.06)}
+  .enl a[aria-current=page]{color:var(--texto);background:rgba(124,109,242,.18)}
+  .burger{display:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--borde);background:transparent;color:var(--texto);cursor:pointer;place-items:center}
+  .burger span,.burger span::before,.burger span::after{display:block;width:18px;height:2px;background:currentColor;border-radius:2px;position:relative;transition:transform .25s,top .25s,opacity .2s}
+  .burger span::before,.burger span::after{content:"";position:absolute;left:0}
+  .burger span::before{top:-6px}.burger span::after{top:6px}
+  .burger[aria-expanded=true] span{background:transparent}
+  .burger[aria-expanded=true] span::before{top:0;transform:rotate(45deg)}
+  .burger[aria-expanded=true] span::after{top:0;transform:rotate(-45deg)}
+  .movil{display:none;flex-direction:column;padding:8px 12px 14px;gap:2px;border-top:1px solid var(--borde)}
+  .movil.on{display:flex}
+  .movil a{padding:12px;border-radius:10px;color:var(--texto);text-decoration:none;font-weight:600}
+  .movil a:hover{background:rgba(255,255,255,.06)}
+  @media(max-width:720px){.enl.solo-desk{display:none}.burger{display:grid}}
+
+  /* === COMPONENTE: nav transparente a sólida === */
+  .nav-solida{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;background:transparent;border-bottom:1px solid transparent;transition:background .3s,border-color .3s,padding .3s,backdrop-filter .3s;flex-wrap:wrap}
+  .nav-solida.pegada{background:rgba(11,11,20,.82);backdrop-filter:blur(12px);border-bottom-color:var(--borde);padding-top:8px;padding-bottom:8px}
+
+  /* === COMPONENTE: nav que se oculta al bajar === */
+  .nav-auto{position:sticky;top:0;z-index:10;background:rgba(11,11,20,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--borde);transition:transform .35s var(--ease-salida)}
+  .nav-auto .fila-n{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px}
+  .nav-auto.oculta{transform:translateY(-100%)}
+
+  /* === COMPONENTE: nav centrada (logo al medio) === */
+  .nav-centro{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--borde);background:var(--superficie)}
+  .nav-centro .der{justify-self:end;display:flex;gap:8px;align-items:center}
+  @media(max-width:720px){.nav-centro{grid-template-columns:auto 1fr auto}.nav-centro .marca{justify-self:center}}
+
+  /* === COMPONENTE: nav con buscador === */
+  .nav-busca{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid var(--borde);background:var(--superficie);flex-wrap:wrap}
+  .buscador{flex:1;min-width:160px;max-width:420px;position:relative}
+  .buscador input{width:100%;padding-left:36px}
+  .buscador svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--texto-2);fill:none;stroke-width:2}
+  .buscador kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:.7rem;padding:2px 6px;border:1px solid var(--borde);border-radius:6px;color:var(--texto-2)}
+  .sugs{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--superficie-2);border:1px solid var(--borde);border-radius:12px;padding:6px;z-index:5;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+  .sugs[hidden]{display:none}
+  .sugs button{display:block;width:100%;text-align:left;padding:9px 10px;border-radius:8px;border:0;background:none;color:var(--texto);font:inherit;cursor:pointer}
+  .sugs button[aria-selected=true],.sugs button:hover{background:rgba(124,109,242,.18)}
+
+  /* === COMPONENTE: nav con mega menú === */
+  .nav-mega{position:relative;background:var(--superficie);border-bottom:1px solid var(--borde)}
+  .nav-mega .fila-n{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px}
+  .mega{position:absolute;left:0;right:0;top:100%;background:var(--superficie-2);border-bottom:1px solid var(--borde);padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;z-index:8;box-shadow:0 24px 50px rgba(0,0,0,.5);animation:baja .22s var(--ease-salida)}
+  .mega[hidden]{display:none}
+  @keyframes baja{from{opacity:0;transform:translateY(-8px)}}
+  .mega h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--texto-2);margin:0 0 8px}
+  .mega a{display:block;padding:8px 10px;border-radius:8px;color:var(--texto);text-decoration:none}
+  .mega a:hover,.mega a:focus-visible{background:rgba(124,109,242,.18)}
+  .mega a small{display:block;color:var(--texto-2)}
+  .mega-dest{border-radius:12px;padding:16px;background:linear-gradient(135deg,rgba(124,109,242,.35),rgba(56,189,248,.2));display:flex;flex-direction:column;gap:6px;justify-content:flex-end;min-height:120px}
+
+  /* === COMPONENTE: nav con progreso de lectura === */
+  .nav-lectura{position:sticky;top:0;z-index:10;background:rgba(11,11,20,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--borde)}
+  .nav-lectura .fila-n{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px}
+  .progreso-lectura{height:3px;background:transparent}
+  .progreso-lectura i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--marca),var(--acento))}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header><h1 class="gradient-text" style="margin:0 0 6px">Navbars superiores</h1><p class="small" style="margin:0">Seis variantes. Scrollea dentro de cada caja para ver el comportamiento.</p></header>
+
+  <section class="demo"><div class="demo-cab"><h2>1. Transparente a sólida</h2><p class="small">Se vuelve opaca y compacta al bajar.</p></div>
+    <div class="scroll" id="sc1">
+      <nav class="nav-solida" id="n1" aria-label="Principal 1"><a class="marca" href="#" data-demo><b></b>Chile Consultores</a>
+        <div class="enl solo-desk"><a href="#" data-demo aria-current="page">Inicio</a><a href="#" data-demo>Servicios</a><a href="#" data-demo>Estudios</a><a href="#" data-demo>Contacto</a></div>
+        <div style="display:flex;gap:8px;align-items:center"><a class="btn btn-sm" href="#" data-demo>Cotizar</a><button class="burger" type="button" aria-expanded="false" aria-controls="m1" aria-label="Abrir menú"><span></span></button></div>
+        <div class="movil" id="m1" style="width:100%"><a href="#" data-demo>Inicio</a><a href="#" data-demo>Servicios</a><a href="#" data-demo>Estudios</a><a href="#" data-demo>Contacto</a></div></nav>
+      <div class="relleno" id="r1"></div></div></section>
+
+  <section class="demo"><div class="demo-cab"><h2>2. Se oculta al bajar, vuelve al subir</h2><p class="small">Gana espacio en móvil sin perder la navegación.</p></div>
+    <div class="scroll" id="sc2">
+      <nav class="nav-auto" id="n2" aria-label="Principal 2"><div class="fila-n"><a class="marca" href="#" data-demo><b></b>Chile Consultores</a>
+        <div class="enl solo-desk"><a href="#" data-demo>Inicio</a><a href="#" data-demo>Servicios</a><a href="#" data-demo>Blog</a></div>
+        <button class="burger" type="button" aria-expanded="false" aria-controls="m2" aria-label="Abrir menú"><span></span></button></div>
+        <div class="movil" id="m2"><a href="#" data-demo>Inicio</a><a href="#" data-demo>Servicios</a><a href="#" data-demo>Blog</a></div></nav>
+      <div class="relleno" id="r2"></div></div></section>
+
+  <section class="demo"><div class="demo-cab"><h2>3. Logo centrado</h2></div>
+    <nav class="nav-centro" aria-label="Principal 3"><div class="enl solo-desk"><a href="#" data-demo>Servicios</a><a href="#" data-demo>Estudios</a></div>
+      <button class="burger" type="button" aria-expanded="false" aria-controls="m3" aria-label="Abrir menú"><span></span></button>
+      <a class="marca" href="#" data-demo><b></b>Chile Consultores</a>
+      <div class="der"><a class="enl solo-desk" href="#" data-demo style="padding:8px 12px;color:var(--texto-2);text-decoration:none;font-weight:600">Ingresar</a><a class="btn btn-sm" href="#" data-demo>Cotizar</a></div></nav>
+    <div class="movil" id="m3"><a href="#" data-demo>Servicios</a><a href="#" data-demo>Estudios</a><a href="#" data-demo>Ingresar</a></div></section>
+
+  <section class="demo"><div class="demo-cab"><h2>4. Con buscador</h2><p class="small">Atajo "/" para enfocar. Flechas y Enter en las sugerencias.</p></div>
+    <nav class="nav-busca" aria-label="Principal 4"><a class="marca" href="#" data-demo><b></b>Plataforma</a>
+      <div class="buscador" role="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input class="input" id="in-bus" name="q" type="search" placeholder="Buscar clientes, estudios..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="sugs" aria-label="Buscar"><kbd aria-hidden="true">/</kbd>
+        <div class="sugs" id="sugs" role="listbox" hidden></div></div>
+      <div class="enl solo-desk" style="margin-left:auto"><a href="#" data-demo>Ayuda</a><a href="#" data-demo>Cuenta</a></div></nav><div style="height:150px"></div></section>
+
+  <section class="demo"><div class="demo-cab"><h2>5. Mega menú</h2><p class="small">Se abre con click o Enter, se cierra con Escape o al hacer click fuera.</p></div>
+    <nav class="nav-mega" aria-label="Principal 5" id="n5"><div class="fila-n"><a class="marca" href="#" data-demo><b></b>Chile Consultores</a>
+      <div class="enl solo-desk" id="enl5"><button type="button" data-megabtn aria-expanded="false" aria-controls="mega">Soluciones ▾</button><a href="#" data-demo>Casos</a><a href="#" data-demo>Precios</a></div>
+      <a class="btn btn-sm" href="#" data-demo>Hablemos</a></div>
+      <div class="mega" id="mega" hidden></div></nav><div style="height:260px"></div></section>
+
+  <section class="demo"><div class="demo-cab"><h2>6. Progreso de lectura</h2></div>
+    <div class="scroll" id="sc6">
+      <nav class="nav-lectura" aria-label="Principal 6"><div class="fila-n"><a class="marca" href="#" data-demo><b></b>Blog</a><div class="enl solo-desk"><a href="#" data-demo>Artículos</a><a href="#" data-demo>Suscribirse</a></div></div>
+        <div class="progreso-lectura" role="progressbar" aria-label="Progreso de lectura" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="pl"></i></div></nav>
+      <div class="relleno" id="r6"></div></div></section>
+</main>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  document.querySelectorAll('[data-demo]').forEach(a => a.addEventListener('click', e => e.preventDefault()));
+  ['r1', 'r2', 'r6'].forEach(id => { const r = $('#' + id); for (let i = 0; i < 40; i++) r.appendChild(el('i')); });
+
+  /* hamburguesas */
+  document.querySelectorAll('.burger').forEach(b => b.addEventListener('click', () => {
+    const on = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', String(on)); b.setAttribute('aria-label', on ? 'Cerrar menú' : 'Abrir menú');
+    $('#' + b.getAttribute('aria-controls')).classList.toggle('on', on);
+  }));
+
+  /* 1. sólida */
+  const sc1 = $('#sc1'), n1 = $('#n1');
+  sc1.addEventListener('scroll', () => n1.classList.toggle('pegada', sc1.scrollTop > 20), { passive: true });
+
+  /* 2. auto-ocultar */
+  const sc2 = $('#sc2'), n2 = $('#n2'); let ult = 0;
+  sc2.addEventListener('scroll', () => { const y = sc2.scrollTop; const abierto = $('#m2').classList.contains('on'); if (!abierto) n2.classList.toggle('oculta', y > ult && y > 60); ult = y; }, { passive: true });
+
+  /* 4. buscador */
+  const DATOS = ['Minera Aconcagua', 'Retail Pacífico', 'Clima laboral 2026', 'Mystery shopper retail', 'Estudio de rotación', 'Informe trimestral', 'Transportes del Sur'];
+  const inp = $('#in-bus'), sug = $('#sugs'); let idx = -1, vis = [];
+  function pintarSug() {
+    sug.replaceChildren(); vis.forEach((t, i) => { const b = el('button', '', t); b.type = 'button'; b.setAttribute('role', 'option'); b.id = 'sg' + i; b.setAttribute('aria-selected', String(i === idx)); b.addEventListener('mousedown', e => { e.preventDefault(); elegir(i); }); sug.appendChild(b); });
+    const on = vis.length > 0; sug.hidden = !on; inp.setAttribute('aria-expanded', String(on)); if (idx >= 0) inp.setAttribute('aria-activedescendant', 'sg' + idx); else inp.removeAttribute('aria-activedescendant');
+  }
+  function elegir(i) { inp.value = vis[i]; vis = []; idx = -1; pintarSug(); if (window.UI && UI.toast) UI.toast('Buscando: ' + inp.value, 'info'); }
+  inp.addEventListener('input', () => { const q = inp.value.trim().toLowerCase(); vis = q ? DATOS.filter(d => d.toLowerCase().includes(q)).slice(0, 5) : []; idx = -1; pintarSug(); });
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' && vis.length) { e.preventDefault(); idx = (idx + 1) % vis.length; pintarSug(); }
+    else if (e.key === 'ArrowUp' && vis.length) { e.preventDefault(); idx = (idx - 1 + vis.length) % vis.length; pintarSug(); }
+    else if (e.key === 'Enter' && idx >= 0) { e.preventDefault(); elegir(idx); }
+    else if (e.key === 'Escape') { vis = []; idx = -1; pintarSug(); }
+  });
+  inp.addEventListener('blur', () => { vis = []; pintarSug(); });
+  document.addEventListener('keydown', e => { if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); inp.focus(); } });
+
+  /* 5. mega menú */
+  const MEGA = [
+    { h: 'Estudios', l: [['Clima laboral', 'Mide el compromiso'], ['Mystery shopper', 'Calidad de atención'], ['Rotación', 'Causas de salida']] },
+    { h: 'Plataformas', l: [['Panel de resultados', 'En tiempo real'], ['Gestor de encuestas', 'Anónimas y seguras'], ['Informes', 'PDF y PowerPoint']] },
+    { h: 'Recursos', l: [['Guía de clima', 'Descarga gratis'], ['Casos de éxito', 'Por industria'], ['Blog', 'Ideas y datos']] }
+  ];
+  const mega = $('#mega'), mb = $('[data-megabtn]');
+  MEGA.forEach(c => { const col = el('div'); col.appendChild(el('h3', '', c.h)); c.l.forEach(([a, b]) => { const x = el('a'); x.href = '#'; x.dataset.demo = ''; x.addEventListener('click', e => e.preventDefault()); x.append(document.createTextNode(a), el('small', '', b)); col.appendChild(x); }); mega.appendChild(col); });
+  const dest = el('div', 'mega-dest'); dest.append(el('b', '', 'Estudio de clima 2026'), el('span', 'small', 'Descubre cómo se compara tu empresa con el sector.')); mega.appendChild(dest);
+  function megaToggle(on) { mb.setAttribute('aria-expanded', String(on)); mega.hidden = !on; if (on) { const a = $('a', mega); if (a && document.activeElement === mb && mb.dataset.teclado) a.focus(); } }
+  mb.addEventListener('click', () => megaToggle(mb.getAttribute('aria-expanded') !== 'true'));
+  mb.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') { mb.dataset.teclado = '1'; } });
+  mb.addEventListener('keyup', () => { delete mb.dataset.teclado; });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !mega.hidden) { megaToggle(false); mb.focus(); } });
+  document.addEventListener('click', e => { if (!mega.hidden && !e.target.closest('#n5')) megaToggle(false); });
+  mega.addEventListener('keydown', e => { const as = [...mega.querySelectorAll('a')]; const i = as.indexOf(document.activeElement); if (e.key === 'ArrowDown') { e.preventDefault(); as[(i + 1) % as.length].focus(); } if (e.key === 'ArrowUp') { e.preventDefault(); as[(i - 1 + as.length) % as.length].focus(); } });
+
+  /* 6. progreso lectura */
+  const sc6 = $('#sc6'), pl = $('#pl'), bar = $('.progreso-lectura');
+  sc6.addEventListener('scroll', () => { const p = Math.round(sc6.scrollTop / Math.max(1, sc6.scrollHeight - sc6.clientHeight) * 100); pl.style.width = p + '%'; bar.setAttribute('aria-valuenow', p); }, { passive: true });
+});
+</script>
+</body>
+</html>

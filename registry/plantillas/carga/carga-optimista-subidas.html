@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Carga optimista y subidas · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: UI optimista con rollback, subida de archivos multiple (drag and drop, progreso, cancelar, reintentar), autoguardado con estado y eliminar con deshacer.
+  Proyecto: cualquier app de Chile Consultores (CRM, helpdesk, CMS, gestores de documentos).
+  Cómo aplicarlo: copia el bloque del patrón (CSS + función). Reemplaza `api(op)` por tu llamada real a Supabase y deja el rollback en el catch.
+  Conectar: subida real con supabase.storage.from(bucket).upload(ruta, archivo) o XMLHttpRequest.upload.onprogress; autoguardado con upsert.
+  Ganchos: [data-fav], .tarea, #zona-drop, .archivo, #estado-guardado, window.API.config(latenciaMs, fallaPct).
+  Reglas: textContent (nunca innerHTML con datos), sin onclick inline, accesible por teclado, respeta prefers-reduced-motion.
+-->
+<style>
+  .pagina{max-width:1000px;margin:0 auto;padding:24px 16px 64px}
+  .tarjeta{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}
+  .fila{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .entre{justify-content:space-between}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  h2{font-size:1.05rem;margin:0}
+  .panel[hidden]{display:none}
+  .sim{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0}
+  .sim label{display:flex;flex-direction:column;gap:6px;font-size:var(--fs-s);color:var(--texto-2)}
+  .sim input[type=range]{width:100%;accent-color:var(--marca)}
+
+  /* === COMPONENTE: favorito optimista === */
+  .fav{width:40px;height:40px;border-radius:50%;border:1px solid var(--borde);background:transparent;color:var(--texto-2);cursor:pointer;display:grid;place-items:center;transition:transform .2s var(--ease-salida),color .2s,border-color .2s}
+  .fav svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
+  .fav[aria-pressed=true]{color:#fbbf24;border-color:#fbbf2466}
+  .fav[aria-pressed=true] svg{fill:currentColor}
+  .fav:active{transform:scale(.88)}
+  .fav.pend{opacity:.7}
+  .item-lead{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--borde)}
+  .item-lead:last-child{border-bottom:0}
+  .item-lead .txt{flex:1;min-width:0}
+  .item-lead b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item-lead.err{animation:sacude .4s}
+  @keyframes sacude{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+  /* === COMPONENTE: tarea con check optimista === */
+  .tarea{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--borde);border-radius:10px;background:var(--superficie-2)}
+  .tarea.hecha span.t{text-decoration:line-through;color:var(--texto-2)}
+  .tarea .t{flex:1;min-width:0}
+  .tarea .sync{font-size:.75rem;color:var(--texto-2)}
+  .tarea.pend .sync::before{content:"";display:inline-block;width:8px;height:8px;border:2px solid var(--marca);border-right-color:transparent;border-radius:50%;margin-right:6px;animation:gira .7s linear infinite;vertical-align:-1px}
+  @keyframes gira{to{transform:rotate(360deg)}}
+  .tarea.nueva{animation:entra .35s var(--ease-salida)}
+  @keyframes entra{from{opacity:0;transform:translateY(-8px)}}
+  .lista-t{display:flex;flex-direction:column;gap:8px}
+
+  /* === COMPONENTE: zona de subida === */
+  #zona-drop{border:2px dashed var(--borde);border-radius:var(--r);padding:28px 16px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:var(--superficie-2)}
+  #zona-drop:hover,#zona-drop:focus-visible,#zona-drop.sobre{border-color:var(--marca);background:rgba(124,109,242,.08)}
+  #zona-drop strong{display:block;margin-bottom:4px}
+  .archivos{display:flex;flex-direction:column;gap:8px}
+  .archivo{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--borde);border-radius:10px;background:var(--superficie-2)}
+  .archivo .ico{width:44px;height:44px;border-radius:8px;background:var(--superficie);display:grid;place-items:center;font-size:.7rem;font-weight:700;color:var(--acento);overflow:hidden}
+  .archivo .ico img{width:100%;height:100%;object-fit:cover}
+  .archivo .nom{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+  .archivo .meta{font-size:.75rem;color:var(--texto-2);font-variant-numeric:tabular-nums}
+  .archivo .barra{height:6px;border-radius:99px;background:var(--superficie);overflow:hidden;margin-top:6px}
+  .archivo .barra i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--marca),var(--acento));transition:width .2s linear}
+  .archivo.ok .barra i{background:var(--verde)}
+  .archivo.mal .barra i{background:var(--rojo)}
+  .archivo.mal .meta{color:var(--rojo)}
+  .archivo .acc{display:flex;gap:6px}
+  .archivo .acc .btn{padding:6px 10px}
+  @media(max-width:480px){.archivo{grid-template-columns:44px 1fr}.archivo .acc{grid-column:1/-1;justify-content:flex-end}}
+
+  /* === COMPONENTE: indicador de guardado === */
+  #estado-guardado{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-s);padding:4px 10px;border-radius:99px;border:1px solid var(--borde);color:var(--texto-2)}
+  #estado-guardado::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--texto-2)}
+  #estado-guardado[data-s=guardando]::before{background:var(--marca);animation:pulso 1s ease-in-out infinite}
+  #estado-guardado[data-s=ok]::before{background:var(--verde)}
+  #estado-guardado[data-s=error]{color:var(--rojo);border-color:var(--rojo)}
+  #estado-guardado[data-s=error]::before{background:var(--rojo)}
+  @keyframes pulso{50%{opacity:.3}}
+  .editor{min-height:140px;resize:vertical;width:100%}
+
+  /* === COMPONENTE: fila eliminable === */
+  .fila-del{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--borde);border-radius:10px;background:var(--superficie-2);transition:opacity .25s,transform .25s,max-height .3s,margin .3s,padding .3s;max-height:80px;overflow:hidden}
+  .fila-del.sale{opacity:0;transform:translateX(24px);max-height:0;padding-top:0;padding-bottom:0;margin-top:-4px;border-width:0}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header>
+    <h1 class="gradient-text" style="margin:0 0 6px">Carga optimista y subidas</h1>
+    <p class="small" style="margin:0">La interfaz responde al instante y la red se ocupa después. Si falla, vuelve atrás con aviso.</p>
+  </header>
+
+  <div class="sim tarjeta" aria-label="Simulador de red">
+    <label>Latencia: <b id="v-lat">700 ms</b><input type="range" id="in-lat" name="lat" min="100" max="3000" step="100" value="700"></label>
+    <label>Probabilidad de falla: <b id="v-fal">0 %</b><input type="range" id="in-fal" name="fal" min="0" max="100" step="10" value="0"></label>
+  </div>
+
+  <div class="tabs" role="tablist" id="tabs" aria-label="Patrones">
+    <button role="tab" aria-selected="true" aria-controls="p1" id="t1" type="button">Optimista</button>
+    <button role="tab" aria-selected="false" aria-controls="p2" id="t2" type="button">Subida de archivos</button>
+    <button role="tab" aria-selected="false" aria-controls="p3" id="t3" type="button">Autoguardado</button>
+    <button role="tab" aria-selected="false" aria-controls="p4" id="t4" type="button">Eliminar con deshacer</button>
+  </div>
+
+  <section class="panel" id="p1" role="tabpanel" aria-labelledby="t1" style="margin-top:16px">
+    <div class="grid2">
+      <div class="tarjeta"><h2>Favoritos</h2><p class="small">El icono cambia al tocar. Si el servidor falla, vuelve y sacude la fila.</p><div id="leads"></div></div>
+      <div class="tarjeta"><h2>Tareas</h2><p class="small">Marcar, crear y ver el estado de sincronización por fila.</p>
+        <form id="f-tarea" class="fila" novalidate><input class="input" id="in-tarea" name="tarea" placeholder="Nueva tarea" aria-label="Nueva tarea" style="flex:1;min-width:140px" required><button class="btn" type="submit">Agregar</button></form>
+        <div class="lista-t" id="tareas"></div></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p2" role="tabpanel" aria-labelledby="t2" hidden style="margin-top:16px">
+    <div class="tarjeta">
+      <div id="zona-drop" role="button" tabindex="0" aria-label="Subir archivos. Arrastra o presiona Enter"><strong>Arrastra archivos aquí</strong><span class="small">o presiona para elegir. PDF, PNG, JPG, hasta 5 MB cada uno, máximo 6.</span></div>
+      <input type="file" id="in-file" name="archivos" multiple accept=".pdf,.png,.jpg,.jpeg" hidden>
+      <div class="fila entre"><span class="small" id="resumen-sub">Sin archivos</span><button class="btn btn-sec btn-sm" id="btn-limpiar" type="button">Limpiar terminados</button></div>
+      <div class="archivos" id="archivos" aria-live="polite"></div>
+      <div class="fila"><button class="btn btn-sec btn-sm" id="btn-demo" type="button">Agregar archivos de ejemplo</button><span class="small">Útil para probar sin buscar archivos.</span></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p3" role="tabpanel" aria-labelledby="t3" hidden style="margin-top:16px">
+    <div class="tarjeta">
+      <div class="fila entre"><h2>Notas del cliente</h2><span id="estado-guardado" data-s="ok" role="status">Guardado</span></div>
+      <label class="small" for="in-nota">Escribe y guardamos solos 800 ms después de que dejes de teclear.</label>
+      <textarea class="input editor" id="in-nota" name="nota" placeholder="Escribe aquí..."></textarea>
+      <div class="fila"><button class="btn btn-sec btn-sm" id="btn-guardar" type="button">Guardar ahora</button><span class="small" id="info-guardado"></span></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p4" role="tabpanel" aria-labelledby="t4" hidden style="margin-top:16px">
+    <div class="tarjeta"><h2>Contactos</h2><p class="small">Al eliminar, la fila sale al tiro y tienes 6 s para deshacer. El borrado real ocurre después.</p>
+      <div style="display:flex;flex-direction:column;gap:8px" id="contactos"></div>
+      <div class="fila"><button class="btn btn-sec btn-sm" id="btn-restaurar" type="button">Restaurar ejemplo</button></div></div>
+  </section>
+</main>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  const toast = (m, t, o) => (window.UI && UI.toast) ? UI.toast(m, t, o) : console.log(m);
+
+  /* === COMPONENTE: API simulada (reemplazar por Supabase) === */
+  const cfg = { lat: 700, fal: 0 };
+  window.API = { config(l, f) { cfg.lat = l; cfg.fal = f; } };
+  async function api(op) { await esperar(cfg.lat * (0.7 + Math.random() * 0.6)); if (Math.random() * 100 < cfg.fal) throw new Error('Error de red en ' + op); return { ok: true }; }
+  const lat = $('#in-lat'), fal = $('#in-fal');
+  lat.addEventListener('input', () => { cfg.lat = +lat.value; $('#v-lat').textContent = lat.value + ' ms'; });
+  fal.addEventListener('input', () => { cfg.fal = +fal.value; $('#v-fal').textContent = fal.value + ' %'; });
+
+  /* tabs */
+  const tabs = [...document.querySelectorAll('#tabs [role=tab]')];
+  function ir(t) { tabs.forEach(b => { const on = b === t; b.setAttribute('aria-selected', on); $('#' + b.getAttribute('aria-controls')).hidden = !on; }); }
+  tabs.forEach((b, i) => { b.addEventListener('click', () => ir(b)); b.addEventListener('keydown', e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]; n.focus(); ir(n); } }); });
+
+  /* === 1. Favoritos optimistas === */
+  const LEADS = [['Minera Aconcagua', 'Gerencia de personas'], ['Retail Pacífico', 'Clima laboral 2026'], ['Transportes del Sur', 'Mystery shopper'], ['Clínica Los Andes', 'Estudio de rotación']];
+  const svgStar = () => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); const p = document.createElementNS('http://www.w3.org/2000/svg', 'path'); p.setAttribute('d', 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z'); s.appendChild(p); return s; };
+  LEADS.forEach(([n, s]) => {
+    const f = el('div', 'item-lead'); const t = el('div', 'txt'); t.append(el('b', '', n), el('span', 'small', s));
+    const b = el('button', 'fav'); b.type = 'button'; b.setAttribute('aria-pressed', 'false'); b.setAttribute('aria-label', 'Marcar ' + n + ' como favorito'); b.dataset.fav = ''; b.appendChild(svgStar());
+    let ocupado = false;
+    b.addEventListener('click', async () => {
+      if (ocupado) return; ocupado = true;
+      const antes = b.getAttribute('aria-pressed') === 'true'; b.setAttribute('aria-pressed', String(!antes)); b.classList.add('pend');
+      try { await api('favorito'); } catch (e) { b.setAttribute('aria-pressed', String(antes)); f.classList.remove('err'); void f.offsetWidth; f.classList.add('err'); toast('No se pudo guardar el favorito. Volvimos atrás.', 'error'); }
+      b.classList.remove('pend'); ocupado = false;
+    });
+    f.append(t, b); $('#leads').appendChild(f);
+  });
+
+  /* === 1b. Tareas optimistas === */
+  const lista = $('#tareas');
+  function tarea(txt, hecha) {
+    const d = el('div', 'tarea nueva' + (hecha ? ' hecha' : '')); const c = el('input'); c.type = 'checkbox'; c.checked = !!hecha; c.setAttribute('aria-label', 'Completar ' + txt); c.name = 'c' + Math.random().toString(36).slice(2, 6);
+    const t = el('span', 't', txt); const s = el('span', 'sync', '');
+    c.addEventListener('change', async () => {
+      const nuevo = c.checked; d.classList.toggle('hecha', nuevo); d.classList.add('pend'); s.textContent = 'Sincronizando';
+      try { await api('tarea'); s.textContent = ''; } catch (e) { c.checked = !nuevo; d.classList.toggle('hecha', !nuevo); s.textContent = 'Sin sincronizar'; toast('No se pudo actualizar la tarea', 'error'); }
+      d.classList.remove('pend');
+    });
+    d.append(c, t, s); return d;
+  }
+  ['Enviar propuesta a Retail Pacífico', 'Agendar demo del estudio de clima'].forEach((t, i) => lista.appendChild(tarea(t, i === 1)));
+  $('#f-tarea').addEventListener('submit', async e => {
+    e.preventDefault(); const i = $('#in-tarea'); const v = i.value.trim(); if (!v) { toast('Escribe el nombre de la tarea', 'error'); i.focus(); return; }
+    const d = tarea(v, false); d.classList.add('pend'); const s = $('.sync', d); s.textContent = 'Creando'; $('input[type=checkbox]', d).disabled = true; lista.prepend(d); i.value = '';
+    try { await api('crear'); s.textContent = ''; $('input[type=checkbox]', d).disabled = false; } catch (err) { d.remove(); i.value = v; toast('No se pudo crear la tarea. Recuperamos tu texto.', 'error'); }
+    d.classList.remove('pend');
+  });
+
+  /* === 2. Subida de archivos === */
+  const MAX = 5 * 1024 * 1024, MAXN = 6, OK = /\.(pdf|png|jpe?g)$/i;
+  const cont = $('#archivos'), zona = $('#zona-drop'), inf = $('#in-file');
+  const fmt = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+  const items = new Set();
+  function resumen() { const a = [...items]; const ok = a.filter(x => x.estado === 'ok').length, sub = a.filter(x => x.estado === 'sube').length; $('#resumen-sub').textContent = a.length ? ok + ' de ' + a.length + ' listos' + (sub ? ', ' + sub + ' subiendo' : '') : 'Sin archivos'; }
+  function agregar(files) {
+    for (const f of files) {
+      if (items.size >= MAXN) { toast('Máximo ' + MAXN + ' archivos', 'error'); break; }
+      if (!OK.test(f.name)) { toast(f.name + ': formato no permitido', 'error'); continue; }
+      if (f.size > MAX) { toast(f.name + ': pesa más de 5 MB', 'error'); continue; }
+      crear(f);
+    }
+  }
+  function crear(f) {
+    const it = { f, estado: 'sube', pct: 0, cancel: false };
+    const d = el('div', 'archivo'); const ico = el('div', 'ico', (f.name.split('.').pop() || '').toUpperCase().slice(0, 4));
+    if (/^image\//.test(f.type)) { const u = URL.createObjectURL(f); const im = new Image(); im.alt = ''; im.onload = () => { ico.textContent = ''; ico.appendChild(im); URL.revokeObjectURL(u); }; im.src = u; }
+    const cuerpo = el('div'); const nom = el('span', 'nom', f.name); nom.title = f.name; const meta = el('span', 'meta', fmt(f.size)); const bar = el('div', 'barra'); const bi = el('i'); bar.appendChild(bi); bar.setAttribute('role', 'progressbar'); bar.setAttribute('aria-valuemin', '0'); bar.setAttribute('aria-valuemax', '100'); bar.setAttribute('aria-label', 'Subiendo ' + f.name);
+    cuerpo.append(nom, meta, bar);
+    const acc = el('div', 'acc'); const bc = el('button', 'btn btn-sec btn-sm', 'Cancelar'); bc.type = 'button'; acc.appendChild(bc);
+    d.append(ico, cuerpo, acc); cont.appendChild(d); items.add(it); it.d = d;
+    bc.addEventListener('click', () => { if (it.estado === 'sube') it.cancel = true; else { items.delete(it); d.remove(); resumen(); } });
+    async function subir() {
+      it.estado = 'sube'; it.cancel = false; it.pct = 0; d.className = 'archivo'; acc.replaceChildren(bc); bc.textContent = 'Cancelar'; resumen();
+      const t0 = Date.now(), dur = Math.max(1200, (f.size / 1048576) * 900) * (cfg.lat / 700), falla = Math.random() * 100 < cfg.fal, corte = 30 + Math.random() * 50;
+      while (it.pct < 100) {
+        await esperar(80);
+        if (it.cancel) { it.estado = 'mal'; d.className = 'archivo mal'; meta.textContent = 'Cancelado'; reintento(); resumen(); return; }
+        it.pct = Math.min(100, (Date.now() - t0) / dur * 100);
+        if (falla && it.pct >= corte) { it.estado = 'mal'; d.className = 'archivo mal'; meta.textContent = 'Falló la subida a ' + Math.round(it.pct) + '%'; reintento(); resumen(); return; }
+        bi.style.width = it.pct + '%'; bar.setAttribute('aria-valuenow', Math.round(it.pct));
+        const vel = f.size * it.pct / 100 / ((Date.now() - t0) / 1000 || 1); meta.textContent = fmt(f.size * it.pct / 100) + ' de ' + fmt(f.size) + ' · ' + fmt(vel) + '/s';
+      }
+      it.estado = 'ok'; d.className = 'archivo ok'; meta.textContent = fmt(f.size) + ' · Listo'; bar.setAttribute('aria-valuenow', 100); acc.replaceChildren(); const bq = el('button', 'btn btn-sec btn-sm', 'Quitar'); bq.type = 'button'; bq.addEventListener('click', () => { items.delete(it); d.remove(); resumen(); }); acc.appendChild(bq); resumen();
+    }
+    function reintento() { acc.replaceChildren(); const r = el('button', 'btn btn-sm', 'Reintentar'); r.type = 'button'; r.addEventListener('click', subir); const q = el('button', 'btn btn-sec btn-sm', 'Quitar'); q.type = 'button'; q.addEventListener('click', () => { items.delete(it); d.remove(); resumen(); }); acc.append(r, q); }
+    subir();
+  }
+  function demoArchivo(n, tipo, kb) { return new File([new Uint8Array(kb * 1024)], n, { type: tipo }); }
+  $('#btn-demo').addEventListener('click', () => agregar([demoArchivo('propuesta-comercial.pdf', 'application/pdf', 2400), demoArchivo('informe-clima.pdf', 'application/pdf', 800), demoArchivo('logo-cliente.png', 'image/png', 300)]));
+  $('#btn-limpiar').addEventListener('click', () => { [...items].filter(x => x.estado === 'ok').forEach(x => { items.delete(x); x.d.remove(); }); resumen(); });
+  zona.addEventListener('click', () => inf.click());
+  zona.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inf.click(); } });
+  inf.addEventListener('change', () => { agregar(inf.files); inf.value = ''; });
+  ['dragenter', 'dragover'].forEach(ev => zona.addEventListener(ev, e => { e.preventDefault(); zona.classList.add('sobre'); }));
+  ['dragleave', 'drop'].forEach(ev => zona.addEventListener(ev, e => { e.preventDefault(); zona.classList.remove('sobre'); }));
+  zona.addEventListener('drop', e => agregar(e.dataTransfer.files));
+
+  /* === 3. Autoguardado === */
+  const est = $('#estado-guardado'), nota = $('#in-nota'), info = $('#info-guardado');
+  let tmr = null, version = 0, sucio = false, enVuelo = false;
+  const setE = (s, t) => { est.dataset.s = s; est.textContent = t; };
+  async function guardar() {
+    if (enVuelo) { sucio = true; return; }
+    enVuelo = true; sucio = false; const v = ++version; setE('guardando', 'Guardando');
+    try { await api('nota'); setE('ok', 'Guardado'); info.textContent = 'Versión ' + v + ' guardada a las ' + new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+    catch (e) { setE('error', 'Error al guardar'); info.textContent = 'Tus cambios siguen aquí. Reintentamos en 4 s.'; clearTimeout(tmr); tmr = setTimeout(guardar, 4000); }
+    enVuelo = false; if (sucio) guardar();
+  }
+  nota.addEventListener('input', () => { setE('guardando', 'Cambios sin guardar'); clearTimeout(tmr); tmr = setTimeout(guardar, 800); });
+  $('#btn-guardar').addEventListener('click', () => { clearTimeout(tmr); guardar(); });
+  window.addEventListener('beforeunload', e => { if (est.dataset.s !== 'ok') { e.preventDefault(); e.returnValue = ''; } });
+
+  /* === 4. Eliminar con deshacer === */
+  const BASE = [['Camila Rojas', 'Gerente de personas'], ['Diego Fuentes', 'Jefe de operaciones'], ['Valentina Soto', 'Analista de clima'], ['Matías Paredes', 'Director comercial']];
+  const cc = $('#contactos');
+  function contacto([n, c]) {
+    const f = el('div', 'fila-del'); const a = el('div', 'avatar', n.split(' ').map(x => x[0]).join('')); const t = el('div', ''); t.style.flex = '1'; t.append(el('b', '', n), el('div', 'small', c));
+    const b = el('button', 'btn btn-sec btn-sm', 'Eliminar'); b.type = 'button';
+    b.addEventListener('click', () => {
+      let deshecho = false; const sig = f.nextSibling; f.classList.add('sale');
+      const h = setTimeout(async () => { if (deshecho) return; f.remove(); try { await api('eliminar'); } catch (e) { cc.insertBefore(f, sig); f.classList.remove('sale'); toast('No se pudo eliminar a ' + n, 'error'); } }, 6000);
+      toast(n + ' eliminado', 'info', { deshacer: () => { deshecho = true; clearTimeout(h); f.classList.remove('sale'); } });
+    });
+    f.append(a, t, b); return f;
+  }
+  const poblar = () => { cc.replaceChildren(...BASE.map(contacto)); };
+  poblar(); $('#btn-restaurar').addEventListener('click', poblar);
+});
+</script>
+</body>
+</html>

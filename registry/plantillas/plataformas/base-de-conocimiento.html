@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Centro de ayuda · Chile Consultores</title>
+<meta name="description" content="Centro de ayuda de Chile Consultores: guías para estudios de Clima Laboral, Mystery Shopper, facturas y tu cuenta.">
+<link rel="stylesheet" href="../[base]/base.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"¿Mis respuestas de clima son anónimas?","acceptedAnswer":{"@type":"Answer","text":"Sí. Nunca mostramos resultados de grupos con menos de 5 personas."}},
+{"@type":"Question","name":"¿Cómo descargo mis facturas?","acceptedAnswer":{"@type":"Answer","text":"Entra a Facturas en el portal de cliente y pulsa Descargar en la factura que necesites."}},
+{"@type":"Question","name":"¿Cómo restablezco mi contraseña?","acceptedAnswer":{"@type":"Answer","text":"En la pantalla de ingreso pulsa Olvidé mi contraseña y sigue el enlace que te enviamos por correo."}}]}
+</script>
+<!--
+  Plantilla: centro de ayuda público con búsqueda (resaltado y atajo "/"), categorías, populares, artículo con tabla de contenido que sigue el scroll, voto "¿Te sirvió?" y relacionados. Rutas por hash.
+  Proyecto: sitio de ayuda indexable de Chile Consultores (Clima, Mystery, cuenta).
+  Cómo aplicarlo: agrega una entrada a ARTICULOS (slug, titulo, cat, popular, fecha, secciones [titulo, texto]) y, si hace falta, a CATEGORIAS. Mantén el JSON-LD de arriba alineado con tus preguntas más frecuentes.
+  Conectar: ARTICULOS puede venir de la tabla help_articles; API.voto guarda en help_votes (slug, util, comentario). Para SEO fuerte, prerenderiza las páginas en el build.
+  Ganchos: #kb-main, #kb-q, rutas #/, #/categoria/slug, #/articulo/slug.
+-->
+<style>
+  [hidden]{display:none}
+  .kb{max-width:1040px;margin:0 auto;padding:16px 16px 64px}
+  .kb .btn,.kb .input{min-height:44px}
+  .kb-cab{display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap;padding:8px 0 24px}
+  .kb-cab>a{font:700 1.05rem var(--display);color:var(--texto)}
+  .kb-buscar{flex:1;min-width:240px;max-width:420px}
+  .kb-buscar .kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%)}
+  .kb-buscar .input{padding-right:40px}
+  .kb h1{font-size:var(--fs-xl);margin-bottom:12px}
+  .kb h1:focus,.kb h2:focus{outline:none}
+  .kb-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+  .kb-lista li{border-bottom:1px solid var(--borde)}
+  .kb-lista a{display:flex;flex-direction:column;padding:12px 0;min-height:44px;color:var(--texto)}
+  .kb-cat{display:block;color:var(--texto)} .kb-cat:hover{border-color:var(--marca);text-decoration:none}
+  .kb h2{font-size:var(--fs-m);margin:32px 0 12px}
+  .kb mark{background:var(--ambar-l);color:var(--texto);border-bottom:2px solid var(--ambar)}
+  .kb-art{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:32px;align-items:start}
+  .kb-toc{position:sticky;top:16px;order:2;font-size:var(--fs-s)}
+  .kb-toc a{display:block;padding:8px 12px;border-left:2px solid var(--borde);color:var(--texto-2);min-height:44px}
+  .kb-toc a[aria-current="true"]{border-left-color:var(--marca);color:var(--texto);font-weight:600}
+  .kb-cuerpo h2{scroll-margin-top:16px}
+  .kb-cuerpo p{color:var(--texto-2);max-width:68ch}
+  .kb-fb{margin-top:32px}
+  .kb-fb h2{margin:0 0 12px}
+  @media (max-width:800px){.kb-art{grid-template-columns:minmax(0,1fr)}.kb-toc{position:static;order:0}}
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<div class="kb">
+  <header class="kb-cab">
+    <a href="#/">Centro de ayuda</a>
+    <form class="kb-buscar" role="search" id="kb-form">
+      <label class="sr-only" for="kb-q">Buscar en el centro de ayuda</label>
+      <div class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      <input class="input" id="kb-q" type="search" placeholder="Buscar (atajo: /)" autocomplete="off"><span class="kbd" aria-hidden="true">/</span></div>
+    </form>
+  </header>
+  <main id="kb-main"></main>
+</div>
+<script src="../[base]/base.js"></script>
+<script>
+(() => {
+  /* CONECTAR: ARTICULOS y CATEGORIAS pueden venir de Supabase (help_articles); API.voto guarda el voto. */
+  const CATEGORIAS = [
+    { slug: 'clima', nombre: 'Clima Laboral', desc: 'Crear estudios, invitar equipos e interpretar resultados.' },
+    { slug: 'mystery', nombre: 'Mystery Shopper', desc: 'Visitas encubiertas, pautas e informes.' },
+    { slug: 'cuenta', nombre: 'Cuenta y facturas', desc: 'Acceso, usuarios, pagos y documentos.' },
+  ];
+  const ARTICULOS = [
+    { slug: 'crear-estudio-de-clima', titulo: 'Cómo crear un estudio de clima', cat: 'clima', popular: true, fecha: '2026-10-12', secciones: [
+      ['Antes de empezar', 'Define las gerencias que participarán y la fecha de cierre. Con eso tu ejecutivo de cuenta deja listo el cuestionario base.'],
+      ['Crear el estudio', 'Entra a Estudios, pulsa Nuevo estudio y elige la plantilla de clima. Puedes agregar hasta cinco preguntas propias al final.'],
+      ['Lanzar y hacer seguimiento', 'Carga el listado de personas y envía la invitación. El avance de participación se actualiza cada hora.'] ] },
+    { slug: 'interpretar-resultados-de-clima', titulo: 'Cómo interpretar los resultados de clima', cat: 'clima', popular: false, fecha: '2026-09-30', secciones: [
+      ['Índice general', 'El índice resume todas las dimensiones en una escala de 0 a 100. Compáralo con tu medición anterior, no con otras empresas.'],
+      ['Brechas por gerencia', 'Revisa primero las gerencias con mayor distancia respecto del promedio y luego sus dimensiones más bajas.'] ] },
+    { slug: 'anonimato-en-encuestas', titulo: 'Anonimato y confidencialidad en las encuestas', cat: 'clima', popular: true, fecha: '2026-10-02', secciones: [
+      ['Qué guardamos', 'Las respuestas se almacenan sin nombre ni correo. El enlace de cada persona es de un solo uso.'],
+      ['Grupos pequeños', 'Nunca mostramos resultados de grupos con menos de 5 personas, para que nadie pueda ser identificado.'] ] },
+    { slug: 'que-es-un-mystery-shopper', titulo: 'Qué es un Mystery Shopper y cómo se evalúa', cat: 'mystery', popular: true, fecha: '2026-10-20', secciones: [
+      ['La visita', 'Una persona entrenada visita tu local como cliente y registra la experiencia con una pauta acordada contigo.'],
+      ['La pauta', 'Mide atención, tiempos de espera, presentación del local y cierre de la venta. Cada punto tiene evidencia asociada.'] ] },
+    { slug: 'leer-informe-mystery', titulo: 'Cómo leer tu informe de Mystery Shopper', cat: 'mystery', popular: false, fecha: '2026-10-21', secciones: [
+      ['Resumen ejecutivo', 'La primera página muestra el puntaje por sucursal y las tres brechas más importantes.'],
+      ['Plan de acción', 'Al final encontrarás recomendaciones priorizadas por impacto y esfuerzo para trabajar con tus equipos.'] ] },
+    { slug: 'descargar-facturas', titulo: 'Cómo descargar tus facturas', cat: 'cuenta', popular: false, fecha: '2026-08-18', secciones: [
+      ['Dónde están', 'En el portal de cliente abre Facturas. Verás las pagadas y las pendientes con su fecha y monto.'],
+      ['Descargar y pagar', 'Pulsa Descargar para obtener el documento. Las facturas pendientes tienen un botón Pagar.'] ] },
+    { slug: 'restablecer-contrasena', titulo: 'Cómo restablecer tu contraseña', cat: 'cuenta', popular: true, fecha: '2026-07-09', secciones: [
+      ['Solicitar el enlace', 'En la pantalla de ingreso pulsa Olvidé mi contraseña e ingresa tu correo de trabajo.'],
+      ['Crear la nueva clave', 'El enlace dura 30 minutos. Usa al menos 10 caracteres y no repitas claves anteriores.'] ] },
+    { slug: 'invitar-usuarios', titulo: 'Cómo invitar a más personas de tu empresa', cat: 'cuenta', popular: false, fecha: '2026-09-11', secciones: [
+      ['Roles', 'Un administrador puede invitar lectores, que solo ven informes, y editores, que además crean estudios.'],
+      ['Enviar la invitación', 'En Equipo pulsa Invitar, escribe el correo y elige el rol. La invitación expira en 7 días.'] ] },
+  ];
+  const API = { voto: async datos => datos };
+
+  const main = document.getElementById('kb-main'), q = document.getElementById('kb-q');
+  const reducido = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const el = (tag, cls, texto, ...hijos) => { const e = document.createElement(tag); if (cls) e.className = cls; if (texto != null) e.textContent = texto; e.append(...hijos); return e; };
+  const enlace = (href, texto, cls) => { const e = el('a', cls, texto); e.setAttribute('href', href); return e; };
+  const catDe = a => CATEGORIAS.find(c => c.slug === a.cat);
+  let observador, primera = true, enfocar = true;
+
+  function resaltar(padre, texto, term) {
+    const n = norm(texto); let i = 0, j;
+    while (term && (j = n.indexOf(term, i)) >= 0) { padre.append(texto.slice(i, j), el('mark', null, texto.slice(j, j + term.length))); i = j + term.length; }
+    padre.append(texto.slice(i)); return padre;
+  }
+  function mostrar(titulo, nodos, foco = enfocar) {
+    observador?.disconnect();
+    main.replaceChildren(...nodos);
+    document.title = titulo + ' · Chile Consultores';
+    const h1 = main.querySelector('h1'); h1.tabIndex = -1;
+    if (foco) { if (!primera) h1.focus(); window.scrollTo(0, 0); }
+    primera = false;
+  }
+  const lista = (arts, term = '') => {
+    const ul = el('ul', 'kb-lista');
+    arts.forEach(a => { const l = enlace('#/articulo/' + a.slug, null); l.append(resaltar(el('strong'), a.titulo, term), el('span', 'muted small', catDe(a).nombre)); ul.append(el('li', null, null, l)); });
+    return ul;
+  };
+
+  function vistaInicio() {
+    const cats = el('div', 'grid grid-3');
+    CATEGORIAS.forEach(c => { const n = ARTICULOS.filter(a => a.cat === c.slug).length; const l = enlace('#/categoria/' + c.slug, null, 'card kb-cat'); l.append(el('h3', null, c.nombre), el('p', 'muted small mt-8', c.desc), el('p', 'xs muted mt-8', n + ' artículos')); cats.append(l); });
+    mostrar('Centro de ayuda', [el('h1', null, '¿En qué te ayudamos?'), cats, el('h2', null, 'Artículos populares'), lista(ARTICULOS.filter(a => a.popular))]);
+  }
+  function vistaCategoria(slug) {
+    const c = CATEGORIAS.find(x => x.slug === slug); if (!c) return vistaNada();
+    mostrar(c.nombre, [migas(c.nombre), el('h1', null, c.nombre), el('p', 'muted mb-16', c.desc), lista(ARTICULOS.filter(a => a.cat === slug))]);
+  }
+  function migas(...partes) {
+    const n = el('nav', 'breadcrumb', null, enlace('#/', 'Ayuda')); n.setAttribute('aria-label', 'Ruta');
+    partes.forEach(p => n.append(el('span', null, '/'), typeof p === 'string' ? el('span', null, p) : p)); return n;
+  }
+  function vistaNada() {
+    mostrar('No encontrada', [el('h1', null, 'No encontramos esa página'), enlace('#/', 'Volver al inicio', 'btn')]);
+  }
+
+  function vistaArticulo(slug) {
+    const a = ARTICULOS.find(x => x.slug === slug); if (!a) return vistaNada();
+    const c = catDe(a), cuerpo = el('div', 'kb-cuerpo'), toc = el('nav', 'kb-toc'), tocLinks = [];
+    toc.setAttribute('aria-label', 'En este artículo');
+    a.secciones.forEach(([t, texto], i) => {
+      const h = el('h2', null, t); h.id = 'sec-' + i; h.tabIndex = -1; cuerpo.append(h, el('p', null, texto));
+      const l = enlace('#sec-' + i, t); tocLinks.push(l); toc.append(l);
+      l.addEventListener('click', e => { e.preventDefault(); h.scrollIntoView({ behavior: reducido ? 'auto' : 'smooth' }); h.focus({ preventScroll: true }); });
+    });
+    const rel = ARTICULOS.filter(x => x.cat === a.cat && x !== a).slice(0, 3);
+    const izq = el('div', null, null, cuerpo, feedback(a), el('h2', null, 'Artículos relacionados'), lista(rel));
+    mostrar(a.titulo, [migas(enlace('#/categoria/' + c.slug, c.nombre)), el('h1', null, a.titulo), el('p', 'muted small mb-24', 'Actualizado el ' + UI.formato.fecha(a.fecha + 'T12:00')), el('div', 'kb-art', null, izq, toc)]);
+    tocLinks[0].setAttribute('aria-current', 'true');
+    observador = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) tocLinks.forEach((l, i) => { if ('sec-' + i === e.target.id) l.setAttribute('aria-current', 'true'); else l.removeAttribute('aria-current'); }); }), { rootMargin: '0px 0px -70% 0px' });
+    tocLinks.forEach((l, i) => observador.observe(document.getElementById('sec-' + i)));
+  }
+
+  function feedback(a) {
+    const caja = el('section', 'card kb-fb'), t = el('h2', null, '¿Te sirvió?'), msg = el('p', 'muted small mt-8'), fila = el('div', 'row');
+    t.id = 'fb-t'; caja.setAttribute('aria-labelledby', 'fb-t'); msg.setAttribute('role', 'status');
+    const si = el('button', 'btn btn-sec', 'Sí'), no = el('button', 'btn btn-sec', 'No');
+    const form = el('form', 'campo mt-16'), lab = el('label', null, '¿Qué faltó? (opcional)'), ta = el('textarea', 'textarea'), enviar = el('button', 'btn', 'Enviar comentario');
+    ta.id = 'fb-c'; lab.setAttribute('for', 'fb-c'); form.hidden = true; enviar.dataset.busy = 'Enviando…'; enviar.style.alignSelf = 'flex-start';
+    form.append(lab, ta, enviar); fila.append(si, no); caja.append(t, fila, form, msg);
+    const cerrar = texto => { form.hidden = true; si.disabled = no.disabled = true; msg.textContent = texto; };
+    si.addEventListener('click', async () => { si.setAttribute('aria-pressed', 'true'); await API.voto({ slug: a.slug, util: true }); cerrar('Gracias por avisarnos.'); });
+    no.addEventListener('click', () => { no.setAttribute('aria-pressed', 'true'); form.hidden = false; ta.focus(); });
+    form.addEventListener('submit', async e => { e.preventDefault(); await UI.busy(enviar, () => API.voto({ slug: a.slug, util: false, comentario: ta.value.trim() })); cerrar('Gracias, vamos a mejorar este artículo.'); });
+    return caja;
+  }
+
+  function buscar(texto) {
+    const term = norm(texto.trim());
+    if (term.length < 2) return ruta(false);
+    const hits = ARTICULOS.filter(a => norm(a.titulo + ' ' + a.secciones.flat().join(' ')).includes(term));
+    const h1 = el('h1', null, hits.length ? hits.length + (hits.length === 1 ? ' resultado' : ' resultados') + ' para «' + texto.trim() + '»' : 'Sin resultados para «' + texto.trim() + '»');
+    h1.setAttribute('aria-live', 'polite');
+    const ul = lista(hits, term);
+    ul.querySelectorAll('li').forEach((li, i) => {
+      const plano = hits[i].secciones.map(s => s[1]).find(s => norm(s).includes(term));
+      if (!plano) return;
+      const k = norm(plano).indexOf(term), p = el('span', 'small muted'); resaltar(p, (k > 40 ? '…' : '') + plano.slice(Math.max(0, k - 40), k + 100), term); li.firstChild.append(p);
+    });
+    mostrar('Buscar', [h1, hits.length ? ul : el('p', 'muted', 'Prueba con otra palabra o explora las categorías desde el inicio.')], false);
+  }
+
+  function ruta(foco = true) {
+    const [, tipo, arg] = location.hash.split('/').map(decodeURIComponent);
+    if (foco) q.value = '';
+    enfocar = foco;
+    if (tipo === 'articulo') vistaArticulo(arg); else if (tipo === 'categoria') vistaCategoria(arg); else vistaInicio();
+    enfocar = true;
+  }
+
+  window.addEventListener('hashchange', () => ruta());
+  q.addEventListener('input', () => buscar(q.value));
+  document.getElementById('kb-form').addEventListener('submit', e => { e.preventDefault(); if (q.value.trim()) main.querySelector('.kb-lista a')?.click(); });
+  q.addEventListener('keydown', e => { if (e.key === 'Escape') { q.value = ''; ruta(false); } });
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); q.focus(); }
+  });
+  ruta();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Mi cuenta · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: página "Mi cuenta" con 4 pestañas: Perfil (avatar con iniciales, aviso de cambios sin guardar), Seguridad (cambio de clave y 2FA con QR simulado y 8 códigos de recuperación), Sesiones activas y Zona de peligro (eliminar escribiendo ELIMINAR).
+  Proyecto: ajustes de cuenta de todas las apps privadas de Chile Consultores.
+  Cómo aplicarlo: copia main, style y script. Para sumar otra pestaña agrega un botón [role=tab] y su [role=tabpanel] con el mismo aria-controls.
+  Conectar: reemplaza el objeto API: perfil/guardarPerfil (tabla profiles), cambiarClave (auth.updateUser tras reautenticar), activar2fa y desactivar2fa (auth.mfa), sesiones/cerrarSesion/cerrarOtras (auth.signOut con scope), eliminarCuenta (Edge Function). El QR real lo entrega auth.mfa.enroll. Prueba: clave actual Demo1234!, código 2FA 123456.
+  Ganchos: API, #f-perfil, #f-clave, #sw-2fa, #lista-ses, #b-eliminar.
+  Reglas UX: el botón Guardar solo se activa si hay cambios, aviso al salir con cambios, confirmación en acciones destructivas, el switch no cambia hasta que el flujo termina, los códigos de recuperación se muestran una sola vez.
+-->
+<style>
+  .ps-pagina{max-width:760px;margin:0 auto;padding:24px 16px 64px}
+  .ps-pag .btn,.ps-pag .input,.ps-pag .tabs button{min-height:44px}
+  .ps-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
+  .ps-panel{display:flex;flex-direction:column;gap:16px}
+  .ps-form{display:flex;flex-direction:column;gap:12px}
+  .ps-id{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+  .ps-avatar{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--acento),var(--marca));display:grid;place-items:center;font:600 1.4rem var(--display);flex:none}
+  .ps-acciones{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+  .ps-acciones.ps-izq{justify-content:flex-start}
+  .ps-clave{position:relative}
+  .ps-clave .input{padding-right:92px}
+  .ps-ojo{position:absolute;right:2px;top:2px;bottom:2px;min-height:0}
+  .ps-pag .switch::before{content:"";position:absolute;inset:-11px -4px}
+  .ps-req{list-style:none;margin:6px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;font-size:var(--fs-xs);color:var(--texto-3)}
+  .ps-req li::before{content:"○ "}
+  .ps-req li.ok{color:var(--verde)} .ps-req li.ok::before{content:"✓ "}
+  .ps-config{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;margin-top:16px;padding-top:16px;border-top:1px solid var(--borde)}
+  .ps-config > div{flex:1;min-width:220px}
+  #qr{width:168px;height:168px;border-radius:var(--r-s)}
+  .ps-codigos{list-style:none;margin:12px 0;padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;background:var(--fondo-2);border:1px solid var(--borde);border-radius:var(--r-s)}
+  .ps-ses{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--borde)}
+  .ps-ses p{margin:0}
+  #lista-ses{list-style:none;margin:0 0 16px;padding:0}
+  .ps-peligro{border-color:rgba(239,68,68,.4)}
+  [hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="ps-pagina ps-pag">
+  <div class="ps-cab"><div class="logo"><span class="dot"></span>Chile Consultores</div><a href="/">Volver al panel</a></div>
+  <h1 class="mb-16">Mi cuenta</h1>
+  <div class="tabs" role="tablist" aria-label="Secciones de tu cuenta">
+    <button role="tab" id="t-perfil" aria-controls="p-perfil" aria-selected="true">Perfil</button>
+    <button role="tab" id="t-seg" aria-controls="p-seg" aria-selected="false">Seguridad</button>
+    <button role="tab" id="t-ses" aria-controls="p-ses" aria-selected="false">Sesiones activas</button>
+    <button role="tab" id="t-pel" aria-controls="p-pel" aria-selected="false">Zona de peligro</button>
+  </div>
+
+  <div id="p-perfil" role="tabpanel" aria-labelledby="t-perfil" class="ps-panel"><div class="card">
+    <div class="ps-id"><div class="ps-avatar" id="avatar" aria-hidden="true"></div><div><b id="av-nombre"></b><p class="small muted">Tu avatar usa tus iniciales.</p></div></div>
+    <form id="f-perfil" class="ps-form" novalidate>
+      <div class="campo"><label for="nombre">Nombre completo</label><input class="input" id="nombre" name="nombre" autocomplete="name"><div class="error-msg"></div></div>
+      <div class="campo"><label for="correo">Correo</label><input class="input" id="correo" name="correo" type="email" autocomplete="email" inputmode="email" aria-describedby="ay-correo"><div class="ayuda" id="ay-correo">Si lo cambias, te pediremos confirmarlo.</div><div class="error-msg"></div></div>
+      <div class="ps-acciones">
+        <span class="badge warn" id="sucio" role="status" hidden>Cambios sin guardar</span>
+        <button type="button" class="btn btn-ghost" id="descartar" hidden>Descartar</button>
+        <button class="btn" id="b-perfil" data-busy="Guardando…" disabled>Guardar cambios</button>
+      </div>
+    </form>
+  </div></div>
+
+  <div id="p-seg" role="tabpanel" aria-labelledby="t-seg" class="ps-panel" hidden>
+    <div class="card"><div class="card-head"><h3>Cambiar clave</h3></div>
+      <form id="f-clave" class="ps-form" novalidate>
+        <div class="campo"><label for="actual">Clave actual</label>
+          <div class="ps-clave"><input class="input" id="actual" name="actual" type="password" autocomplete="current-password"><button type="button" class="btn btn-ghost ps-ojo" data-ojo="actual" aria-controls="actual">Mostrar</button></div>
+          <div class="error-msg"></div></div>
+        <div class="campo"><label for="nueva">Nueva clave</label>
+          <div class="ps-clave"><input class="input" id="nueva" name="nueva" type="password" autocomplete="new-password" aria-describedby="med"><button type="button" class="btn btn-ghost ps-ojo" data-ojo="nueva" aria-controls="nueva">Mostrar</button></div>
+          <div id="med"><div class="progreso"><span></span></div><p class="small muted" data-nivel></p><ul class="ps-req"></ul></div>
+          <div class="error-msg"></div></div>
+        <div class="campo"><label for="confirmar">Repite la nueva clave</label><input class="input" id="confirmar" name="confirmar" type="password" autocomplete="new-password"><div class="error-msg"></div></div>
+        <div class="ps-acciones"><button class="btn" id="b-clave" data-busy="Guardando…">Cambiar clave</button></div>
+      </form>
+    </div>
+    <div class="card">
+      <div class="row between"><div><h3>Verificación en 2 pasos</h3><p class="small muted">Pide un código de tu app de autenticación al ingresar.</p></div>
+        <div class="row"><span class="badge" id="est-2fa">Inactiva</span><button type="button" class="switch" id="sw-2fa" role="switch" aria-checked="false" aria-label="Verificación en 2 pasos"></button></div></div>
+      <div class="ps-config" id="config-2fa" hidden>
+        <svg id="qr" viewBox="-1 -1 23 23" role="img" aria-label="Código QR de ejemplo"><rect x="-1" y="-1" width="23" height="23" fill="#fff"/><path fill="#0B0B14"/></svg>
+        <div>
+          <p class="small muted">Escanea el QR con tu app de autenticación. Si no puedes, escribe esta clave: <span class="mono" id="secreto">JBSW Y3DP EHPK 3PXP</span></p>
+          <form id="f-2fa" class="ps-form mt-16" novalidate>
+            <div class="campo"><label for="cod">Código de 6 dígitos</label><input class="input" id="cod" name="cod" inputmode="numeric" autocomplete="one-time-code" maxlength="6"><div class="error-msg"></div></div>
+            <button class="btn" id="b-2fa" data-busy="Verificando…">Activar</button>
+          </form>
+        </div>
+      </div>
+      <div id="recup" hidden>
+        <hr class="divider"><h4>Códigos de recuperación</h4>
+        <p class="small muted">Guárdalos en un lugar seguro. Cada uno sirve una sola vez y no los volveremos a mostrar.</p>
+        <ul class="ps-codigos mono" id="codigos"></ul>
+        <div class="ps-acciones ps-izq"><button class="btn btn-sec" id="copiar">Copiar</button><button class="btn btn-sec" id="descargar">Descargar</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="p-ses" role="tabpanel" aria-labelledby="t-ses" class="ps-panel" hidden><div class="card">
+    <ul id="lista-ses"></ul>
+    <div class="ps-acciones ps-izq"><button class="btn btn-sec" id="cerrar-esta">Cerrar esta sesión</button><button class="btn btn-danger" id="cerrar-otras">Cerrar todas las demás</button></div>
+  </div></div>
+
+  <div id="p-pel" role="tabpanel" aria-labelledby="t-pel" class="ps-panel" hidden><div class="card ps-peligro">
+    <div class="card-head"><h3>Eliminar mi cuenta</h3></div>
+    <p class="small muted mb-16">Se borran tu perfil, tus accesos y tus preferencias. Esta acción no se puede deshacer.</p>
+    <button class="btn btn-danger" id="b-eliminar">Eliminar mi cuenta</button>
+  </div></div>
+</main>
+<script src="../[base]/base.js"></script>
+<script>
+  const espera = ms => new Promise(r => setTimeout(r, ms));
+  const cod = () => Array.from(crypto.getRandomValues(new Uint8Array(4)), b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
+  const LOGIN = 'login-y-registro.html';
+  // CONECTAR: reemplaza cada función por Supabase.
+  const API = {
+    perfil: async () => ({ nombre: 'Camila Rojas Fuentes', correo: 'camila.rojas@andesnorte.cl' }),
+    guardarPerfil: async datos => { await espera(600); },
+    cambiarClave: async (actual, nueva) => { await espera(700); return { ok: actual === 'Demo1234!' }; },
+    activar2fa: async codigo => { await espera(600); return codigo === '123456' ? { ok: true, codigos: Array.from({ length: 8 }, () => cod() + '-' + cod()) } : { ok: false }; },
+    desactivar2fa: async () => { await espera(400); },
+    sesiones: async () => [
+      { equipo: 'MacBook Pro · Chrome', lugar: 'Santiago, Chile', actual: true },
+      { equipo: 'iPhone 15 · Safari', lugar: 'Viña del Mar, Chile', visto: Date.now() - 3 * 36e5 },
+      { equipo: 'Windows PC · Edge', lugar: 'Concepción, Chile', visto: Date.now() - 5 * 864e5 }],
+    cerrarSesion: async () => { await espera(300); },
+    cerrarOtras: async () => { await espera(500); },
+    eliminarCuenta: async () => { await espera(800); }
+  };
+
+  const $ = id => document.getElementById(id);
+  const crear = (tag, texto, clase) => { const e = document.createElement(tag); e.textContent = texto; if (clase) e.className = clase; return e; };
+  const marcar = (el, msg) => { const c = el.closest('.campo'); c.classList.add('invalido'); el.setAttribute('aria-invalid', 'true'); c.querySelector('.error-msg').textContent = msg; el.focus(); };
+  const primerError = f => f.querySelector('[aria-invalid="true"]').focus();
+  const correoOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? '' : 'Escribe un correo válido, por ejemplo tu@empresa.cl.';
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-ojo]'); if (!b) return;
+    const i = $(b.dataset.ojo), ver = i.type === 'password';
+    i.type = ver ? 'text' : 'password'; b.textContent = ver ? 'Ocultar' : 'Mostrar';
+  });
+
+  /* Perfil */
+  const fp = $('f-perfil'); let base = { nombre: '', correo: '' };
+  const iniciales = v => v.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase() || '?';
+  const sucio = () => fp.elements.nombre.value.trim() !== base.nombre || fp.elements.correo.value.trim() !== base.correo;
+  function refrescar() {
+    const s = sucio();
+    $('sucio').hidden = $('descartar').hidden = !s; $('b-perfil').disabled = !s;
+    $('avatar').textContent = iniciales(fp.elements.nombre.value); $('av-nombre').textContent = fp.elements.nombre.value;
+  }
+  const poner = () => { fp.elements.nombre.value = base.nombre; fp.elements.correo.value = base.correo; refrescar(); };
+  const validarPerfil = UI.validar(fp, { nombre: v => v.trim().length >= 3 ? '' : 'Escribe tu nombre completo.', correo: correoOk });
+  fp.addEventListener('input', refrescar);
+  $('descartar').addEventListener('click', () => {
+    fp.querySelectorAll('.invalido').forEach(c => { c.classList.remove('invalido'); c.querySelector('.error-msg').textContent = ''; });
+    poner();
+  });
+  fp.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!validarPerfil()) return primerError(fp);
+    const d = { nombre: fp.elements.nombre.value.trim(), correo: fp.elements.correo.value.trim() };
+    try { await UI.busy($('b-perfil'), () => API.guardarPerfil(d)); base = d; UI.toast('Perfil actualizado.', 'ok'); }
+    catch (_) { UI.toast('No pudimos guardar tus cambios.', 'error'); }
+    refrescar();
+  });
+  window.addEventListener('beforeunload', e => { if (sucio()) e.preventDefault(); });
+  API.perfil().then(p => { base = p; poner(); });
+
+  /* Cambiar clave */
+  const REQ = [['8 o más caracteres', v => v.length >= 8], ['Mayúscula y minúscula', v => /[a-z]/.test(v) && /[A-Z]/.test(v)], ['Un número', v => /\d/.test(v)], ['Un símbolo', v => /[^\w\s]/.test(v)]];
+  function medidor(inp, raiz) {
+    const li = REQ.map(([t]) => { const l = crear('li', t); raiz.querySelector('ul').append(l); return l; });
+    const act = () => {
+      const ok = REQ.filter(([, f], i) => { const b = f(inp.value); li[i].classList.toggle('ok', b); return b; }).length;
+      raiz.querySelector('.progreso').style.setProperty('--p', ok / 4);
+      raiz.querySelector('[data-nivel]').textContent = inp.value ? ['Muy débil', 'Débil', 'Media', 'Fuerte', 'Muy fuerte'][ok] : '';
+      return ok;
+    };
+    inp.addEventListener('input', act); return act;
+  }
+  const fk = $('f-clave'), nivel = medidor(fk.elements.nueva, $('med'));
+  const validarClave = UI.validar(fk, {
+    actual: v => v ? '' : 'Ingresa tu clave actual.',
+    nueva: () => nivel() === 4 ? '' : 'Tu clave debe cumplir todos los requisitos.',
+    confirmar: (v, f) => v === f.elements.nueva.value ? '' : 'Las claves no coinciden.'
+  });
+  fk.elements.nueva.addEventListener('input', () => fk.elements.confirmar.dispatchEvent(new Event('input')));
+  fk.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!validarClave()) return primerError(fk);
+    try {
+      const r = await UI.busy($('b-clave'), () => API.cambiarClave(fk.elements.actual.value, fk.elements.nueva.value));
+      if (!r.ok) return marcar(fk.elements.actual, 'La clave actual no es correcta.');
+      fk.reset(); nivel(); UI.toast('Tu clave fue cambiada.', 'ok');
+    } catch (_) { UI.toast('No pudimos cambiar tu clave.', 'error'); }
+  });
+
+  /* 2FA */
+  const sw = $('sw-2fa');
+  (() => { // QR simulado: tres marcadores de esquina y puntos pseudoaleatorios
+    let s = 7, d = '';
+    const oscuro = (x, y) => {
+      for (const [a, b] of [[3, 3], [17, 3], [3, 17]]) { const m = Math.max(Math.abs(x - a), Math.abs(y - b)); if (m <= 4) return m === 3 || m <= 1; }
+      s = (s * 16807) % 2147483647; return (s >>> 5) & 1;
+    };
+    for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++) if (oscuro(x, y)) d += 'M' + x + ' ' + y + 'h1v1h-1z';
+    $('qr').lastElementChild.setAttribute('d', d);
+  })();
+  function estado2fa(on, codigos = []) {
+    sw.setAttribute('aria-checked', on); $('config-2fa').hidden = true; $('recup').hidden = !on;
+    const b = $('est-2fa'); b.textContent = on ? 'Activa' : 'Inactiva'; b.className = 'badge' + (on ? ' ok' : '');
+    $('codigos').replaceChildren(...codigos.map(c => crear('li', c)));
+  }
+  sw.addEventListener('click', async e => {
+    e.stopPropagation(); // base.js alternaría aria-checked solo; aquí lo decide el flujo
+    if (sw.getAttribute('aria-checked') === 'true') {
+      if (!await UI.confirmar({ titulo: 'Desactivar verificación en 2 pasos', texto: 'Tu cuenta quedará protegida solo con tu clave.', confirmar: 'Desactivar', peligro: true })) return;
+      await API.desactivar2fa(); estado2fa(false); UI.toast('Verificación en 2 pasos desactivada.', 'warn');
+    } else {
+      const c = $('config-2fa'); c.hidden = !c.hidden; if (!c.hidden) $('cod').focus();
+    }
+  });
+  const f2 = $('f-2fa');
+  const validar2fa = UI.validar(f2, { cod: v => /^\d{6}$/.test(v) ? '' : 'Escribe los 6 dígitos de tu app.' });
+  f2.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!validar2fa()) return primerError(f2);
+    try {
+      const r = await UI.busy($('b-2fa'), () => API.activar2fa(f2.elements.cod.value));
+      if (!r.ok) return marcar(f2.elements.cod, 'Código incorrecto. Revisa tu app e intenta de nuevo.');
+      f2.reset(); estado2fa(true, r.codigos); UI.toast('Verificación en 2 pasos activada.', 'ok');
+    } catch (_) { UI.toast('No pudimos activar la verificación.', 'error'); }
+  });
+  const textoCodigos = () => Array.from($('codigos').children, li => li.textContent).join('\n');
+  $('copiar').addEventListener('click', () => {
+    (navigator.clipboard ? navigator.clipboard.writeText(textoCodigos()) : Promise.reject())
+      .then(() => UI.toast('Códigos copiados.', 'ok'), () => UI.toast('No pudimos copiar. Usa Descargar.', 'error'));
+  });
+  $('descargar').addEventListener('click', () => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([textoCodigos()], { type: 'text/plain' }));
+    a.download = 'codigos-recuperacion-chile-consultores.txt'; a.click(); URL.revokeObjectURL(a.href);
+  });
+
+  /* Sesiones */
+  let sesiones = [];
+  function pintarSesiones() {
+    $('lista-ses').replaceChildren(...sesiones.map(s => {
+      const li = crear('li', '', 'ps-ses'), t = document.createElement('div');
+      t.append(crear('b', s.equipo), crear('p', s.lugar + ' · ' + (s.actual ? 'Activa ahora' : UI.formato.relativo(s.visto)), 'small muted'));
+      li.append(t); if (s.actual) li.append(crear('span', 'Esta sesión', 'badge ok'));
+      return li;
+    }));
+    $('cerrar-otras').disabled = sesiones.length < 2;
+  }
+  API.sesiones().then(l => { sesiones = l; pintarSesiones(); });
+  $('cerrar-esta').addEventListener('click', async () => {
+    if (!await UI.confirmar({ titulo: 'Cerrar esta sesión', texto: 'Tendrás que ingresar de nuevo en este dispositivo.', confirmar: 'Cerrar sesión' })) return;
+    await API.cerrarSesion(); location.assign(LOGIN);
+  });
+  $('cerrar-otras').addEventListener('click', async () => {
+    if (!await UI.confirmar({ titulo: 'Cerrar todas las demás sesiones', texto: 'Se cerrará tu cuenta en todos los otros dispositivos.', confirmar: 'Cerrar sesiones', peligro: true })) return;
+    await API.cerrarOtras(); sesiones = sesiones.filter(s => s.actual); pintarSesiones(); UI.toast('Cerramos las demás sesiones.', 'ok');
+  });
+
+  /* Eliminar cuenta */
+  $('b-eliminar').addEventListener('click', async () => {
+    if (!await UI.confirmar({ titulo: 'Eliminar tu cuenta', texto: 'Perderás el acceso y tus datos. No se puede deshacer.', confirmar: 'Eliminar cuenta', peligro: true, palabra: 'ELIMINAR' })) return;
+    await API.eliminarCuenta(); location.assign(LOGIN + '?cuenta=eliminada');
+  });
+</script>
+</body>
+</html>

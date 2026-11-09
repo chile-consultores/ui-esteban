@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Configuración de empresa · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: ajustes de empresa por secciones (Empresa con logo y color en vivo, Notificaciones por evento y canal, Integraciones con claves de API y webhooks, Dominio personalizado con registros DNS). Navegación lateral que en móvil es un select. Guardado por sección y aviso de cambios sin guardar.
+  Proyecto: panel admin de cualquier app de Chile Consultores.
+  Cómo aplicarlo: `CONFIG` es la única fuente de datos. Para un evento nuevo agrégalo a CONFIG.notificaciones.eventos (sirve también para los webhooks).
+  Conectar: reemplaza los métodos de `API` por Supabase (tabla config_empresa, Storage para el logo, tabla api_keys guardando solo el hash, Edge Function para probar webhooks y verificar DNS). El valor completo de una clave solo existe al crearla.
+  Ganchos: #s-empresa #s-notificaciones #s-integraciones #s-dominio, [data-ir], window.CONFIG, window.API.
+-->
+<style>
+  [hidden]{display:none}
+  .cfg{max-width:1040px;margin:0 auto;padding:24px 16px 64px}
+  .cfg .btn,.cfg .input,.cfg .select{min-height:44px}
+  .cfg-grid{display:grid;grid-template-columns:210px minmax(0,1fr);gap:24px;align-items:start}
+  .cfg-nav{position:sticky;top:16px;display:flex;flex-direction:column;gap:2px}
+  .cfg-nav button{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:8px 12px;border:0;border-radius:var(--r-s);background:none;color:var(--texto-2);font-weight:500;font-size:var(--fs-s);cursor:pointer;text-align:left}
+  .cfg-nav button:hover{background:var(--superficie);color:var(--texto)}
+  .cfg-nav button[aria-current="page"]{background:var(--marca-l);color:var(--texto)}
+  .cfg-nav button[data-sucio]::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--ambar)}
+  .cfg-movil{display:none}
+  .cfg-sw{position:relative}
+  .cfg-sw::before{content:"";position:absolute;inset:-12px -4px}
+  .cfg-lista{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:8px}
+  .cfg-lista li{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid var(--borde);border-radius:var(--r-s)}
+  .cfg-lista .url{word-break:break-all}
+  .cfg-secreto{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .cfg-secreto code{word-break:break-all;padding:6px 10px;border-radius:var(--r-xs);background:var(--fondo-2)}
+  .cfg-prev{border:1px solid var(--borde);border-radius:var(--r);overflow:hidden;background:#fff;color:#111;margin:4px 0 16px}
+  .cfg-prev-cab{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--m);color:var(--mt);font-weight:600}
+  .cfg-prev-cab img,.cfg-ini{width:32px;height:32px;border-radius:8px;object-fit:contain;background:rgba(255,255,255,.92)}
+  .cfg-ini{display:grid;place-items:center;color:var(--m)}
+  .cfg-prev-cuerpo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px}
+  .cfg-falso{padding:8px 16px;border-radius:var(--pill);background:var(--m);color:var(--mt);font-size:var(--fs-s);font-weight:500}
+  .cfg-enlace{color:var(--m);text-decoration:underline}
+  fieldset{border:0;padding:0;margin:0 0 8px}
+  legend{font-size:var(--fs-s);font-weight:500;margin-bottom:8px}
+  @media (max-width:760px){.cfg-grid{grid-template-columns:minmax(0,1fr)}.cfg-nav{display:none}.cfg-movil{display:block;margin-bottom:16px}}
+</style>
+</head>
+<body class="cfg">
+<div class="aurora"></div><div class="estrellas"></div>
+<main>
+  <div class="page-head"><div><div class="breadcrumb">Administración / Configuración</div><h1>Configuración de la empresa</h1></div></div>
+  <div id="aviso-sucio" class="aviso warn mb-16" role="status" hidden>Tienes cambios sin guardar en:&nbsp;<b id="sucios"></b></div>
+  <div class="cfg-movil"><label for="cfg-sel" class="small muted">Sección</label><select id="cfg-sel" class="select"></select></div>
+  <div class="cfg-grid">
+    <nav class="cfg-nav" id="cfg-nav" aria-label="Secciones"></nav>
+    <div>
+      <section id="s-empresa" data-sec class="card" aria-labelledby="h-empresa">
+        <div class="card-head"><h2 id="h-empresa" tabindex="-1">Empresa</h2><span class="badge warn" data-badge hidden>Cambios sin guardar</span></div>
+        <form id="f-empresa" novalidate>
+          <div class="form-grid">
+            <div class="campo"><label for="e-nombre">Nombre de la empresa</label><input id="e-nombre" name="nombre" class="input" autocomplete="organization"><div class="error-msg" aria-live="polite"></div></div>
+            <div class="campo"><label for="e-rut">RUT</label><input id="e-rut" name="rut" class="input" autocomplete="off" placeholder="76.543.210-3"><div class="error-msg" aria-live="polite"></div></div>
+          </div>
+          <div class="campo"><label for="e-logo">Logo (PNG, JPG o WebP, hasta 1 MB)</label><input id="e-logo" name="logo" type="file" class="input" accept="image/png,image/jpeg,image/webp"><div class="error-msg" aria-live="polite"></div></div>
+          <button type="button" id="e-quitar" class="btn btn-ghost btn-sm mb-16" hidden>Quitar logo</button>
+          <div class="campo"><label for="e-color">Color de marca</label><div class="row"><input id="e-color" name="color" type="color" class="input" style="width:64px;padding:4px"><span class="mono" id="e-hex"></span></div></div>
+          <p class="small muted mt-16 mb-8">Vista previa</p>
+          <div class="cfg-prev" id="prev" aria-hidden="true"><div class="cfg-prev-cab"><img id="p-logo" alt="" hidden><span id="p-ini" class="cfg-ini"></span><span id="p-nombre"></span></div>
+            <div class="cfg-prev-cuerpo"><span class="cfg-falso">Botón principal</span><span class="cfg-enlace">Enlace de ejemplo</span></div></div>
+          <div class="row"><button type="submit" class="btn" data-busy="Guardando…">Guardar cambios</button><button type="button" class="btn btn-ghost" data-descartar>Descartar</button></div>
+        </form>
+      </section>
+
+      <section id="s-notificaciones" data-sec class="card" aria-labelledby="h-notificaciones" hidden>
+        <div class="card-head"><h2 id="h-notificaciones" tabindex="-1">Notificaciones</h2><span class="badge warn" data-badge hidden>Cambios sin guardar</span></div>
+        <form id="f-notificaciones">
+          <div class="tabla-wrap mb-16"><table class="tabla"><thead id="n-cab"></thead><tbody id="n-cuerpo"></tbody></table></div>
+          <div class="row"><button type="submit" class="btn" data-busy="Guardando…">Guardar cambios</button><button type="button" class="btn btn-ghost" data-descartar>Descartar</button></div>
+        </form>
+      </section>
+
+      <section id="s-integraciones" data-sec class="card" aria-labelledby="h-integraciones" hidden>
+        <div class="card-head"><h2 id="h-integraciones" tabindex="-1">Integraciones</h2></div>
+        <h3 class="mb-8">Claves de API</h3>
+        <ul id="claves" class="cfg-lista"></ul>
+        <div id="secreto" class="aviso ok" role="status" hidden><div><b>Copia tu clave ahora.</b> Por seguridad no volverás a verla.
+          <div class="cfg-secreto"><code id="secreto-valor"></code><button type="button" id="b-copiar" class="btn btn-sec btn-sm">Copiar</button><button type="button" id="b-listo" class="btn btn-sm">Ya la guardé</button></div></div></div>
+        <form id="f-clave" class="row wrap mt-16" novalidate style="align-items:flex-start">
+          <div class="campo" style="flex:1;min-width:200px"><label for="k-nombre">Nombre de la clave nueva</label><input id="k-nombre" name="nombre" class="input" placeholder="Integración con el CRM" autocomplete="off"><div class="error-msg" aria-live="polite"></div></div>
+          <button type="submit" class="btn" data-busy="Creando…" style="margin-top:26px">Crear clave</button>
+        </form>
+        <hr class="divider">
+        <h3 class="mb-8">Webhooks</h3>
+        <ul id="webhooks" class="cfg-lista"></ul>
+        <form id="f-webhook" novalidate>
+          <div class="campo"><label for="w-url">URL de destino</label><input id="w-url" name="url" class="input" type="url" inputmode="url" autocomplete="off" placeholder="https://tu-sitio.cl/webhooks/cc"><div class="error-msg" aria-live="polite"></div></div>
+          <fieldset><legend>Eventos que se envían</legend><div id="w-eventos" class="stack"></div><div id="w-err" class="error-msg xs" style="color:var(--rojo);min-height:1.2em" aria-live="polite"></div></fieldset>
+          <button type="submit" class="btn" data-busy="Agregando…">Agregar webhook</button>
+        </form>
+      </section>
+
+      <section id="s-dominio" data-sec class="card" aria-labelledby="h-dominio" hidden>
+        <div class="card-head"><h2 id="h-dominio" tabindex="-1">Dominio personalizado</h2><span class="badge warn" data-badge hidden>Cambios sin guardar</span></div>
+        <form id="f-dominio" novalidate>
+          <div class="campo"><label for="d-dom">Dominio</label><input id="d-dom" name="dominio" class="input" inputmode="url" autocomplete="off" placeholder="encuestas.tuempresa.cl"><div class="error-msg" aria-live="polite"></div></div>
+          <div class="row"><button type="submit" class="btn" data-busy="Guardando…">Guardar dominio</button><button type="button" class="btn btn-ghost" data-descartar>Descartar</button></div>
+        </form>
+        <div id="dns" class="mt-24" hidden>
+          <div class="row between wrap mb-8"><span id="d-estado" class="badge"></span><button type="button" id="b-verificar" class="btn btn-sec btn-sm" data-busy="Verificando…">Verificar ahora</button></div>
+          <p id="d-ayuda" class="small muted mb-8"></p>
+          <div class="tabla-wrap"><table class="tabla"><thead><tr><th>Tipo</th><th>Nombre</th><th>Valor</th></tr></thead><tbody id="d-registros"></tbody></table></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+<script src="../[base]/base.js"></script>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const el = (t, c, x) => { const n = document.createElement(t); if (c) n.className = c; if (x != null) n.textContent = x; return n; };
+  const canon = o => JSON.stringify(o, (k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort()) : v);
+  const registrosDe = d => [{ tipo: 'CNAME', nombre: d, valor: 'cname.ejemplo-cc.cl' }, { tipo: 'TXT', nombre: '_cc-verificacion.' + d, valor: 'cc-verify=a1b2c3d4e5f6' }];
+
+  /* Fuente única de datos. Reemplaza por el select a Supabase al cargar la página. */
+  const CONFIG = {
+    empresa: { nombre: 'Constructora Los Andes SpA', rut: '76.543.210-3', color: '#7c6df2', logo: null },
+    notificaciones: {
+      eventos: [{ id: 'estudio.publicado', nombre: 'Estudio publicado' }, { id: 'respuesta.recibida', nombre: 'Respuesta recibida' }, { id: 'factura.emitida', nombre: 'Factura emitida' }, { id: 'uso.limite', nombre: 'Uso al 90 % del plan' }],
+      canales: [{ id: 'correo', nombre: 'Correo' }, { id: 'app', nombre: 'En la app' }, { id: 'sms', nombre: 'SMS' }],
+      valores: { 'estudio.publicado': { correo: true, app: true, sms: false }, 'respuesta.recibida': { correo: false, app: true, sms: false }, 'factura.emitida': { correo: true, app: false, sms: false }, 'uso.limite': { correo: true, app: true, sms: true } }
+    },
+    integraciones: {
+      claves: [{ id: 'k1', nombre: 'Integración con el CRM', prefijo: 'cc_a1b2c3d4', creada: new Date(2026, 9, 3, 12) }],
+      webhooks: [{ id: 'w1', url: 'https://hooks.losandes.cl/cc', eventos: ['respuesta.recibida'] }]
+    },
+    dominio: { dominio: 'encuestas.losandes.cl', estado: 'pendiente', registros: registrosDe('encuestas.losandes.cl') }
+  };
+  window.CONFIG = CONFIG;
+
+  /* CONECTAR: reemplaza cada método por Supabase. */
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  let intentos = 0;
+  const API = {
+    async guardar(sec, datos, extra) { await esperar(500); if (sec !== 'dominio') return datos; intentos = 0; return { dominio: datos.dominio, estado: 'pendiente', registros: registrosDe(datos.dominio) }; },
+    async crearClave(nombre) { await esperar(400); const v = 'cc_' + [...crypto.getRandomValues(new Uint8Array(24))].map(x => x.toString(16).padStart(2, '0')).join(''); return { id: 'k' + Date.now(), nombre, prefijo: v.slice(0, 11), creada: new Date(), valor: v }; },
+    async revocarClave(id) { await esperar(300); },
+    async agregarWebhook(w) { await esperar(400); return { id: 'w' + Date.now(), ...w }; },
+    async eliminarWebhook(id) { await esperar(300); },
+    async probarWebhook(id) { await esperar(600); const ok = Math.random() > .25; return { ok, status: ok ? 200 : 500, ms: Math.round(80 + Math.random() * 300) }; },
+    async verificarDominio() { await esperar(700); return ++intentos >= 2 ? 'verificado' : 'pendiente'; }
+  };
+  window.API = API;
+
+  const NOMBRES = { empresa: 'Empresa', notificaciones: 'Notificaciones', integraciones: 'Integraciones', dominio: 'Dominio personalizado' };
+  const EV = CONFIG.notificaciones.eventos, CAN = CONFIG.notificaciones.canales;
+  const nombreEv = id => EV.find(e => e.id === id).nombre;
+  async function copiar(t) { try { await navigator.clipboard.writeText(t); UI.toast('Copiado.', 'ok', { duracion: 2000 }); } catch (e) { UI.toast('No se pudo copiar. Selecciónalo y cópialo a mano.', 'warn'); } }
+  const RUT_OK = v => { const s = v.replace(/[.\-\s]/g, '').toUpperCase(); if (!/^\d{7,8}[\dK]$/.test(s)) return false; let t = 0, m = 2;
+    for (let i = s.length - 2; i >= 0; i--) { t += +s[i] * m; m = m === 7 ? 2 : m + 1; } const r = 11 - t % 11; return s.at(-1) === (r === 11 ? '0' : r === 10 ? 'K' : String(r)); };
+  const RUT_FMT = v => { const s = v.replace(/[^\dkK]/g, '').toUpperCase(); return s.length < 2 ? s : s.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + s.slice(-1); };
+
+  /* Navegación */
+  const nav = $('cfg-nav'), sel = $('cfg-sel');
+  Object.entries(NOMBRES).forEach(([id, n]) => {
+    const b = el('button', '', n); b.type = 'button'; b.dataset.ir = id; nav.append(b);
+    const o = el('option', '', n); o.value = id; sel.append(o);
+  });
+  function ir(s, foco) {
+    document.querySelectorAll('[data-sec]').forEach(x => { x.hidden = x.id !== 's-' + s; });
+    nav.querySelectorAll('button').forEach(b => b.dataset.ir === s ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
+    sel.value = s; if (foco) $('h-' + s).focus();
+  }
+  nav.addEventListener('click', e => { const b = e.target.closest('[data-ir]'); if (b) ir(b.dataset.ir, true); });
+  sel.addEventListener('change', () => ir(sel.value, true));
+
+  /* Empresa */
+  const FE = $('f-empresa'); let logoUrl = null, logoArchivo = null;
+  function prev() {
+    const c = FE.color.value, [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)), n = FE.nombre.value.trim();
+    $('prev').style.setProperty('--m', c); $('prev').style.setProperty('--mt', .299 * r + .587 * g + .114 * b > 150 ? '#111' : '#fff');
+    $('p-nombre').textContent = n || 'Tu empresa'; $('p-ini').textContent = (n[0] || '?').toUpperCase(); $('e-hex').textContent = c.toUpperCase();
+    $('p-logo').hidden = !logoUrl; $('p-ini').hidden = !!logoUrl; $('e-quitar').hidden = !logoUrl; if (logoUrl) $('p-logo').src = logoUrl;
+  }
+  FE.addEventListener('input', prev);
+  FE.elements.rut.addEventListener('blur', e => { e.target.value = RUT_FMT(e.target.value); });
+  FE.elements.logo.addEventListener('change', e => {
+    const f = e.target.files[0], msg = e.target.closest('.campo').querySelector('.error-msg');
+    msg.textContent = f && !/^image\/(png|jpeg|webp)$/.test(f.type) ? 'Usa un archivo PNG, JPG o WebP.' : f && f.size > 1048576 ? 'El logo pesa más de 1 MB. Sube uno más liviano.' : '';
+    if (f && !msg.textContent) { logoUrl = URL.createObjectURL(f); logoArchivo = f; prev(); }
+    e.target.value = '';
+  });
+  $('e-quitar').addEventListener('click', () => { logoUrl = null; logoArchivo = null; prev(); marcar(); });
+
+  /* Notificaciones */
+  $('n-cab').append(...(() => { const tr = el('tr'); tr.append(el('th', '', 'Evento'), ...CAN.map(c => el('th', '', c.nombre))); return [tr]; })());
+  $('n-cuerpo').append(...EV.map(e => {
+    const tr = el('tr'); tr.append(el('td', '', e.nombre));
+    CAN.forEach(c => { const td = el('td'), s = el('button', 'switch cfg-sw'); s.type = 'button'; s.setAttribute('role', 'switch'); s.dataset.ev = e.id; s.dataset.can = c.id; s.setAttribute('aria-label', `${e.nombre} por ${c.nombre}`); td.append(s); tr.append(td); });
+    return tr;
+  }));
+  const sw = (e, c) => document.querySelector(`[data-ev="${e}"][data-can="${c}"]`);
+
+  /* Dominio */
+  const FD = $('f-dominio');
+  function pintarDominio() {
+    const d = CONFIG.dominio; $('dns').hidden = !d.dominio; if (!d.dominio) return;
+    const ok = d.estado === 'verificado';
+    $('d-estado').className = 'badge ' + (ok ? 'ok' : 'warn'); $('d-estado').textContent = ok ? 'Verificado' : 'Pendiente de verificación'; $('b-verificar').hidden = ok;
+    $('d-ayuda').textContent = ok ? 'Tu dominio está activo con HTTPS.' : 'Agrega estos registros en el DNS de tu dominio. La propagación puede tardar hasta 24 horas.';
+    $('d-registros').replaceChildren(...d.registros.map(r => {
+      const tr = el('tr'); tr.append(el('td', 'mono', r.tipo));
+      ['nombre', 'valor'].forEach(k => { const td = el('td'), c = el('button', 'btn btn-ghost btn-sm', 'Copiar'); c.type = 'button'; c.setAttribute('aria-label', `Copiar ${k} del registro ${r.tipo}`);
+        c.addEventListener('click', () => copiar(r[k])); const t = el('span', 'mono', r[k]); t.style.wordBreak = 'break-all'; td.append(t, c); tr.append(td); });
+      return tr;
+    }));
+  }
+  $('b-verificar').addEventListener('click', async e => {
+    try { CONFIG.dominio.estado = await UI.busy(e.currentTarget, () => API.verificarDominio()); pintarDominio(); UI.toast(CONFIG.dominio.estado === 'verificado' ? 'Dominio verificado.' : 'Aún no detectamos los registros.', CONFIG.dominio.estado === 'verificado' ? 'ok' : 'warn'); }
+    catch (er) { UI.toast('No pudimos verificar. Intenta de nuevo.', 'error'); }
+  });
+
+  /* Borradores: guardado por sección y cambios sin guardar */
+  const SEC = {
+    empresa: { f: FE, leer: () => ({ nombre: FE.nombre.value.trim(), rut: FE.rut.value, color: FE.color.value.toLowerCase(), logo: logoUrl }), extra: () => logoArchivo,
+      escribir(d) { FE.nombre.value = d.nombre; FE.rut.value = d.rut; FE.color.value = d.color; logoUrl = d.logo; logoArchivo = null; prev(); },
+      valida: UI.validar(FE, { nombre: v => v.trim() ? '' : 'Escribe el nombre de la empresa.', rut: v => RUT_OK(v) ? '' : 'RUT no válido. Revisa el dígito verificador.' }) },
+    notificaciones: { f: $('f-notificaciones'), leer: () => ({ valores: Object.fromEntries(EV.map(e => [e.id, Object.fromEntries(CAN.map(c => [c.id, sw(e.id, c.id).getAttribute('aria-checked') === 'true']))])) }),
+      escribir(d) { EV.forEach(e => CAN.forEach(c => sw(e.id, c.id).setAttribute('aria-checked', d.valores[e.id][c.id]))); } },
+    dominio: { f: FD, leer: () => ({ dominio: FD.dominio.value.trim().toLowerCase() }), escribir(d) { FD.dominio.value = d.dominio; pintarDominio(); },
+      valida: UI.validar(FD, { dominio: v => /^(?!-)([a-z0-9-]{1,63}\.)+[a-z]{2,}$/i.test(v.trim()) ? '' : 'Escribe un dominio válido, por ejemplo encuestas.tuempresa.cl.' }) }
+  };
+  const sucio = s => { const l = SEC[s].leer(); return canon(l) !== canon(Object.fromEntries(Object.keys(l).map(k => [k, CONFIG[s][k]]))); };
+  function marcar() {
+    const n = [];
+    Object.keys(SEC).forEach(s => { const d = sucio(s); document.querySelector(`#s-${s} [data-badge]`).hidden = !d; nav.querySelector(`[data-ir="${s}"]`).toggleAttribute('data-sucio', d); if (d) n.push(NOMBRES[s]); });
+    $('aviso-sucio').hidden = !n.length; $('sucios').textContent = n.join(', ');
+  }
+  ['input', 'change'].forEach(t => document.addEventListener(t, marcar));
+  document.addEventListener('click', e => { if (e.target.closest('.switch')) marcar(); });
+  window.addEventListener('beforeunload', e => { if (Object.keys(SEC).some(sucio)) { e.preventDefault(); e.returnValue = ''; } });
+  Object.entries(SEC).forEach(([s, S]) => {
+    S.f.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (S.valida && !S.valida()) { S.f.querySelector('[aria-invalid="true"]').focus(); return; }
+      try {
+        const r = await UI.busy(S.f.querySelector('[type=submit]'), () => API.guardar(s, S.leer(), S.extra && S.extra()));
+        Object.assign(CONFIG[s], r); S.escribir(CONFIG[s]); marcar(); UI.toast('Cambios guardados.', 'ok');
+      } catch (er) { UI.toast('No pudimos guardar. Intenta de nuevo.', 'error'); }
+    });
+    S.f.querySelector('[data-descartar]').addEventListener('click', () => {
+      S.escribir(CONFIG[s]);
+      S.f.querySelectorAll('.campo.invalido').forEach(c => { c.classList.remove('invalido'); c.querySelector('.error-msg').textContent = ''; c.querySelector('[aria-invalid]').removeAttribute('aria-invalid'); });
+      marcar();
+    });
+    S.escribir(CONFIG[s]);
+  });
+
+  /* Integraciones */
+  const fecha = UI.formato.fecha;
+  function pintarClaves() {
+    const L = CONFIG.integraciones.claves;
+    $('claves').replaceChildren(...(L.length ? L.map(k => {
+      const li = el('li'), d = el('div'), b = el('button', 'btn btn-sec btn-sm', 'Revocar');
+      d.append(el('strong', '', k.nombre), el('div', 'small muted', `${k.prefijo}… · creada el ${fecha(k.creada)}`));
+      b.type = 'button'; b.setAttribute('aria-label', 'Revocar la clave ' + k.nombre);
+      b.addEventListener('click', async () => {
+        if (!await UI.confirmar({ titulo: 'Revocar ' + k.nombre, texto: 'Las apps que usen esta clave dejarán de funcionar al instante. No se puede deshacer.', confirmar: 'Revocar', peligro: true })) return;
+        try { await API.revocarClave(k.id); L.splice(L.indexOf(k), 1); pintarClaves(); UI.toast('Clave revocada.', 'ok'); } catch (e) { UI.toast('No pudimos revocarla.', 'error'); }
+      });
+      li.append(d, b); return li;
+    }) : [el('li', 'muted small', 'Aún no tienes claves de API.')]));
+  }
+  const FK = $('f-clave'), validaK = UI.validar(FK, { nombre: v => v.trim() ? '' : 'Ponle un nombre para reconocerla después.' });
+  FK.addEventListener('submit', async e => {
+    e.preventDefault(); if (!validaK()) { FK.nombre.focus(); return; }
+    try {
+      const { valor, ...k } = await UI.busy(FK.querySelector('[type=submit]'), () => API.crearClave(FK.nombre.value.trim()));
+      CONFIG.integraciones.claves.push(k); pintarClaves(); FK.reset(); $('secreto-valor').textContent = valor; $('secreto').hidden = false; $('b-copiar').focus();
+    } catch (er) { UI.toast('No pudimos crear la clave.', 'error'); }
+  });
+  $('b-copiar').addEventListener('click', () => copiar($('secreto-valor').textContent));
+  $('b-listo').addEventListener('click', () => { $('secreto-valor').textContent = ''; $('secreto').hidden = true; FK.nombre.focus(); });
+
+  function pintarWebhooks() {
+    const L = CONFIG.integraciones.webhooks;
+    $('webhooks').replaceChildren(...(L.length ? L.map(w => {
+      const li = el('li'), d = el('div'), r = el('div', 'small', ''), acc = el('div', 'row'), p = el('button', 'btn btn-sec btn-sm', 'Probar'), x = el('button', 'btn btn-ghost btn-sm', 'Eliminar');
+      d.append(el('div', 'mono url', w.url), el('div', 'small muted', w.eventos.map(nombreEv).join(', ')), r); r.setAttribute('aria-live', 'polite');
+      p.type = x.type = 'button'; p.dataset.busy = 'Probando…'; p.setAttribute('aria-label', 'Probar ' + w.url); x.setAttribute('aria-label', 'Eliminar ' + w.url);
+      p.addEventListener('click', async () => { const t = await UI.busy(p, () => API.probarWebhook(w.id)); r.textContent = `${t.ok ? 'Correcto' : 'Falló'}: respuesta ${t.status} en ${t.ms} ms`; r.style.color = t.ok ? 'var(--verde)' : 'var(--rojo)'; });
+      x.addEventListener('click', async () => {
+        if (!await UI.confirmar({ titulo: 'Eliminar webhook', texto: 'Dejaremos de enviar eventos a ' + w.url + '.', confirmar: 'Eliminar', peligro: true })) return;
+        try { await API.eliminarWebhook(w.id); L.splice(L.indexOf(w), 1); pintarWebhooks(); UI.toast('Webhook eliminado.', 'ok'); } catch (e) { UI.toast('No pudimos eliminarlo.', 'error'); }
+      });
+      acc.append(p, x); li.append(d, acc); return li;
+    }) : [el('li', 'muted small', 'Aún no tienes webhooks.')]));
+  }
+  $('w-eventos').append(...EV.map(e => { const l = el('label', 'check'), i = el('input'); i.type = 'checkbox'; i.name = 'ev'; i.value = e.id; l.append(i, document.createTextNode(e.nombre)); return l; }));
+  const FW = $('f-webhook'), validaW = UI.validar(FW, { url: v => { try { return new URL(v.trim()).protocol === 'https:' ? '' : 'La URL debe empezar con https://'; } catch (e) { return 'Escribe una URL válida, por ejemplo https://tu-sitio.cl/webhooks/cc.'; } } });
+  FW.addEventListener('submit', async e => {
+    e.preventDefault();
+    const evs = [...FW.querySelectorAll('[name=ev]:checked')].map(i => i.value), okU = validaW();
+    $('w-err').textContent = evs.length ? '' : 'Elige al menos un evento.';
+    if (!okU) { FW.url.focus(); return; } if (!evs.length) { FW.querySelector('[name=ev]').focus(); return; }
+    try { CONFIG.integraciones.webhooks.push(await UI.busy(FW.querySelector('[type=submit]'), () => API.agregarWebhook({ url: FW.url.value.trim(), eventos: evs }))); pintarWebhooks(); FW.reset(); UI.toast('Webhook agregado.', 'ok'); }
+    catch (er) { UI.toast('No pudimos agregarlo.', 'error'); }
+  });
+
+  pintarClaves(); pintarWebhooks(); ir('empresa'); marcar();
+})();
+</script>
+</body>
+</html>

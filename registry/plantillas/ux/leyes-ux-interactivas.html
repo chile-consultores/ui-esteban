@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Leyes de UX interactivas · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: guía viva de 8 leyes de UX con una demo medible por cada una (Fitts, Hick, Miller, Doherty, Postel, Gradiente de meta, Von Restorff, Proximidad), cada una con "cuándo aplicarla" y una regla concreta para Chile Consultores. Sirve de referencia al diseñar y para mostrar criterio a clientes.
+  Proyecto: material interno y de ventas de Chile Consultores.
+  Cómo aplicarlo: cada ley es un <article class="ley"> independiente. Copia el que necesites con su función `demoX`. Las reglas finales están en REGLAS (editable).
+  Conectar: nada que conectar; todo corre en el navegador. Los resultados de Fitts se guardan solo en memoria.
+  Ganchos: .ley[data-ley], #reglas, window.Leyes.
+  Accesibilidad: cada demo se puede operar con teclado y tiene su explicación en texto.
+-->
+<style>
+  .pagina{max-width:1000px;margin:0 auto;padding:24px 16px 80px;display:flex;flex-direction:column;gap:18px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .indice{display:flex;gap:6px;flex-wrap:wrap}
+  .indice a{padding:7px 12px;border-radius:99px;border:1px solid var(--borde);color:var(--texto-2);text-decoration:none;font-size:.85rem}
+  .indice a:hover{color:var(--texto);border-color:var(--marca)}
+  .ley{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:20px;display:grid;grid-template-columns:1fr 1.2fr;gap:20px;scroll-margin-top:12px}
+  @media(max-width:760px){.ley{grid-template-columns:1fr}}
+  .ley h2{margin:0 0 4px;font-size:1.15rem}
+  .ley .lema{color:var(--acento);font-weight:600;margin:0 0 10px}
+  .ley p{margin:0 0 8px}
+  .regla-ch{margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(124,109,242,.12);border:1px solid rgba(124,109,242,.3);font-size:.88rem}
+  .demo{border:1px dashed var(--borde);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0;background:var(--superficie-2)}
+  .fila{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .res{font-variant-numeric:tabular-nums;font-weight:700}
+
+  /* Fitts */
+  .campo-f{position:relative;height:200px;border-radius:10px;background:var(--superficie);overflow:hidden;border:1px solid var(--borde)}
+  .blanco{position:absolute;border-radius:50%;border:0;background:linear-gradient(135deg,var(--marca),var(--acento));cursor:pointer;transition:transform .1s}
+  .blanco:active{transform:scale(.9)}
+  /* Hick */
+  .menu-h{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px}
+  .menu-h button{padding:8px;border-radius:8px;border:1px solid var(--borde);background:var(--superficie);color:var(--texto);font:inherit;font-size:.82rem;cursor:pointer;text-align:left}
+  .menu-h button:hover{border-color:var(--marca)}
+  .menu-h button.meta{border-color:var(--acento)}
+  /* Miller */
+  .cifras{font-size:1.4rem;font-variant-numeric:tabular-nums;letter-spacing:.06em;word-break:break-all;min-height:2em}
+  .cifras.g{letter-spacing:0}
+  .cifras span{margin-right:.5em}
+  /* Doherty */
+  .btn-d{min-width:160px}
+  .barra-d{height:6px;border-radius:99px;background:var(--superficie);overflow:hidden}
+  .barra-d i{display:block;height:100%;width:0;background:var(--marca)}
+  .lista-d{display:grid;gap:4px;font-size:.85rem;min-height:56px}
+  .lista-d div{padding:6px 10px;border-radius:8px;background:var(--superficie);animation:ap .25s}
+  .lista-d div.pend{opacity:.55}
+  @keyframes ap{from{opacity:0;transform:translateY(-4px)}}
+  /* Gradiente */
+  .pasos-g{display:flex;gap:6px;align-items:center}
+  .pasos-g i{flex:1;height:10px;border-radius:99px;background:var(--superficie);transition:background .3s}
+  .pasos-g i.ok{background:var(--marca)} .pasos-g i.gift{background:var(--verde)}
+  /* Von Restorff */
+  .planes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .plan{padding:12px 8px;border-radius:12px;border:1px solid var(--borde);background:var(--superficie);text-align:center;display:flex;flex-direction:column;gap:6px;font-size:.85rem}
+  .plan b{font-size:1.1rem}
+  .plan.dest{border-color:var(--marca);background:rgba(124,109,242,.18);transform:scale(1.05)}
+  .plan .btn{min-height:36px;padding:6px}
+  /* Proximidad */
+  .prox{display:grid;column-gap:6px;row-gap:var(--gap,16px);grid-template-columns:repeat(3,1fr)}
+  .prox i{height:34px;border-radius:8px;background:var(--marca);display:block}
+  .prox i:nth-child(n+4){background:var(--acento)}
+  input[type=range]{accent-color:var(--marca);width:100%}
+  #reglas{border:1px solid var(--borde);border-radius:var(--r);padding:20px;background:var(--superficie)}
+  #reglas ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px}
+  @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header><h1 class="gradient-text" style="margin:0 0 6px">Leyes de UX, con demos</h1><p class="small" style="margin:0">No se memorizan: se sienten. Prueba cada demo y mira el número.</p></header>
+  <nav class="indice" aria-label="Leyes" id="indice"></nav>
+
+  <article class="ley" data-ley="fitts" id="fitts"><div><h2>Ley de Fitts</h2><p class="lema">Mientras más grande y cerca el objetivo, más rápido se alcanza.</p><p class="small">El tiempo para tocar algo depende de la distancia y del tamaño. Por eso los botones de móvil miden al menos 44 px y las acciones principales van al alcance del pulgar.</p><div class="regla-ch"><b>Regla:</b> alvo táctil mínimo 44 px, con 8 px de separación. Las acciones frecuentes, abajo en móvil.</div></div>
+    <div class="demo"><div class="fila"><label for="in-tam" class="small">Tamaño del botón</label><input type="range" id="in-tam" name="tam" min="16" max="72" value="56"><span class="res" id="f-tam">56 px</span></div><div class="campo-f" id="campo-f"></div><div class="fila small">Toca el círculo 8 veces. <span class="res" id="f-res"></span></div><div class="small" id="f-hist" aria-live="polite"></div></div></article>
+
+  <article class="ley" data-ley="hick" id="hick"><div><h2>Ley de Hick</h2><p class="lema">Más opciones, más tiempo para decidir.</p><p class="small">El tiempo de decisión crece con la cantidad de opciones. No las quites sin pensar: agrúpalas, ordénalas y revela por etapas.</p><div class="regla-ch"><b>Regla:</b> máximo 5 o 7 opciones por nivel. Si hay más, agrupa en categorías o agrega búsqueda.</div></div>
+    <div class="demo"><div class="fila"><label for="in-n" class="small">Opciones</label><input type="range" id="in-n" name="n" min="4" max="48" value="24"><span class="res" id="h-n">24</span></div><div class="fila small">Encuentra "Informes". <button class="btn btn-sm btn-sec" id="h-agr" type="button" aria-pressed="false">Agrupar por categorías</button></div><div class="menu-h" id="menu-h"></div><div class="small res" id="h-res" aria-live="polite"></div></div></article>
+
+  <article class="ley" data-ley="miller" id="miller"><div><h2>Ley de Miller</h2><p class="lema">Recordamos unos 7 elementos a la vez.</p><p class="small">Dividir en grupos (chunking) hace legible lo largo: teléfonos, RUT, tarjetas, códigos.</p><div class="regla-ch"><b>Regla:</b> formatea valores largos en bloques de 3 o 4. Un código de 12 caracteres se lee en 3 grupos.</div></div>
+    <div class="demo"><div class="small">Sin agrupar</div><div class="cifras" id="m-a"></div><div class="small">Agrupado</div><div class="cifras g" id="m-b"></div><button class="btn btn-sm btn-sec" id="m-otro" type="button" style="align-self:flex-start">Generar otro</button></div></article>
+
+  <article class="ley" data-ley="doherty" id="doherty"><div><h2>Umbral de Doherty</h2><p class="lema">Bajo 400 ms la app se siente instantánea.</p><p class="small">Si no puedes ser rápido, parece rápido: muestra el resultado al tiro (optimista) o da progreso inmediato. Un silencio de más de 1 segundo rompe el flujo.</p><div class="regla-ch"><b>Regla:</b> feedback visual en menos de 100 ms. Más de 1 s: spinner o skeleton. Más de 10 s: barra de progreso con estimado.</div></div>
+    <div class="demo"><div class="fila"><label for="in-lat" class="small">Latencia del servidor</label><input type="range" id="in-lat" name="lat" min="100" max="2500" step="100" value="1200"><span class="res" id="d-lat">1200 ms</span></div>
+      <div class="fila"><button class="btn btn-d" id="d-sin" type="button">Agregar (espera)</button><button class="btn btn-sec btn-d" id="d-opt" type="button">Agregar (optimista)</button></div><div class="barra-d" aria-hidden="true"><i id="d-barra"></i></div><div class="lista-d" id="d-lista" aria-live="polite"></div></div></article>
+
+  <article class="ley" data-ley="postel" id="postel"><div><h2>Ley de Postel</h2><p class="lema">Sé flexible con lo que recibes, estricto con lo que entregas.</p><p class="small">Acepta el RUT con puntos, sin guion o en minúscula y guárdalo siempre en un solo formato. Menos errores, menos frustración.</p><div class="regla-ch"><b>Regla:</b> normaliza en vez de rechazar. Solo muestra error cuando de verdad no se puede interpretar.</div></div>
+    <div class="demo"><label class="small" for="in-rut">Escribe un RUT o teléfono como quieras</label><input class="input" id="in-rut" name="rut" placeholder="123456785, 12.345.678-5, +56912345678..." autocomplete="off"><div class="small">Lo guardamos como:</div><div class="res" id="p-out" aria-live="polite">Esperando...</div><div class="fila"><button class="btn btn-sm btn-sec" type="button" data-ej="12.345.678-5">12.345.678-5</button><button class="btn btn-sm btn-sec" type="button" data-ej="123456785">123456785</button><button class="btn btn-sm btn-sec" type="button" data-ej="+56 9 8765 4321">+56 9 8765 4321</button><button class="btn btn-sm btn-sec" type="button" data-ej="987654321">987654321</button></div></div></article>
+
+  <article class="ley" data-ley="gradiente" id="gradiente"><div><h2>Gradiente de meta</h2><p class="lema">Mientras más cerca de la meta, más ganas de terminar.</p><p class="small">Una barra que empieza con avance regalado (por ejemplo "perfil 1 de 4 listo") motiva más que una en cero. Es el efecto de progreso dotado.</p><div class="regla-ch"><b>Regla:</b> muestra el progreso total desde el principio y regala el primer paso (nombre ya cargado, cuenta creada).</div></div>
+    <div class="demo"><div class="small">Empieza en cero</div><div class="pasos-g" id="g-a"></div><div class="small">Con un paso regalado</div><div class="pasos-g" id="g-b"></div><div class="fila"><button class="btn btn-sm" id="g-sig" type="button">Completar un paso</button><button class="btn btn-sm btn-sec" id="g-reset" type="button">Reiniciar</button></div><div class="small res" id="g-txt" aria-live="polite"></div></div></article>
+
+  <article class="ley" data-ley="restorff" id="restorff"><div><h2>Efecto Von Restorff</h2><p class="lema">Lo distinto se recuerda.</p><p class="small">Si todo destaca, nada destaca. Reserva el color más fuerte para la acción que quieres que elijan.</p><div class="regla-ch"><b>Regla:</b> un solo botón primario por vista. El resto, secundario. Recomendado = el plan destacado.</div></div>
+    <div class="demo"><div class="planes"><div class="plan"><span>Básico</span><b>$29</b><button class="btn btn-sec" type="button">Elegir</button></div><div class="plan dest" id="pl-dest"><span>Equipo</span><b>$79</b><button class="btn" type="button">Elegir</button></div><div class="plan"><span>Empresa</span><b>$199</b><button class="btn btn-sec" type="button">Elegir</button></div></div><label class="small"><input type="checkbox" id="r-todo" name="todo"> Destacar todos (para ver qué pasa)</label></div></article>
+
+  <article class="ley" data-ley="proximidad" id="proximidad"><div><h2>Ley de proximidad</h2><p class="lema">Lo cercano se percibe como un grupo.</p><p class="small">El espacio comunica relación. Dos filas de tres se leen como dos grupos solo si el espacio entre grupos es mayor que dentro de ellos.</p><div class="regla-ch"><b>Regla:</b> espacio dentro del grupo 8 px, entre grupos 24 px o más. Un label siempre pegado a su campo.</div></div>
+    <div class="demo"><div class="fila"><label for="in-gap" class="small">Espacio entre elementos</label><input type="range" id="in-gap" name="gap" min="4" max="40" value="16"><span class="res" id="x-gap">16 px</span></div><div class="prox" id="prox"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="small" id="x-txt" aria-live="polite"></div></div></article>
+
+  <section id="reglas"><h2 style="margin:0;font-size:1.1rem">Reglas de la casa</h2><ol id="lista-reglas"></ol></section>
+</main>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+
+  /* indice */
+  $$('.ley').forEach(l => { const a = el('a', '', $('h2', l).textContent); a.href = '#' + l.id; $('#indice').appendChild(a); });
+
+  /* === Fitts === */
+  (function demoFitts() {
+    const campo = $('#campo-f'), tam = $('#in-tam'); let n = 0, t0 = 0; const log = {};
+    tam.addEventListener('input', () => { $('#f-tam').textContent = tam.value + ' px'; reiniciar(); });
+    function poner() { campo.replaceChildren(); const s = +tam.value, W = campo.clientWidth, H = campo.clientHeight; const b = el('button', 'blanco'); b.type = 'button'; b.setAttribute('aria-label', 'Objetivo ' + (n + 1) + ' de 8'); b.style.cssText = 'width:' + s + 'px;height:' + s + 'px;left:' + Math.random() * (W - s) + 'px;top:' + Math.random() * (H - s) + 'px'; b.addEventListener('click', () => { if (n === 0) t0 = performance.now(); n++; if (n >= 9) { const ms = (performance.now() - t0) / 8; log[tam.value] = Math.round(ms); $('#f-res').textContent = Math.round(ms) + ' ms por toque'; const h = Object.entries(log).sort((a, b) => a[0] - b[0]).map(([k, v]) => k + ' px: ' + v + ' ms').join('  |  '); $('#f-hist').textContent = h; n = 0; campo.replaceChildren(el('div', 'small', 'Listo. Cambia el tamaño y repite para comparar.')); campo.firstChild.style.cssText = 'display:grid;place-items:center;height:100%'; const r = el('button', 'btn btn-sm', 'Repetir'); r.type = 'button'; r.addEventListener('click', reiniciar); campo.firstChild.appendChild(r); return; } poner(); b.focus && 0; }); campo.appendChild(b); }
+    function reiniciar() { n = 0; $('#f-res').textContent = ''; poner(); } reiniciar();
+  })();
+
+  /* === Hick === */
+  (function demoHick() {
+    const CAT = { Clientes: ['Clientes', 'Contactos', 'Empresas', 'Segmentos'], Estudios: ['Estudios', 'Encuestas', 'Plantillas', 'Preguntas'], Análisis: ['Informes', 'Gráficos', 'Exportar', 'Benchmarks'], Cuenta: ['Perfil', 'Equipo', 'Facturas', 'Seguridad', 'Ayuda'] };
+    const TODO = Object.values(CAT).flat(); const extra = ['Alertas', 'Webhooks', 'API', 'Auditoría', 'Roles', 'Dominios', 'Logs', 'Integraciones', 'Etiquetas', 'Notas', 'Tareas', 'Calendario', 'Correo', 'Plantillas de correo', 'Campañas', 'Embudo', 'Metas', 'Flujos', 'Reglas', 'Permisos', 'Copias', 'Importar', 'Papelera', 'Novedades', 'Atajos', 'Idioma', 'Zona horaria', 'Marca', 'Colores', 'Logos', 'Dominios propios', 'SSO', 'Backups', 'Soporte', 'Estado', 'Legal'];
+    let t0 = 0, agr = false; const n = $('#in-n'); function pintar() { const k = +n.value; $('#h-n').textContent = k; const m = $('#menu-h'); m.replaceChildren(); t0 = performance.now(); $('#h-res').textContent = ''; const lista = [...TODO, ...extra].slice(0, Math.max(k, 14)); if (agr) { const gr = el('div'); gr.style.cssText = 'grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap'; Object.keys(CAT).forEach(c => { const b = el('button', '', c); b.type = 'button'; b.style.cssText = 'padding:8px 12px;border-radius:99px;border:1px solid var(--borde);background:var(--superficie);color:var(--texto);font:inherit;cursor:pointer'; b.addEventListener('click', () => { const ls = el('div', 'menu-h'); ls.style.gridColumn = '1/-1'; CAT[c].forEach(o => { const bb = el('button', o === 'Informes' ? 'meta' : '', o); bb.type = 'button'; bb.addEventListener('click', () => fin(o)); ls.appendChild(bb); }); const ant = m.querySelector('.menu-h'); if (ant) ant.remove(); m.appendChild(ls); }); gr.appendChild(b); }); m.appendChild(gr); } else lista.slice(0, k).forEach(o => { const b = el('button', '', o); b.type = 'button'; b.addEventListener('click', () => fin(o)); m.appendChild(b); }); }
+    function fin(o) { const s = ((performance.now() - t0) / 1000).toFixed(1); $('#h-res').textContent = o === 'Informes' ? 'Lo encontraste en ' + s + ' s' : 'Ese era "' + o + '". Busca "Informes". (' + s + ' s)'; }
+    n.addEventListener('input', pintar); $('#h-agr').addEventListener('click', e => { agr = !agr; e.currentTarget.setAttribute('aria-pressed', String(agr)); e.currentTarget.textContent = agr ? 'Quitar agrupación' : 'Agrupar por categorías'; pintar(); }); pintar();
+  })();
+
+  /* === Miller === */
+  (function demoMiller() { function nuevo() { let s = ''; for (let i = 0; i < 12; i++) s += Math.floor(Math.random() * 10); $('#m-a').textContent = s; const b = $('#m-b'); b.replaceChildren(); for (let i = 0; i < 12; i += 4) b.appendChild(el('span', '', s.slice(i, i + 4))); } $('#m-otro').addEventListener('click', nuevo); nuevo(); })();
+
+  /* === Doherty === */
+  (function demoDoherty() {
+    const lat = $('#in-lat'); let k = 0; lat.addEventListener('input', () => { $('#d-lat').textContent = lat.value + ' ms'; });
+    const L = $('#d-lista'), B = $('#d-barra');
+    async function sin(b) { b.disabled = true; B.style.transition = 'none'; B.style.width = '0'; const t0 = performance.now(); await esperar(+lat.value); const id = ++k; L.prepend(el('div', '', 'Cliente ' + id + ' agregado tras ' + Math.round(performance.now() - t0) + ' ms')); b.disabled = false; }
+    async function opt(b) { const id = ++k; const d = el('div', 'pend', 'Cliente ' + id + ' (guardando...)'); L.prepend(d); B.style.transition = 'width ' + lat.value + 'ms linear'; B.style.width = '0'; requestAnimationFrame(() => { B.style.width = '100%'; }); await esperar(+lat.value); d.classList.remove('pend'); d.textContent = 'Cliente ' + id + ' guardado'; B.style.transition = 'none'; B.style.width = '0'; }
+    $('#d-sin').addEventListener('click', e => sin(e.currentTarget)); $('#d-opt').addEventListener('click', e => opt(e.currentTarget));
+  })();
+
+  /* === Postel === */
+  (function demoPostel() {
+    const out = $('#p-out'), inp = $('#in-rut');
+    const dv = c => { let s = 1, m = 0; for (; c; c = Math.floor(c / 10)) s = (s + c % 10 * (9 - m++ % 6)) % 11; return s ? String(s - 1) : 'K'; };
+    function interpretar(v) { const t = v.trim(); if (!t) return 'Esperando...'; const d = t.replace(/\D/g, '');
+      if (/^\+?56/.test(t.replace(/\s/g, '')) || /^9\d{8}$/.test(d) || (d.length === 9 && d[0] === '9')) { const n = d.replace(/^56/, ''); if (/^9\d{8}$/.test(n)) return 'Teléfono: +56 ' + n[0] + ' ' + n.slice(1, 5) + ' ' + n.slice(5); }
+      const c = t.replace(/[^0-9kK]/g, '').toUpperCase(); if (c.length >= 8) { const cu = c.slice(0, -1), v2 = c.slice(-1); if (/^\d+$/.test(cu)) return (dv(parseInt(cu, 10)) === v2 ? 'RUT: ' : 'RUT con dígito verificador dudoso: ') + cu.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + v2; }
+      return 'No pude interpretarlo todavía. Prueba con un RUT o un celular.'; }
+    inp.addEventListener('input', () => { out.textContent = interpretar(inp.value); }); $$('[data-ej]').forEach(b => b.addEventListener('click', () => { inp.value = b.dataset.ej; out.textContent = interpretar(inp.value); inp.focus(); }));
+  })();
+
+  /* === Gradiente de meta === */
+  (function demoGradiente() {
+    const A = $('#g-a'), Bb = $('#g-b'); let p = 0; const N = 6; function ini() { p = 0; A.replaceChildren(); Bb.replaceChildren(); for (let i = 0; i < N; i++) { A.appendChild(el('i')); Bb.appendChild(el('i')); } Bb.children[0].className = 'gift'; pintar(); }
+    function pintar() { [...A.children].forEach((x, i) => x.className = i < p ? 'ok' : ''); [...Bb.children].forEach((x, i) => x.className = i === 0 ? 'gift' : (i <= p ? 'ok' : '')); $('#g-txt').textContent = 'Sin regalo: ' + p + ' de ' + N + ' (' + Math.round(p / N * 100) + '%). Con regalo: ' + Math.min(N, p + 1) + ' de ' + N + ' (' + Math.round(Math.min(N, p + 1) / N * 100) + '%).'; }
+    $('#g-sig').addEventListener('click', () => { if (p < N - 1) p++; else if (p === N - 1) p++; pintar(); if (p >= N) { /* meta */ } }); $('#g-reset').addEventListener('click', ini); ini();
+  })();
+
+  /* === Von Restorff === */
+  $('#r-todo').addEventListener('change', e => { $$('.plan').forEach(p => { p.classList.toggle('dest', e.target.checked || p.id === 'pl-dest'); const b = $('.btn', p); b.classList.toggle('btn-sec', !(e.target.checked || p.id === 'pl-dest')); }); });
+
+  /* === Proximidad === */
+  (function demoProx() { const g = $('#in-gap'), p = $('#prox'); function act() { const v = +g.value; p.style.setProperty('--gap', v + 'px'); $('#x-gap').textContent = v + ' px'; $('#x-txt').textContent = v < 10 ? 'Todo parece una cuadrícula uniforme: no hay grupos.' : v < 22 ? 'Empiezas a distinguir dos filas, pero el límite es débil.' : 'Se leen dos grupos claros: el espacio entre filas es mayor que entre elementos de una fila.'; } g.addEventListener('input', act); act(); })();
+
+  /* === reglas === */
+  const REGLAS = ['Alvo táctil mínimo 44 px y 8 px de separación (Fitts).', 'Máximo 7 opciones por nivel de menú; agrupa el resto (Hick).', 'Valores largos en bloques de 3 o 4 (Miller).', 'Feedback en menos de 100 ms y sensación de instantáneo bajo 400 ms (Doherty).', 'Acepta formatos variados y guarda uno solo (Postel).', 'Muestra el progreso total desde el inicio y regala el primer paso (Gradiente de meta).', 'Un solo botón primario por vista (Von Restorff).', 'Espacio dentro del grupo menor que entre grupos (Proximidad).'];
+  REGLAS.forEach(r => $('#lista-reglas').appendChild(el('li', '', r)));
+  window.Leyes = { REGLAS };
+});
+</script>
+</body>
+</html>

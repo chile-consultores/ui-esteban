@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Modales y confirmaciones · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: sistema de diálogos con las reglas de UX aplicadas: modal estándar, confirmación simple, confirmación destructiva (escribir el nombre), deshacer en vez de preguntar, drawer lateral, hoja inferior en móvil, diálogo con formulario y cambios sin guardar, y banner persistente.
+  Proyecto: cualquier app de Chile Consultores.
+  Cómo aplicarlo: copia `Dialogo.abrir(opciones)` (usa <dialog> nativo con showModal, que ya atrapa el foco y cierra con Escape) y el CSS `.dlg`. Cada ejemplo solo cambia las opciones.
+  Conectar: `confirmar` devuelve una promesa (true o false) para usar con await antes de borrar. `deshacer` recibe la función que revierte.
+  Ganchos: dialog.dlg, [data-dlg-cerrar], window.Dialogo.abrir/confirmar/destructivo.
+  Reglas UX: botón primario a la derecha con verbo específico ("Eliminar cliente", no "Aceptar"), cancelar siempre visible, foco inicial en la opción segura (cancelar si es destructivo), Escape y clic fuera cierran salvo si hay cambios, el scroll del fondo se bloquea, el foco vuelve al disparador, y si la acción se puede revertir se prefiere deshacer a preguntar.
+-->
+<style>
+  .pagina{max-width:900px;margin:0 auto;padding:24px 16px 80px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:14px;margin-top:20px}
+  .tarjeta{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:16px;display:flex;flex-direction:column;gap:10px}
+  .tarjeta h2{margin:0;font-size:1rem}
+  .tarjeta p{margin:0;flex:1}
+  .regla{margin-top:28px;border:1px solid var(--borde);border-radius:var(--r);padding:16px;background:var(--superficie)}
+  .regla ul{margin:8px 0 0;padding-left:18px;display:grid;gap:4px;color:var(--texto-2);font-size:var(--fs-s)}
+
+  /* === COMPONENTE: dialog === */
+  dialog.dlg{padding:0;border:1px solid var(--borde);border-radius:18px;background:var(--superficie-2);color:var(--texto);width:min(480px,calc(100vw - 24px));max-height:calc(100dvh - 24px);box-shadow:0 40px 90px rgba(0,0,0,.65);overflow:hidden}
+  dialog.dlg[open]{display:flex;flex-direction:column;animation:ent .22s var(--ease-salida)}
+  dialog.dlg::backdrop{background:rgba(5,5,12,.62);backdrop-filter:blur(3px);animation:vel .22s}
+  @keyframes ent{from{opacity:0;transform:translateY(10px) scale(.97)}}
+  @keyframes vel{from{opacity:0}}
+  dialog.dlg.saliendo{animation:sal .16s ease forwards}
+  dialog.dlg.saliendo::backdrop{animation:vel .16s reverse forwards}
+  @keyframes sal{to{opacity:0;transform:translateY(6px) scale(.98)}}
+  .dlg-cab{display:flex;align-items:flex-start;gap:12px;padding:20px 20px 4px}
+  .dlg-cab h2{margin:0;font-size:1.15rem;flex:1}
+  .dlg-x{width:40px;height:40px;margin:-8px -8px 0 0;border:0;background:none;color:var(--texto-2);border-radius:10px;cursor:pointer;font-size:1.3rem}
+  .dlg-x:hover{background:rgba(255,255,255,.08);color:var(--texto)}
+  .dlg-cuerpo{padding:8px 20px 16px;overflow:auto;color:var(--texto-2);display:flex;flex-direction:column;gap:12px}
+  .dlg-pie{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding:14px 20px;border-top:1px solid var(--borde);background:rgba(0,0,0,.15)}
+  .dlg-pie .btn.peligro{background:var(--rojo);color:#fff}
+  .dlg-pie .btn.peligro:disabled{opacity:.4;cursor:not-allowed}
+  .dlg-ico{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex:none;font-weight:800;font-size:1.3rem}
+  .dlg-ico.peligro{background:rgba(248,113,113,.15);color:var(--rojo)}
+  .dlg-ico.info{background:rgba(56,189,248,.15);color:var(--acento)}
+  .dlg.lateral{margin:0 0 0 auto;height:100dvh;max-height:100dvh;width:min(440px,100vw);border-radius:18px 0 0 18px}
+  .dlg.lateral[open]{animation:lat .3s var(--ease-salida)}
+  @keyframes lat{from{transform:translateX(100%)}}
+  .dlg.lateral.saliendo{animation:latS .2s ease forwards}
+  @keyframes latS{to{transform:translateX(100%)}}
+  @media(max-width:560px){
+    dialog.dlg:not(.lateral){margin:auto 0 0;width:100vw;max-width:100vw;border-radius:20px 20px 0 0}
+    dialog.dlg:not(.lateral)[open]{animation:hoja .3s var(--ease-salida)}
+    @keyframes hoja{from{transform:translateY(100%)}}
+    dialog.dlg:not(.lateral).saliendo{animation:hojaS .18s ease forwards}
+    @keyframes hojaS{to{transform:translateY(100%)}}
+    .dlg-pie{flex-direction:column-reverse}.dlg-pie .btn{width:100%;min-height:48px}
+  }
+  .dlg-campo{display:flex;flex-direction:column;gap:6px;color:var(--texto)}
+  .dlg-campo label{font-weight:600;font-size:.9rem}
+  .nombre-req{color:var(--texto);font-weight:700;background:var(--superficie);padding:1px 8px;border-radius:6px;border:1px solid var(--borde)}
+  body.sin-scroll{overflow:hidden}
+  .btn.cargando{position:relative;color:transparent!important;pointer-events:none}
+  .btn.cargando::after{content:"";position:absolute;inset:0;margin:auto;width:18px;height:18px;border:2px solid #fff;border-right-color:transparent;border-radius:50%;animation:g .7s linear infinite}
+  @keyframes g{to{transform:rotate(360deg)}}
+  #banner{position:sticky;top:0;z-index:20;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:rgba(250,204,21,.12);border-bottom:1px solid #facc1566;font-size:.9rem}
+  #banner[hidden]{display:none}
+  #banner span{flex:1;min-width:200px}
+  @media (prefers-reduced-motion:reduce){dialog.dlg[open],dialog.dlg::backdrop,dialog.dlg.saliendo{animation-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div id="banner" role="status" hidden><span><b>Estás sin conexión.</b> Tus cambios se guardan al volver internet.</span><button class="btn btn-sec btn-sm" id="b-cerrar" type="button">Entendido</button></div>
+<main class="pagina">
+  <header><h1 class="gradient-text" style="margin:0 0 6px">Modales y confirmaciones</h1><p class="small" style="margin:0">Elegir el patrón correcto importa más que el estilo. Prueba cada uno con teclado.</p></header>
+  <div class="grid" id="grid"></div>
+  <section class="regla"><b>Cuándo usar cada uno</b><ul>
+    <li><b>Nada:</b> si la acción se puede revertir, ejecútala y ofrece Deshacer. Preguntar antes cansa y la gente aprueba sin leer.</li>
+    <li><b>Confirmación simple:</b> acciones difíciles de revertir pero de bajo impacto (cancelar una suscripción).</li>
+    <li><b>Escribir el nombre:</b> solo para lo irreversible y de gran impacto (borrar un proyecto con datos).</li>
+    <li><b>Drawer:</b> editar sin perder el contexto de la lista de fondo.</li>
+    <li><b>Banner:</b> avisos que no bloquean y que debe poder cerrar quien los lea.</li>
+  </ul></section>
+</main>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  const toast = (m, t, o) => (window.UI && UI.toast) && UI.toast(m, t || 'info', o);
+
+  /* === COMPONENTE: Dialogo === */
+  let abiertos = 0;
+  function abrir(op) {
+    return new Promise(resolve => {
+      const previo = document.activeElement; const d = el('dialog', 'dlg' + (op.lateral ? ' lateral' : '')); const id = 'd' + Math.random().toString(36).slice(2, 6); d.setAttribute('aria-labelledby', id + 't'); if (op.desc) d.setAttribute('aria-describedby', id + 'd');
+      const cab = el('div', 'dlg-cab'); if (op.icono) { cab.appendChild(el('div', 'dlg-ico ' + (op.tono || 'info'), op.icono)); } const h = el('h2', '', op.titulo); h.id = id + 't'; cab.appendChild(h); const x = el('button', 'dlg-x', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Cerrar'); x.dataset.dlgCerrar = ''; cab.appendChild(x);
+      const cu = el('div', 'dlg-cuerpo'); if (op.desc) { const p = el('p', '', ''); p.id = id + 'd'; p.style.margin = '0'; if (typeof op.desc === 'string') p.textContent = op.desc; else p.appendChild(op.desc); cu.appendChild(p); } if (op.cuerpo) op.cuerpo(cu, d);
+      const pie = el('div', 'dlg-pie'); const bc = el('button', 'btn btn-sec', op.cancelar || 'Cancelar'); bc.type = 'button'; bc.dataset.dlgCerrar = ''; const bo = el('button', 'btn' + (op.tono === 'peligro' ? ' peligro' : ''), op.ok || 'Guardar'); bo.type = 'button'; if (op.sinPie) pie.hidden = true; pie.append(bc, bo);
+      if (op.deshabilitarOk) bo.disabled = true;
+      d.append(cab, cu, pie); document.body.appendChild(d); d.showModal(); abiertos++; document.body.classList.add('sin-scroll');
+      const foco = op.foco === 'ok' ? bo : (op.foco === 'campo' ? $('input,textarea,select', cu) : (op.tono === 'peligro' ? bc : (op.foco === 'cancelar' ? bc : ($('input,textarea,select', cu) || bo)))); if (foco) foco.focus();
+      let cerrado = false;
+      const cerrar = async res => { if (cerrado) return; if (res === false && op.sucio && op.sucio()) { const seguro = await confirmar({ titulo: '¿Descartar los cambios?', desc: 'Tienes cambios sin guardar. Si sales ahora se perderán.', ok: 'Descartar cambios', cancelar: 'Seguir editando', tono: 'peligro' }); if (!seguro) return; } cerrado = true; d.classList.add('saliendo'); await esperar(matchMedia('(prefers-reduced-motion:reduce)').matches ? 0 : 170); d.close(); d.remove(); abiertos--; if (!abiertos) document.body.classList.remove('sin-scroll'); if (previo && previo.isConnected) previo.focus(); resolve(res); };
+      d.addEventListener('cancel', e => { e.preventDefault(); cerrar(false); });
+      d.addEventListener('mousedown', e => { if (e.target === d && !op.sucio) cerrar(false); });
+      d.querySelectorAll('[data-dlg-cerrar]').forEach(b => b.addEventListener('click', () => cerrar(false)));
+      bo.addEventListener('click', async () => { if (op.alOk) { bo.classList.add('cargando'); bo.disabled = true; try { const r = await op.alOk(d); if (r === false) { bo.disabled = false; bo.classList.remove('cargando'); return; } } catch (e) { bo.disabled = false; bo.classList.remove('cargando'); toast('No se pudo completar. Intenta de nuevo.', 'error'); return; } } cerrar(true); });
+      d.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input') && !bo.disabled && !op.sinEnter) { e.preventDefault(); bo.click(); } });
+      d._ok = bo; d._cerrar = cerrar;
+    });
+  }
+  const confirmar = op => abrir({ ok: 'Confirmar', ...op });
+  const destructivo = op => abrir({
+    tono: 'peligro', icono: '!', ok: 'Eliminar', deshabilitarOk: true, ...op,
+    cuerpo: (cu, d) => { const n = op.nombre; const cam = el('div', 'dlg-campo'); const l = el('label', '', ''); l.htmlFor = 'in-conf'; l.append('Para confirmar, escribe ', el('span', 'nombre-req', n)); const i = el('input', 'input'); i.id = 'in-conf'; i.name = 'conf'; i.autocomplete = 'off'; i.spellcheck = false; i.addEventListener('input', () => { d._ok.disabled = i.value.trim() !== n; }); cam.append(l, i); cu.appendChild(cam); }
+  });
+  window.Dialogo = { abrir, confirmar, destructivo };
+
+  /* === ejemplos === */
+  const CASOS = [
+    ['Modal informativo', 'Un mensaje con una sola acción. Sin cancelar si no hay alternativa.', 'info', async b => { await abrir({ titulo: 'Nueva versión disponible', icono: 'i', desc: 'Actualizamos el panel con filtros guardados y exportación a Excel. No necesitas hacer nada.', ok: 'Entendido', cancelar: 'Cerrar', foco: 'ok' }); }],
+    ['Confirmación simple', 'Para acciones difíciles de revertir pero de bajo impacto.', 'conf', async () => { const ok = await confirmar({ titulo: '¿Cancelar la suscripción?', icono: '?', desc: 'Mantendrás el acceso hasta el 30 de noviembre. Puedes reactivarla cuando quieras.', ok: 'Cancelar suscripción', cancelar: 'Mantenerla', foco: 'cancelar' }); if (ok) toast('Suscripción cancelada', 'ok'); }],
+    ['Eliminar escribiendo el nombre', 'Solo para lo irreversible y grande. El botón rojo se activa al escribir.', 'del', async () => { const ok = await destructivo({ titulo: 'Eliminar el proyecto', nombre: 'Clima 2026', desc: 'Se borrarán 348 respuestas, 12 informes y los accesos del equipo. Esta acción no se puede deshacer.', ok: 'Eliminar proyecto' }); if (ok) toast('Proyecto eliminado', 'ok'); }],
+    ['Mejor: Deshacer', 'Ejecuta al tiro y ofrece revertir. Menos fricción, igual de seguro.', 'und', () => { toast('Cliente eliminado', 'info', { deshacer: () => toast('Cliente restaurado', 'ok') }); }],
+    ['Formulario con cambios sin guardar', 'Si cierras con datos escritos, pregunta antes de perderlos.', 'form', async () => { let sucio = false; const r = await abrir({ titulo: 'Nuevo contacto', ok: 'Guardar contacto', sucio: () => sucio, cuerpo: cu => { [['Nombre', 'nm', 'text'], ['Correo', 'cr', 'email']].forEach(([t, n, ty]) => { const c = el('div', 'dlg-campo'); const l = el('label', '', t); l.htmlFor = 'dc-' + n; const i = el('input', 'input'); i.id = 'dc-' + n; i.name = n; i.type = ty; i.autocomplete = 'off'; i.addEventListener('input', () => { sucio = true; }); c.append(l, i); cu.appendChild(c); }); }, alOk: async () => { await esperar(900); sucio = false; } }); if (r) toast('Contacto guardado', 'ok'); }],
+    ['Drawer lateral', 'Edita sin perder de vista la lista. Ideal para detalles y filtros.', 'lat', async () => { const r = await abrir({ lateral: true, titulo: 'Detalle del cliente', ok: 'Guardar cambios', cuerpo: cu => { ['Minera Aconcagua', 'Santiago', 'Minería'].forEach((v, i) => { const c = el('div', 'dlg-campo'); const l = el('label', '', ['Nombre', 'Ciudad', 'Rubro'][i]); l.htmlFor = 'dl' + i; const inp = el('input', 'input'); inp.id = 'dl' + i; inp.name = 'dl' + i; inp.value = v; c.append(l, inp); cu.appendChild(c); }); for (let i = 0; i < 6; i++) cu.appendChild(el('p', 'small', 'Historial: reunión de seguimiento registrada el ' + (10 + i) + ' de octubre.')); } }); if (r) toast('Cambios guardados', 'ok'); }],
+    ['Error con reintento', 'Si falla el guardado, el diálogo sigue abierto y no pierde lo escrito.', 'err', async () => { let n = 0; const r = await abrir({ titulo: 'Guardar informe', desc: 'La primera vez fallará a propósito para que veas el comportamiento.', ok: 'Guardar informe', alOk: async () => { await esperar(800); if (n++ === 0) throw new Error('x'); } }); if (r) toast('Informe guardado', 'ok'); }],
+    ['Banner persistente', 'Aviso que no bloquea. Se puede cerrar y no vuelve a aparecer solo.', 'ban', () => { $('#banner').hidden = false; $('#b-cerrar').focus(); }]
+  ];
+  CASOS.forEach(([t, d, id, fn]) => { const c = el('section', 'tarjeta'); c.append(el('h2', '', t), el('p', 'small', d)); const b = el('button', 'btn btn-sec btn-sm', 'Probar'); b.type = 'button'; b.dataset.caso = id; b.addEventListener('click', () => fn(b)); c.appendChild(b); $('#grid').appendChild(c); });
+  $('#b-cerrar').addEventListener('click', () => { $('#banner').hidden = true; });
+});
+</script>
+</body>
+</html>

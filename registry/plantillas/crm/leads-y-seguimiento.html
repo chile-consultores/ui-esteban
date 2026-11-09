@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Leads y seguimiento · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: lista de leads con resumen (abiertos, valor en pipeline, tasa de cierre), búsqueda, filtros, orden, vencidos con texto, alta con validación (+56 9), cambio de etapa con línea de tiempo automática, motivo al perder y drawer de detalle con notas.
+  Proyecto: CRM de Chile Consultores (crm-cumplitec y similares).
+  Cómo aplicarlo: ajusta `ETAPAS`, `ORIGENES` y `RESPONSABLES`. Una etapa nueva es una entrada más en ETAPAS (las de `CIERRE` cuentan para la tasa de cierre).
+  Conectar: reemplaza el objeto `API` (tabla `leads` y `lead_eventos` en Supabase). `HOY` es fija para datos deterministas: usa new Date() en producción.
+  Ganchos: #demo (estado), #q, #f-etapa, #f-resp, #f-origen, #orden, #dlg-nuevo, #dlg-motivo, #dr.
+-->
+<style>
+  .lc-pag{max-width:1200px;margin:0 auto;padding:28px 16px 80px;position:relative}
+  .lc .btn,.lc .input,.lc .select{min-height:44px}
+  .lc-barra{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 8px}
+  .lc-barra .select{width:auto;flex:none}
+  .lc-barra .input{flex:1 1 220px;width:auto}
+  .lc-tabla td .select{width:auto;min-width:140px}
+  .lc-tabla{min-width:880px}
+  .lc-enl{background:none;border:0;padding:0;min-height:44px;color:var(--texto);font-weight:600;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--borde-2);text-underline-offset:3px}
+  .lc-venc{background:var(--rojo-l)}
+  .lc-dlg{background:#161624;color:var(--texto);border:1px solid var(--borde-2);border-radius:var(--r);padding:24px;width:min(520px,calc(100vw - 32px));max-height:92dvh;overflow:auto}
+  .lc-dlg::backdrop{background:rgba(0,0,0,.6)}
+  .lc-drawer{margin:0 0 0 auto;height:100dvh;max-height:none;width:min(440px,100vw);border-radius:var(--r) 0 0 var(--r)}
+  .lc-det{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:16px 0}
+  .lc-det dt{color:var(--texto-2);font-size:var(--fs-s)} .lc-det dd{margin:0;overflow-wrap:anywhere}
+  .lc-linea{list-style:none;margin:12px 0 0;padding:0 0 0 14px;border-left:2px solid var(--borde-2)}
+  .lc-linea li{margin-bottom:14px;font-size:var(--fs-s)}
+  .lc-linea time{display:block;color:var(--texto-2);font-size:var(--fs-xs)}
+  @media(max-width:640px){.lc-drawer{border-radius:0}}
+  [hidden]{display:none}
+</style>
+</head>
+<body class="lc">
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="lc-pag">
+  <div class="page-head">
+    <div><h1>Leads y seguimiento</h1><p class="muted small">Tu pipeline comercial al día.</p></div>
+    <div class="row wrap">
+      <label class="small muted" for="demo">Estado de demo</label>
+      <select id="demo" class="select" style="width:auto"><option value="ok">Con datos</option><option value="cargando">Cargando</option><option value="vacio">Vacío</option><option value="error">Error</option></select>
+      <button class="btn" id="nuevo" type="button">Agregar lead</button>
+    </div>
+  </div>
+  <div class="grid grid-3" id="resumen"></div>
+  <div class="lc-barra" role="search">
+    <label class="sr-only" for="q">Buscar</label><input id="q" class="input" type="search" placeholder="Buscar empresa o contacto" autocomplete="off">
+    <label class="sr-only" for="f-etapa">Etapa</label><select id="f-etapa" class="select"></select>
+    <label class="sr-only" for="f-resp">Responsable</label><select id="f-resp" class="select"></select>
+    <label class="sr-only" for="f-origen">Origen</label><select id="f-origen" class="select"></select>
+    <label class="sr-only" for="orden">Ordenar por</label>
+    <select id="orden" class="select"><option value="prox">Próximo contacto</option><option value="valor">Mayor valor</option><option value="empresa">Empresa A-Z</option></select>
+  </div>
+  <p class="small muted" id="cuenta" aria-live="polite"></p>
+  <div id="cargando" aria-busy="true" hidden><div class="skeleton linea"></div><div class="skeleton linea"></div><div class="skeleton linea"></div><div class="skeleton linea"></div></div>
+  <div id="error" class="estado" role="alert" hidden><h3>No pudimos cargar los leads</h3><p>Revisa tu conexión e inténtalo de nuevo.</p><button class="btn" id="reintentar" type="button">Reintentar</button></div>
+  <div id="vacio" class="estado" hidden>
+    <span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+    <h3 id="vacio-t"></h3><p id="vacio-p"></p>
+    <button class="btn btn-sec" id="v-limpiar" type="button">Limpiar filtros</button><button class="btn" id="v-nuevo" type="button">Agregar lead</button>
+  </div>
+  <div class="tabla-wrap" id="lista" hidden>
+    <table class="tabla lc-tabla"><thead><tr><th>Empresa</th><th>Origen</th><th>Etapa</th><th class="num">Valor estimado</th><th>Responsable</th><th>Próximo contacto</th></tr></thead><tbody id="filas"></tbody></table>
+  </div>
+</main>
+
+<dialog class="lc-dlg" id="dlg-nuevo" aria-labelledby="nuevo-t">
+  <form id="form-nuevo" novalidate>
+    <h2 id="nuevo-t">Agregar lead</h2>
+    <div class="form-grid mt-16">
+      <div class="campo"><label for="n-empresa">Empresa</label><input id="n-empresa" name="empresa" class="input" autocomplete="organization"><div class="error-msg" role="alert"></div></div>
+      <div class="campo"><label for="n-contacto">Contacto</label><input id="n-contacto" name="contacto" class="input" autocomplete="name"><div class="error-msg" role="alert"></div></div>
+      <div class="campo"><label for="n-correo">Correo</label><input id="n-correo" name="correo" class="input" type="email" inputmode="email" autocomplete="email"><div class="error-msg" role="alert"></div></div>
+      <div class="campo"><label for="n-tel">Teléfono</label><input id="n-tel" name="telefono" class="input" type="tel" inputmode="tel" autocomplete="tel" placeholder="+56 9 1234 5678"><div class="error-msg" role="alert"></div></div>
+      <div class="campo"><label for="n-origen">Origen</label><select id="n-origen" name="origen" class="select"></select><div class="error-msg"></div></div>
+      <div class="campo"><label for="n-resp">Responsable</label><select id="n-resp" name="responsable" class="select"></select><div class="error-msg"></div></div>
+      <div class="campo"><label for="n-valor">Valor estimado (CLP)</label><input id="n-valor" name="valor" class="input" inputmode="numeric" autocomplete="off"><div class="error-msg" role="alert"></div></div>
+      <div class="campo"><label for="n-prox">Próximo contacto</label><input id="n-prox" name="prox" class="input" type="date"><div class="error-msg" role="alert"></div></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-sec" type="button" id="nuevo-x">Cancelar</button><button class="btn" type="submit" data-busy="Guardando…">Guardar lead</button></div>
+  </form>
+</dialog>
+
+<dialog class="lc-dlg" id="dlg-motivo" aria-labelledby="motivo-t">
+  <form id="form-motivo" novalidate>
+    <h2 id="motivo-t">Marcar como perdido</h2>
+    <div class="campo mt-16"><label for="m-texto">Motivo</label><textarea id="m-texto" class="textarea" autocomplete="off"></textarea><div class="error-msg" role="alert"></div></div>
+    <div class="modal-foot"><button class="btn btn-sec" type="button" id="motivo-x">Cancelar</button><button class="btn btn-danger" type="submit">Marcar perdido</button></div>
+  </form>
+</dialog>
+
+<dialog class="lc-dlg lc-drawer" id="dr" aria-labelledby="dr-t">
+  <div class="row between"><h2 id="dr-t"></h2><button class="btn btn-ghost" type="button" id="dr-x" aria-label="Cerrar detalle">✕</button></div>
+  <div id="dr-badge"></div>
+  <dl class="lc-det" id="dr-det"></dl>
+  <div class="campo"><label for="dr-nota">Notas</label><textarea id="dr-nota" class="textarea"></textarea></div>
+  <button class="btn btn-sec mt-8" type="button" id="dr-guardar" data-busy="Guardando…">Guardar notas</button>
+  <p class="small muted" id="dr-msg" role="status"></p>
+  <h3 class="mt-24">Línea de tiempo</h3>
+  <ol class="lc-linea" id="dr-linea"></ol>
+</dialog>
+
+<script src="../[base]/base.js"></script>
+<script>
+(() => {
+  const HOY = new Date('2026-11-09T12:00:00');
+  const ETAPAS = { nuevo:{n:'Nuevo',c:'info'}, contactado:{n:'Contactado',c:'marca'}, propuesta:{n:'Propuesta',c:'warn'}, negociacion:{n:'Negociación',c:'warn'}, ganado:{n:'Ganado',c:'ok'}, perdido:{n:'Perdido',c:'bad'} };
+  const CIERRE = ['ganado','perdido'];
+  const ORIGENES = ['Referido','Sitio web','LinkedIn','Evento','Llamada en frío'];
+  const RESPONSABLES = ['Camila Rojas','Matías Soto','Valentina Pino'];
+
+  const SEMILLA = [
+    ['Agrícola Los Olmos','Paula Fuentes','Referido','propuesta',4800000,0,'2026-11-05'],
+    ['Transportes Andes Sur','Rodrigo Vera','Sitio web','nuevo',1500000,1,'2026-11-12'],
+    ['Clínica Vista Mar','Daniela Núñez','LinkedIn','negociacion',9200000,2,'2026-11-08'],
+    ['Constructora Pehuén','Felipe Araya','Evento','contactado',3600000,0,'2026-11-10'],
+    ['Retail Cordillera','Ignacia Soto','Llamada en frío','nuevo',2100000,1,'2026-11-02'],
+    ['Minera Cobre Norte','Tomás Reyes','Referido','ganado',12500000,2,'2026-11-20'],
+    ['Colegio Altos del Sur','Marcela Rivas','Sitio web','perdido',1800000,0,'2026-10-30'],
+    ['Vinos Valle Claro','Sebastián Mora','Evento','propuesta',5400000,1,'2026-11-15'],
+    ['Logística Maipo','Carolina Lagos','LinkedIn','contactado',2700000,2,'2026-11-06'],
+    ['Hotel Lago Azul','Andrés Pizarro','Referido','negociacion',7300000,0,'2026-11-18'],
+    ['Seguros Austral','Javiera Bravo','Sitio web','ganado',6100000,1,'2026-11-25'],
+    ['Pesquera Canal Norte','Cristóbal Ruiz','Llamada en frío','nuevo',3200000,2,'2026-11-09']
+  ].map(([empresa,contacto,origen,etapa,valor,r,prox], i) => ({
+    id: i + 1, empresa, contacto, origen, etapa, valor, prox, responsable: RESPONSABLES[r], nota: '',
+    correo: contacto.split(' ')[0].normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase() + '@' + empresa.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z]/g,'') + '.cl',
+    telefono: '+56 9 ' + (4000 + i * 731) + ' ' + (1000 + i * 487),
+    linea: [{ f: '2026-10-' + String(10 + i).padStart(2,'0') + 'T10:00', t: 'Lead creado desde ' + origen }].concat(etapa === 'nuevo' ? [] : [{ f: '2026-10-28T15:30', t: 'Etapa: Nuevo → ' + ETAPAS[etapa].n }])
+  }));
+
+  // CONECTAR: reemplaza cada método por Supabase (from('leads').select / insert / update).
+  const sim = v => new Promise(r => setTimeout(() => r(v), 250));
+  const API = {
+    listar: () => new Promise((ok, mal) => { const e = $('#demo').value; if (e !== 'cargando') setTimeout(() => e === 'error' ? mal(new Error('sin conexión')) : ok(e === 'vacio' ? [] : SEMILLA), 500); }),
+    crear: lead => sim(lead),
+    actualizar: (id, cambios) => sim(cambios)
+  };
+
+  const $ = s => document.querySelector(s);
+  const h = (t, p = {}, ...c) => { const e = document.createElement(t); Object.assign(e, p); e.append(...c); return e; };
+  const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+  const fd = iso => UI.formato.fecha(iso + 'T12:00:00');
+  const fh = iso => new Date(iso).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
+  const ahora = () => new Date().toISOString().slice(0, 16);
+  const atraso = l => CIERRE.includes(l.etapa) ? 0 : Math.round((HOY - new Date(l.prox + 'T12:00:00')) / 864e5);
+  const opciones = (sel, lista, todos) => { sel.replaceChildren(...(todos ? [h('option', { value: '', textContent: todos })] : []), ...lista.map(([v, t]) => h('option', { value: v, textContent: t }))); };
+  const pares = a => a.map(x => [x, x]);
+
+  let leads = [], actual = null, pendiente = null;
+
+  function visibles() {
+    const q = norm($('#q').value), fe = $('#f-etapa').value, fr = $('#f-resp').value, fo = $('#f-origen').value, o = $('#orden').value;
+    const cmp = { prox: (a, b) => a.prox.localeCompare(b.prox), valor: (a, b) => b.valor - a.valor, empresa: (a, b) => a.empresa.localeCompare(b.empresa, 'es') }[o];
+    return leads.filter(l => (!q || norm(l.empresa + ' ' + l.contacto).includes(q)) && (!fe || l.etapa === fe) && (!fr || l.responsable === fr) && (!fo || l.origen === fo)).sort(cmp);
+  }
+
+  function resumen() {
+    const abiertos = leads.filter(l => !CIERRE.includes(l.etapa)), g = leads.filter(l => l.etapa === 'ganado').length, p = leads.filter(l => l.etapa === 'perdido').length;
+    const kpi = (label, valor) => h('div', { className: 'card kpi' }, h('span', { className: 'label', textContent: label }), h('span', { className: 'valor', textContent: valor }));
+    $('#resumen').replaceChildren(kpi('Leads abiertos', String(abiertos.length)), kpi('Valor en pipeline', UI.formato.clp(abiertos.reduce((s, l) => s + l.valor, 0))), kpi('Tasa de cierre', g + p ? UI.formato.pct(g / (g + p)) : 'Sin datos'));
+  }
+
+  function render() {
+    resumen();
+    const v = visibles(), hay = v.length > 0;
+    $('#lista').hidden = !hay; $('#vacio').hidden = hay;
+    $('#cuenta').textContent = leads.length ? v.length + ' de ' + leads.length + ' leads' : '';
+    $('#vacio-t').textContent = leads.length ? 'Sin resultados' : 'Aún no tienes leads';
+    $('#vacio-p').textContent = leads.length ? 'Prueba con otra búsqueda o quita algún filtro.' : 'Agrega tu primer lead para empezar el seguimiento.';
+    $('#v-limpiar').hidden = !leads.length; $('#v-nuevo').hidden = !!leads.length;
+    $('#filas').replaceChildren(...v.map(l => {
+      const d = atraso(l);
+      const sel = h('select', { className: 'select', ariaLabel: 'Etapa de ' + l.empresa });
+      opciones(sel, Object.entries(ETAPAS).map(([k, e]) => [k, e.n]));
+      sel.value = l.etapa;
+      sel.addEventListener('change', () => cambiarEtapa(l, sel.value));
+      const abrir = h('button', { className: 'lc-enl', type: 'button', textContent: l.empresa });
+      abrir.addEventListener('click', () => { actual = l; $('#dr-msg').textContent = ''; drawer(); $('#dr').showModal(); });
+      return h('tr', { className: d > 0 ? 'lc-venc' : '' },
+        h('td', {}, abrir, h('div', { className: 'xs muted', textContent: l.contacto })),
+        h('td', { textContent: l.origen }), h('td', {}, sel),
+        h('td', { className: 'num', textContent: UI.formato.clp(l.valor) }), h('td', { textContent: l.responsable }),
+        h('td', {}, fd(l.prox), d > 0 ? h('div', { className: 'badge bad mt-8', textContent: 'Vencido hace ' + d + (d === 1 ? ' día' : ' días') }) : ''));
+    }));
+  }
+
+  function drawer() {
+    const l = actual;
+    $('#dr-t').textContent = l.empresa;
+    $('#dr-badge').replaceChildren(h('span', { className: 'badge ' + ETAPAS[l.etapa].c, textContent: ETAPAS[l.etapa].n }));
+    $('#dr-det').replaceChildren(...[['Contacto', l.contacto], ['Correo', l.correo], ['Teléfono', l.telefono], ['Origen', l.origen], ['Responsable', l.responsable], ['Valor', UI.formato.clp(l.valor)], ['Próximo contacto', fd(l.prox)]].flatMap(([k, v]) => [h('dt', { textContent: k }), h('dd', { textContent: v })]));
+    $('#dr-nota').value = l.nota;
+    $('#dr-linea').replaceChildren(...l.linea.slice().reverse().sort((a, b) => b.f.localeCompare(a.f)).map(e => h('li', {}, h('time', { textContent: fh(e.f) }), e.t)));
+  }
+
+  async function cambiarEtapa(l, nueva, motivo) {
+    if (nueva === 'perdido' && motivo === undefined) { pendiente = l; $('#dlg-motivo').returnValue = ''; $('#m-texto').value = ''; $('#dlg-motivo').showModal(); return; }
+    const ant = l.etapa;
+    await API.actualizar(l.id, { etapa: nueva });
+    l.etapa = nueva;
+    l.linea.push({ f: ahora(), t: 'Etapa: ' + ETAPAS[ant].n + ' → ' + ETAPAS[nueva].n + (motivo ? '. Motivo: ' + motivo : '') });
+    render(); if ($('#dr').open) drawer();
+    UI.toast(l.empresa + ' pasó a ' + ETAPAS[nueva].n, 'ok');
+  }
+
+  async function cargar() {
+    $('#cargando').hidden = false;
+    $('#error').hidden = true; $('#lista').hidden = true; $('#vacio').hidden = true;
+    try {
+      leads = (await API.listar()).map(l => ({ ...l, linea: l.linea.slice() }));
+      $('#cargando').hidden = true; render();
+    } catch (e) { $('#cargando').hidden = true; $('#error').hidden = false; $('#error').querySelector('button').focus(); }
+  }
+
+  opciones($('#f-etapa'), Object.entries(ETAPAS).map(([k, e]) => [k, e.n]), 'Todas las etapas');
+  opciones($('#f-resp'), pares(RESPONSABLES), 'Todos los responsables');
+  opciones($('#f-origen'), pares(ORIGENES), 'Todos los orígenes');
+  opciones($('#n-origen'), pares(ORIGENES)); opciones($('#n-resp'), pares(RESPONSABLES));
+  ['#q', '#f-etapa', '#f-resp', '#f-origen', '#orden'].forEach(s => $(s).addEventListener('input', render));
+  $('#demo').addEventListener('change', cargar);
+  $('#reintentar').addEventListener('click', cargar);
+  $('#v-limpiar').addEventListener('click', () => { $('#q').value = ''; ['#f-etapa', '#f-resp', '#f-origen'].forEach(s => { $(s).value = ''; }); render(); });
+
+  const formNuevo = $('#form-nuevo');
+  const validar = UI.validar(formNuevo, {
+    empresa: v => v.trim() ? '' : 'Escribe el nombre de la empresa.',
+    contacto: v => v.trim() ? '' : 'Escribe el nombre del contacto.',
+    correo: v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) ? '' : 'Usa un correo válido, por ejemplo nombre@empresa.cl.',
+    telefono: v => /^(\+?56)?\s?9[\s-]?\d{4}[\s-]?\d{4}$/.test(v.trim()) ? '' : 'Usa un celular chileno: +56 9 1234 5678.',
+    valor: v => /^\d+$/.test(v.trim()) ? '' : 'Ingresa el monto en CLP, solo números.',
+    prox: v => v ? '' : 'Elige la fecha del próximo contacto.'
+  });
+  const abrirNuevo = () => { formNuevo.reset(); formNuevo.querySelectorAll('.invalido').forEach(c => c.classList.remove('invalido')); formNuevo.querySelectorAll('.error-msg').forEach(m => { m.textContent = ''; }); formNuevo.querySelectorAll('[aria-invalid]').forEach(i => i.removeAttribute('aria-invalid')); $('#dlg-nuevo').showModal(); };
+  $('#nuevo').addEventListener('click', abrirNuevo); $('#v-nuevo').addEventListener('click', abrirNuevo);
+  $('#nuevo-x').addEventListener('click', () => $('#dlg-nuevo').close());
+  formNuevo.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!validar()) { formNuevo.querySelector('[aria-invalid="true"]').focus(); return; }
+    const f = formNuevo.elements, d = f.telefono.value.replace(/\D/g, '').slice(-8);
+    const lead = { empresa: f.empresa.value.trim(), contacto: f.contacto.value.trim(), correo: f.correo.value.trim(), telefono: '+56 9 ' + d.slice(0, 4) + ' ' + d.slice(4), origen: f.origen.value, responsable: f.responsable.value, valor: +f.valor.value, prox: f.prox.value, etapa: 'nuevo', nota: '', linea: [{ f: ahora(), t: 'Lead creado desde ' + f.origen.value }] };
+    const creado = await UI.busy(formNuevo.querySelector('[type=submit]'), () => API.crear({ ...lead, id: Date.now() }));
+    leads.unshift(creado); render(); $('#dlg-nuevo').close();
+    UI.toast('Lead agregado: ' + lead.empresa, 'ok');
+  });
+
+  $('#form-motivo').addEventListener('submit', e => {
+    e.preventDefault();
+    const t = $('#m-texto'), m = t.value.trim(), c = t.closest('.campo');
+    c.classList.toggle('invalido', !m); t.setAttribute('aria-invalid', !m);
+    c.querySelector('.error-msg').textContent = m ? '' : 'Cuéntanos por qué se perdió para aprender de ello.';
+    if (!m) { t.focus(); return; }
+    $('#dlg-motivo').close('ok'); cambiarEtapa(pendiente, 'perdido', m);
+  });
+  $('#motivo-x').addEventListener('click', () => $('#dlg-motivo').close());
+  $('#dlg-motivo').addEventListener('close', () => { if ($('#dlg-motivo').returnValue !== 'ok') render(); });
+
+  $('#dr-x').addEventListener('click', () => $('#dr').close());
+  $('#dr-guardar').addEventListener('click', e => UI.busy(e.currentTarget, async () => {
+    await API.actualizar(actual.id, { nota: $('#dr-nota').value });
+    actual.nota = $('#dr-nota').value; actual.linea.push({ f: ahora(), t: 'Notas actualizadas' }); drawer();
+    $('#dr-msg').textContent = 'Notas guardadas.';
+  }));
+
+  cargar();
+})();
+</script>
+</body>
+</html>

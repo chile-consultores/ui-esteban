@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Centro de notificaciones · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: centro de notificaciones completo: campana con contador y panel, bandeja con pestañas (todas, sin leer, menciones), agrupación por día, marcar leída al abrir, acciones por fila (leer, archivar, silenciar) con deshacer, "marcar todo como leído", notificaciones nuevas en vivo con aviso "N nuevas", preferencias por canal y modo no molestar.
+  Proyecto: apps privadas de Chile Consultores (CRM, Clima, Helpdesk).
+  Cómo aplicarlo: `Notis.agregar({tipo, titulo, texto, de})` crea una notificación desde cualquier parte de tu app. Reemplaza `simularEntrantes()` por tu canal en tiempo real (Supabase Realtime).
+  Conectar: persiste `estado` en tu tabla `notificaciones` (id, usuario, leida, archivada, creada). Aquí vive en memoria.
+  Ganchos: #campana, #panel, #bandeja, window.Notis, evento `noti:nueva`.
+  Reglas UX: el contador cuenta lo no leído (no lo no visto), nada interrumpe en modo no molestar, las nuevas no mueven la lista mientras lees (aparece un aviso para cargarlas), toda acción se puede deshacer, cada una tiene fecha relativa y acción clara.
+-->
+<style>
+  .pagina{max-width:900px;margin:0 auto;padding:20px 16px 80px;display:flex;flex-direction:column;gap:16px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .barra{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:10px 14px}
+  .barra h1{margin:0;font-size:1.1rem;flex:1}
+  .rel{position:relative}
+  .ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  #campana{position:relative;width:44px;height:44px;border-radius:12px;border:1px solid var(--borde);background:var(--superficie-2);color:var(--texto);cursor:pointer;display:grid;place-items:center}
+  #campana:hover{border-color:var(--marca)}
+  #campana .cnt{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;border-radius:99px;background:var(--rojo);color:#fff;font-size:.7rem;font-weight:700;display:grid;place-items:center;padding:0 5px;border:2px solid var(--fondo,#0b0b14)}
+  #campana .cnt[hidden]{display:none}
+  #campana.suena svg{animation:suena .6s}
+  @keyframes suena{20%{transform:rotate(14deg)}40%{transform:rotate(-12deg)}60%{transform:rotate(8deg)}80%{transform:rotate(-4deg)}}
+  #campana.mudo::after{content:"";position:absolute;width:26px;height:2px;background:var(--rojo);transform:rotate(-45deg)}
+
+  /* === COMPONENTE: panel === */
+  #panel{position:absolute;right:0;top:calc(100% + 8px);z-index:60;width:min(400px,calc(100vw - 24px));max-height:min(560px,80dvh);display:flex;flex-direction:column;background:var(--superficie-2);border:1px solid var(--borde);border-radius:16px;box-shadow:0 26px 60px rgba(0,0,0,.6);animation:pin .18s var(--ease-salida)}
+  #panel[hidden]{display:none}
+  @keyframes pin{from{opacity:0;transform:translateY(-6px) scale(.98)}}
+  .p-cab{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;border-bottom:1px solid var(--borde)}
+  .p-lista{overflow:auto;padding:6px;flex:1}
+  .p-pie{padding:10px 14px;border-top:1px solid var(--borde);text-align:center}
+  @media(max-width:520px){#panel{position:fixed;left:8px;right:8px;top:70px;width:auto}}
+
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--borde);padding:0 14px;overflow-x:auto;scrollbar-width:none}
+  .tabs button{padding:10px 12px;border:0;background:none;color:var(--texto-2);font:inherit;font-weight:600;cursor:pointer;position:relative;white-space:nowrap}
+  .tabs button[aria-selected=true]{color:var(--texto)}
+  .tabs button[aria-selected=true]::after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:2px;background:var(--marca);border-radius:2px}
+  .tabs .n{margin-left:6px;font-size:.72rem;padding:1px 7px;border-radius:99px;background:var(--superficie);color:var(--texto-2)}
+
+  /* === COMPONENTE: item === */
+  .dia{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--texto-2);padding:10px 10px 4px}
+  .noti{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:start;padding:10px;border-radius:12px;position:relative;cursor:pointer;transition:background .15s;animation:ent .3s var(--ease-salida)}
+  @keyframes ent{from{opacity:0;transform:translateY(-8px)}}
+  .noti:hover{background:rgba(255,255,255,.04)}
+  .noti:focus-visible{outline:2px solid var(--marca)}
+  .noti.nl{background:rgba(124,109,242,.1)}
+  .noti.nl::before{content:"";position:absolute;left:3px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--marca)}
+  .noti .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.85rem;color:#fff}
+  .noti .t{font-weight:600;margin:0}
+  .noti .d{color:var(--texto-2);font-size:.86rem;margin:2px 0 0}
+  .noti .f{color:var(--texto-2);font-size:.75rem;white-space:nowrap;grid-column:3;grid-row:1}
+  .noti .acc{display:flex;gap:2px;opacity:0;transition:opacity .15s;position:absolute;right:6px;top:6px;background:var(--superficie-2);border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+  .noti:hover .acc,.noti:focus-within .acc{opacity:1}
+  @media(hover:none){.noti .acc{opacity:1;position:static;grid-column:2;grid-row:2;justify-self:start;box-shadow:none}}
+  .noti .acc button{width:34px;height:34px;border:0;background:none;color:var(--texto-2);border-radius:8px;cursor:pointer;display:grid;place-items:center}
+  .noti .acc button:hover{background:rgba(255,255,255,.1);color:var(--texto)}
+  .noti.sale{animation:sal .25s forwards}
+  @keyframes sal{to{opacity:0;transform:translateX(30px);height:0;padding:0;margin:0}}
+  .vacio{padding:36px 12px;text-align:center;color:var(--texto-2);display:flex;flex-direction:column;gap:6px;align-items:center}
+  .vacio b{color:var(--texto)}
+  .nuevas{position:sticky;top:0;z-index:2;margin:4px auto 6px;display:block;padding:6px 14px;border-radius:99px;border:0;background:var(--marca);color:#fff;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer;box-shadow:0 8px 22px rgba(124,109,242,.5)}
+  .nuevas[hidden]{display:none}
+
+  /* === COMPONENTE: preferencias === */
+  .caja{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:18px;display:flex;flex-direction:column;gap:14px}
+  .caja h2{margin:0;font-size:1.05rem}
+  .pref{display:grid;grid-template-columns:1fr repeat(3,64px);gap:8px;align-items:center;font-size:.9rem}
+  .pref .h{font-size:.72rem;color:var(--texto-2);text-align:center;text-transform:uppercase;letter-spacing:.05em}
+  .pref .h:first-child{text-align:left}
+  .sw{position:relative;width:44px;height:26px;justify-self:center}
+  .sw input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0;width:100%;height:100%}
+  .sw i{position:absolute;inset:0;border-radius:99px;background:var(--superficie-2);border:1px solid var(--borde);transition:background .2s;pointer-events:none}
+  .sw i::after{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s var(--ease-salida)}
+  .sw input:checked + i{background:var(--marca);border-color:var(--marca)}
+  .sw input:checked + i::after{transform:translateX(18px)}
+  .sw input:focus-visible + i{outline:2px solid var(--acento);outline-offset:2px}
+  .fila{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <div class="barra"><h1 class="gradient-text">Panel de trabajo</h1>
+    <button class="btn btn-sec btn-sm" id="b-sim" type="button">Simular notificación</button>
+    <div class="rel"><button id="campana" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="panel" aria-label="Notificaciones"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="cnt" id="cnt" hidden></span></button>
+      <div id="panel" role="dialog" aria-label="Notificaciones" hidden>
+        <div class="p-cab"><b>Notificaciones</b><button class="btn btn-sec btn-sm" id="b-leer-todo" type="button">Marcar todo como leído</button></div>
+        <div class="tabs" role="tablist" aria-label="Filtro" id="p-tabs"></div>
+        <div class="p-lista" id="p-lista" role="tabpanel" aria-live="polite"></div>
+        <div class="p-pie"><a href="#bandeja" id="ver-todas" class="small" style="color:var(--acento)">Ver todas en la bandeja</a></div>
+      </div></div></div>
+  <section class="caja" id="bandeja" aria-labelledby="h-b"><h2 id="h-b">Bandeja completa</h2><div class="tabs" role="tablist" aria-label="Filtro de la bandeja" id="b-tabs" style="padding:0"></div><div id="b-lista" role="tabpanel" aria-live="polite"></div></section>
+  <section class="caja" aria-labelledby="h-p"><h2 id="h-p">Preferencias</h2>
+    <div class="pref" id="pref"></div>
+    <div class="fila"><label class="sw"><input type="checkbox" id="in-dnd" name="dnd" role="switch"><i></i></label><label for="in-dnd">No molestar</label><span class="small">Las nuevas llegan sin sonido ni aviso emergente.</span></div></section>
+</main>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const NS = 'http://www.w3.org/2000/svg';
+  const IC = { ok: 'M20 6L9 17l-5-5', arch: 'M3 4h18v4H3zM5 8v12h14V8M10 12h4', mudo: 'M9 9v6h4l5 4V5l-5 4zM3 3l18 18' };
+  const ic = k => { const s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'ico'); s.setAttribute('aria-hidden', 'true'); const p = document.createElementNS(NS, 'path'); p.setAttribute('d', IC[k]); s.appendChild(p); return s; };
+  const toast = (m, t, o) => (window.UI && UI.toast) && UI.toast(m, t || 'info', o);
+
+  /* === estado === */
+  const COL = { menc: '#7C6DF2', est: '#38BDF8', sis: '#64748b', cli: '#34d399' };
+  const ahora = Date.now(), H = 3600e3;
+  let id = 0; const mk = (tipo, titulo, texto, de, hace, leida) => ({ id: ++id, tipo, titulo, texto, de, t: ahora - hace * H, leida: !!leida, arch: false, mudo: false });
+  let N = [
+    mk('menc', 'Camila te mencionó en Clima 2026', '"@Esteban revisa el cierre de la semana 3"', 'Camila Rojas', .2),
+    mk('est', 'Nueva respuesta en Mystery Retail', 'Tienda Costanera completó la auditoría', 'Sistema', 1.1),
+    mk('cli', 'Minera Aconcagua aprobó el informe', 'Ya puedes enviar la versión final', 'Minera Aconcagua', 3, true),
+    mk('sis', 'Mantenimiento programado', 'Sábado de 02:00 a 03:00. La plataforma estará en solo lectura.', 'Sistema', 20),
+    mk('menc', 'Diego comentó tu tarea', '"Listo, subí los datos corregidos"', 'Diego Fuentes', 26, true),
+    mk('est', 'Estudio de rotación finalizado', 'Se completaron las 120 entrevistas', 'Sistema', 30),
+    mk('cli', 'Retail Pacífico pidió una reunión', 'Propone jueves a las 11:00', 'Retail Pacífico', 52, true),
+    mk('sis', 'Tu plan se renueva en 7 días', 'No necesitas hacer nada.', 'Sistema', 80, true)
+  ];
+  const TIPOS = { menc: 'Menciones', est: 'Estudios', cli: 'Clientes', sis: 'Sistema' };
+  const iniciales = n => n.split(' ').map(x => x[0]).slice(0, 2).join('').toUpperCase();
+  let filtro = { p: 'todas', b: 'todas' }, pendientes = []; let prefs = {}; try { prefs = JSON.parse(localStorage.getItem('noti-prefs') || '{}'); } catch (e) {}
+  const activas = () => N.filter(n => !n.arch);
+  const noLeidas = () => activas().filter(n => !n.leida && !n.mudo);
+
+  const rel = t => { const m = Math.round((Date.now() - t) / 60000); if (m < 1) return 'ahora'; if (m < 60) return 'hace ' + m + ' min'; const h = Math.round(m / 60); if (h < 24) return 'hace ' + h + ' h'; const d = Math.round(h / 24); return d === 1 ? 'ayer' : 'hace ' + d + ' días'; };
+  const dia = t => { const hoy = new Date(); hoy.setHours(0, 0, 0, 0); const d = new Date(t); d.setHours(0, 0, 0, 0); const k = Math.round((hoy - d) / 864e5); return k <= 0 ? 'Hoy' : k === 1 ? 'Ayer' : 'Antes'; };
+  const pasa = (n, f) => f === 'todas' || (f === 'sin' && !n.leida) || (f === 'menc' && n.tipo === 'menc');
+
+  /* === item === */
+  function item(n) {
+    const d = el('div', 'noti' + (n.leida ? '' : ' nl')); d.tabIndex = 0; d.dataset.id = n.id; d.setAttribute('role', 'article');
+    const av = el('div', 'av', n.tipo === 'sis' ? '!' : iniciales(n.de)); av.style.background = COL[n.tipo]; av.setAttribute('aria-hidden', 'true');
+    const c = el('div'); c.append(el('p', 't', n.titulo), el('p', 'd', n.texto)); const f = el('div', 'f', rel(n.t)); const a = el('div', 'acc');
+    const b = (ico, lab, fn) => { const x = el('button'); x.type = 'button'; x.setAttribute('aria-label', lab); x.title = lab; x.appendChild(ic(ico)); x.addEventListener('click', e => { e.stopPropagation(); fn(); }); return x; };
+    a.append(b('ok', n.leida ? 'Marcar como no leída' : 'Marcar como leída', () => { n.leida = !n.leida; render(); }), b('mudo', 'Silenciar este hilo', () => { n.mudo = true; n.leida = true; render(); toast('Hilo silenciado', 'info', { deshacer: () => { n.mudo = false; render(); } }); }), b('arch', 'Archivar', () => { n.arch = true; render(); toast('Notificación archivada', 'info', { deshacer: () => { n.arch = false; render(); } }); }));
+    d.append(av, c, f, a); const abrir = () => { if (!n.leida) { n.leida = true; render(); } toast('Abriste: ' + n.titulo); }; d.addEventListener('click', abrir); d.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target === d) abrir(); }); return d;
+  }
+  function pintarLista(cont, f, limite) {
+    cont.replaceChildren(); const l = activas().filter(n => pasa(n, f)).sort((a, b) => b.t - a.t).slice(0, limite || 99);
+    if (pendientes.length && cont.id === 'p-lista') { const b = el('button', 'nuevas', pendientes.length + (pendientes.length === 1 ? ' nueva' : ' nuevas')); b.type = 'button'; b.addEventListener('click', cargarNuevas); cont.appendChild(b); }
+    if (!l.length) { const v = el('div', 'vacio'); v.append(el('b', '', f === 'sin' ? 'Todo al día' : 'Sin notificaciones'), el('span', '', f === 'sin' ? 'No tienes nada pendiente por leer.' : 'Cuando haya novedades las verás aquí.')); cont.appendChild(v); return; }
+    let g = null; l.forEach(n => { const d = dia(n.t); if (d !== g) { g = d; cont.appendChild(el('div', 'dia', g)); } cont.appendChild(item(n)); });
+  }
+  function pintarTabs(cont, clave) { const defs = [['todas', 'Todas', activas().length], ['sin', 'Sin leer', activas().filter(n => !n.leida).length], ['menc', 'Menciones', activas().filter(n => n.tipo === 'menc').length]]; cont.replaceChildren(); defs.forEach(([k, t, c]) => { const b = el('button'); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(filtro[clave] === k)); b.append(t, el('span', 'n', String(c))); b.addEventListener('click', () => { filtro[clave] = k; render(); }); cont.appendChild(b); }); }
+  function render() {
+    const nl = noLeidas().length; const cnt = $('#cnt'); cnt.hidden = nl === 0; cnt.textContent = nl > 99 ? '99+' : nl; $('#campana').setAttribute('aria-label', 'Notificaciones' + (nl ? ', ' + nl + ' sin leer' : ''));
+    pintarTabs($('#p-tabs'), 'p'); pintarTabs($('#b-tabs'), 'b'); pintarLista($('#p-lista'), filtro.p, 8); pintarLista($('#b-lista'), filtro.b);
+    document.title = (nl ? '(' + nl + ') ' : '') + 'Panel de trabajo';
+  }
+
+  /* === panel === */
+  const camp = $('#campana'), pan = $('#panel');
+  function abrirP(on) { pan.hidden = !on; camp.setAttribute('aria-expanded', String(on)); if (on) { render(); const p = pan.querySelector('[role=tab][aria-selected=true]'); p && p.focus(); } else camp.focus(); }
+  camp.addEventListener('click', () => abrirP(pan.hidden));
+  document.addEventListener('mousedown', e => { if (!pan.hidden && !e.target.closest('.rel')) { pan.hidden = true; camp.setAttribute('aria-expanded', 'false'); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pan.hidden) abrirP(false); });
+  $('#ver-todas').addEventListener('click', e => { e.preventDefault(); abrirP(false); $('#bandeja').scrollIntoView({ behavior: 'smooth' }); });
+  $('#b-leer-todo').addEventListener('click', () => { const antes = N.filter(n => !n.leida && !n.arch); if (!antes.length) { toast('Ya está todo leído'); return; } antes.forEach(n => n.leida = true); render(); toast(antes.length + ' marcadas como leídas', 'ok', { deshacer: () => { antes.forEach(n => n.leida = false); render(); } }); });
+
+  /* === entrantes === */
+  const dnd = $('#in-dnd'); dnd.checked = !!prefs.dnd; camp.classList.toggle('mudo', dnd.checked);
+  dnd.addEventListener('change', () => { prefs.dnd = dnd.checked; camp.classList.toggle('mudo', dnd.checked); guardarP(); toast(dnd.checked ? 'No molestar activado' : 'No molestar desactivado'); });
+  function agregar(o) { const n = { id: ++id, tipo: o.tipo || 'est', titulo: o.titulo, texto: o.texto || '', de: o.de || 'Sistema', t: Date.now(), leida: false, arch: false, mudo: false }; if (!pan.hidden) { pendientes.push(n); render(); } else { N.push(n); render(); } if (!dnd.checked) { camp.classList.remove('suena'); void camp.offsetWidth; camp.classList.add('suena'); toast(n.titulo, 'info'); } window.dispatchEvent(new CustomEvent('noti:nueva', { detail: n })); return n; }
+  function cargarNuevas() { N.push(...pendientes); pendientes = []; render(); }
+  window.Notis = { agregar, N: () => N };
+  const EJ = [['menc', 'Valentina te mencionó', '"Necesito tu ok para publicar"', 'Valentina Soto'], ['cli', 'Banco Austral respondió la cotización', 'Pide ajustar el alcance', 'Banco Austral'], ['est', 'Meta de respuestas alcanzada', 'Clima 2026 llegó al 80 %', 'Sistema'], ['sis', 'Copia de seguridad lista', 'Se guardó correctamente', 'Sistema']]; let ei = 0;
+  $('#b-sim').addEventListener('click', () => { const [tipo, titulo, texto, de] = EJ[ei++ % EJ.length]; agregar({ tipo, titulo, texto, de }); });
+
+  /* === preferencias por canal === */
+  const CAN = ['En la app', 'Correo', 'Móvil']; const defecto = { menc: [1, 1, 1], est: [1, 0, 0], cli: [1, 1, 0], sis: [1, 0, 0] }; prefs.c = prefs.c || defecto;
+  const guardarP = () => { try { localStorage.setItem('noti-prefs', JSON.stringify(prefs)); } catch (e) {} };
+  const P = $('#pref'); P.appendChild(el('span', 'h', 'Aviso')); CAN.forEach(c => P.appendChild(el('span', 'h', c)));
+  Object.keys(TIPOS).forEach(k => { P.appendChild(el('span', '', TIPOS[k])); CAN.forEach((c, i) => { const l = el('label', 'sw'); const x = el('input'); x.type = 'checkbox'; x.role = 'switch'; x.name = k + i; x.checked = !!prefs.c[k][i]; x.setAttribute('aria-label', TIPOS[k] + ' por ' + c); x.addEventListener('change', () => { prefs.c[k][i] = x.checked ? 1 : 0; guardarP(); toast('Preferencia guardada', 'ok'); }); l.append(x, el('i')); P.appendChild(l); }); });
+
+  setInterval(() => { if (document.visibilityState === 'visible') render(); }, 60000);
+  render();
+});
+</script>
+</body>
+</html>

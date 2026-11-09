@@ -9,6 +9,7 @@
     "registry/texto/registry.json",
     "registry/cards/registry.json",
     "registry/scroll/registry.json",
-    "registry/media/registry.json"
+    "registry/media/registry.json",
+    "registry/plantillas/registry.json"
   ]
 }

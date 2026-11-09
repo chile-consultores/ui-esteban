@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Facturación y suscripción · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: panel admin de facturación. Plan con barras de uso, cambio de plan con prorrateo en CLP + IVA 19 % visible antes de confirmar, tarjeta (Luhn y marca, solo se guarda marca/últimos 4), historial con descarga y reintento, datos de facturación (RUT módulo 11) y cancelación con motivo. 4 estados (selector de demo).
+  Proyecto: cualquier app con suscripción (Clima, Mystery, CRM, DataDash).
+  Cómo aplicarlo: edita `PLANES` (precio neto mensual y límites). Los límites de las barras salen de ahí.
+  Conectar: reemplaza cada método de `API` por Supabase (tablas suscripciones, facturas, datos_facturacion). La tarjeta se tokeniza en la pasarela (Flow, Transbank, Stripe): jamás envíes ni guardes el número completo ni el CVC.
+  Ganchos: #v-cargando #v-error #v-vacio #v-contenido, #m-plan, #m-tarjeta, #m-cancelar, #facturas, window.API.
+-->
+<style>
+  [hidden]{display:none}
+  .fs-pagina{max-width:960px;margin:0 auto;padding:24px 16px 64px}
+  .fs .btn,.fs .input,.fs .select,.fs .textarea{min-height:44px}
+  .fs-pagina .grid{align-items:start}
+  .fs-demo{display:flex;align-items:center;gap:8px;font-size:var(--fs-s);color:var(--texto-2)}
+  .fs-demo .select{width:auto;flex:none}
+  .fs-precio{font:600 1.9rem var(--display)}
+  .fs-usos{display:grid;gap:16px;margin-top:16px}
+  .fs-uso .row{justify-content:space-between;font-size:var(--fs-s);margin-bottom:6px}
+  .fs-uso.alto .progreso>span{background:var(--ambar)}
+  .fs-tarjeta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between}
+  .fs-planes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .fs-plan{display:flex;flex-direction:column;gap:6px;padding:16px;border:1px solid var(--borde-2);border-radius:var(--r);cursor:pointer}
+  .fs-plan:has(input:checked){border-color:var(--marca);background:var(--marca-l)}
+  .fs-plan input{width:18px;height:18px;accent-color:var(--marca)}
+  .fs-plan ul{margin:0;padding-left:18px;color:var(--texto-2);font-size:var(--fs-s)}
+  .fs-resumen{margin-top:16px;padding:14px;border-radius:var(--r-s);background:var(--superficie);border:1px solid var(--borde)}
+  .fs-resumen div{display:flex;justify-content:space-between;gap:12px;font-size:var(--fs-s);padding:2px 0;font-variant-numeric:tabular-nums}
+  .fs-resumen .total{font-weight:600;font-size:var(--fs-b);border-top:1px solid var(--borde);margin-top:6px;padding-top:8px}
+  @media (max-width:640px){.fs-planes{grid-template-columns:1fr}}
+</style>
+</head>
+<body class="fs">
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="fs-pagina">
+  <div class="page-head">
+    <div><div class="breadcrumb">Administración / Facturación</div><h1>Facturación y suscripción</h1></div>
+    <div class="fs-demo"><label for="demo">Estado (demo)</label>
+      <select id="demo" class="select"><option value="contenido">Con datos</option><option value="cargando">Cargando</option><option value="error">Error</option><option value="vacio">Sin plan</option></select></div>
+  </div>
+
+  <div id="v-cargando" hidden aria-busy="true"><div class="card"><div class="skeleton titulo"></div><div class="skeleton linea"></div><div class="skeleton linea"></div><div class="skeleton bloque mt-16"></div></div></div>
+  <div id="v-error" class="estado card" role="alert" tabindex="-1" hidden><h3>No pudimos cargar tu facturación</h3><p>Revisa tu conexión e intenta de nuevo.</p><button id="b-reintentar" class="btn">Reintentar</button></div>
+  <div id="v-vacio" class="estado card" tabindex="-1" hidden><h3>Aún no tienes un plan</h3><p>Elige uno para activar tu cuenta. Puedes cambiarlo cuando quieras.</p><button id="b-elegir" class="btn">Elegir un plan</button></div>
+
+  <div id="v-contenido" class="stack" hidden>
+    <div id="aviso-cancel" class="aviso warn" hidden><span id="cancel-txt"></span><button id="b-reactivar" class="btn btn-sec btn-sm">Reactivar</button></div>
+    <section class="card" aria-labelledby="t-plan">
+      <div class="card-head"><h3 id="t-plan">Plan actual</h3><span id="plan-nombre" class="badge marca"></span></div>
+      <div class="fs-precio" id="plan-precio"></div><p class="muted small" id="plan-renov"></p>
+      <div id="usos" class="fs-usos"></div>
+      <div class="row wrap mt-16"><button id="b-cambiar" class="btn">Cambiar de plan</button><button id="b-cancelar" class="btn btn-ghost">Cancelar suscripción</button></div>
+    </section>
+    <div class="grid grid-2">
+      <section class="card" aria-labelledby="t-pago"><div class="card-head"><h3 id="t-pago">Método de pago</h3></div>
+        <div class="fs-tarjeta"><span id="tarjeta-txt" class="mono"></span><button class="btn btn-sec btn-sm" data-modal="m-tarjeta">Actualizar tarjeta</button></div></section>
+      <section class="card" aria-labelledby="t-datos"><div class="card-head"><h3 id="t-datos">Datos de facturación</h3></div>
+        <form id="f-datos" novalidate>
+          <div class="campo"><label for="d-rut">RUT</label><input id="d-rut" name="rut" class="input" inputmode="text" autocomplete="off" placeholder="76.543.210-3"><div class="error-msg" aria-live="polite"></div></div>
+          <div class="campo"><label for="d-razon">Razón social</label><input id="d-razon" name="razon" class="input" autocomplete="organization"><div class="error-msg" aria-live="polite"></div></div>
+          <div class="campo"><label for="d-giro">Giro</label><input id="d-giro" name="giro" class="input" autocomplete="off"><div class="error-msg" aria-live="polite"></div></div>
+          <div class="campo"><label for="d-dir">Dirección</label><input id="d-dir" name="direccion" class="input" autocomplete="street-address"><div class="error-msg" aria-live="polite"></div></div>
+          <button type="submit" class="btn" data-busy="Guardando…">Guardar datos</button></form></section>
+    </div>
+    <section aria-labelledby="t-hist"><h3 id="t-hist" class="mb-8">Historial de facturas</h3>
+      <div class="tabla-wrap"><table class="tabla"><thead><tr><th>Fecha</th><th>Concepto</th><th class="num">Total</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="facturas"></tbody></table></div></section>
+  </div>
+</main>
+
+<div class="telon" id="m-plan"><div class="modal ancho" role="dialog" aria-labelledby="mp-t"><form id="f-plan">
+  <div class="modal-head"><h3 id="mp-t">Cambiar de plan</h3></div>
+  <div id="planes" class="fs-planes" role="radiogroup" aria-labelledby="mp-t"></div>
+  <div id="resumen" class="fs-resumen" aria-live="polite"></div>
+  <div class="modal-foot"><button type="button" class="btn btn-sec" data-cerrar-modal>Cancelar</button><button id="ok-plan" type="submit" class="btn" data-busy="Aplicando…" disabled>Confirmar cambio</button></div></form></div></div>
+
+<div class="telon" id="m-tarjeta"><div class="modal" role="dialog" aria-labelledby="mt-t"><form id="f-tarjeta" novalidate>
+  <div class="modal-head"><h3 id="mt-t">Actualizar tarjeta</h3></div>
+  <div class="campo"><label for="t-num">Número de tarjeta <span id="t-marca" class="badge info" hidden></span></label><input id="t-num" name="numero" class="input mono" inputmode="numeric" autocomplete="cc-number" placeholder="4242 4242 4242 4242"><div class="error-msg" aria-live="polite"></div></div>
+  <div class="campo"><label for="t-nom">Nombre en la tarjeta</label><input id="t-nom" name="nombre" class="input" autocomplete="cc-name"><div class="error-msg" aria-live="polite"></div></div>
+  <div class="form-grid">
+    <div class="campo"><label for="t-ven">Vence (MM/AA)</label><input id="t-ven" name="vence" class="input" inputmode="numeric" autocomplete="cc-exp" placeholder="08/28"><div class="error-msg" aria-live="polite"></div></div>
+    <div class="campo"><label for="t-cvc">CVC</label><input id="t-cvc" name="cvc" class="input" inputmode="numeric" autocomplete="cc-csc" maxlength="4"><div class="error-msg" aria-live="polite"></div></div></div>
+  <p class="xs muted">Solo guardamos la marca y los últimos 4 dígitos. Demo: prueba con 4242 4242 4242 4242.</p>
+  <div class="modal-foot"><button type="button" class="btn btn-sec" data-cerrar-modal>Cancelar</button><button type="submit" class="btn" data-busy="Guardando…">Guardar tarjeta</button></div></form></div></div>
+
+<div class="telon" id="m-cancelar"><div class="modal" role="dialog" aria-labelledby="mc-t"><form id="f-cancelar" novalidate>
+  <div class="modal-head"><h3 id="mc-t">Cancelar suscripción</h3></div>
+  <div class="campo"><label for="c-mot">¿Por qué te vas?</label><select id="c-mot" name="motivo" class="select"><option value="">Elige un motivo</option><option>Es muy caro</option><option>No lo uso lo suficiente</option><option>Me falta una función</option><option>Cambié de proveedor</option><option>Otro</option></select><div class="error-msg" aria-live="polite"></div></div>
+  <div class="campo"><label for="c-com">Comentario (opcional)</label><textarea id="c-com" name="comentario" class="textarea"></textarea></div>
+  <div class="modal-foot"><button type="button" class="btn btn-sec" data-cerrar-modal>Volver</button><button type="submit" class="btn btn-danger">Continuar</button></div></form></div></div>
+
+<script src="../[base]/base.js"></script>
+<script>
+(function () {
+  'use strict';
+  const IVA = .19, clp = UI.formato.clp, fecha = UI.formato.fecha;
+  const $ = id => document.getElementById(id);
+  const el = (t, c, x) => { const n = document.createElement(t); if (c) n.className = c; if (x != null) n.textContent = x; return n; };
+
+  const PLANES = {
+    basico: { nombre: 'Básico', precio: 19900, usuarios: 5, estudios: 10, almacenamiento: 2 },
+    pro: { nombre: 'Pro', precio: 49900, usuarios: 25, estudios: 60, almacenamiento: 10 },
+    empresa: { nombre: 'Empresa', precio: 129900, usuarios: 100, estudios: 300, almacenamiento: 50 }
+  };
+  const USOS = [['usuarios', 'Usuarios', ''], ['estudios', 'Estudios', ''], ['almacenamiento', 'Almacenamiento', ' GB']];
+
+  /* CONECTAR: reemplaza cada método por Supabase. `modo` solo existe para la demo. */
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  const dia = m => new Date(new Date().getFullYear(), new Date().getMonth() + m, 1, 12);
+  const API = {
+    async cargar(modo) {
+      await esperar(600);
+      if (modo === 'error') throw new Error('red');
+      if (modo === 'vacio') return { plan: null, facturas: [], tarjeta: null, cancelada: false, uso: {}, datos: { rut: '', razon: '', giro: '', direccion: '' } };
+      return { plan: 'pro', inicio: dia(0), renueva: dia(1), cancelada: false, uso: { usuarios: 18, estudios: 42, almacenamiento: 7.4 },
+        tarjeta: { marca: 'Visa', ult4: '1234', vence: '08/28' },
+        datos: { rut: '76.543.210-3', razon: 'Constructora Los Andes SpA', giro: 'Construcción de edificios', direccion: 'Av. Providencia 1234, Santiago' },
+        facturas: [['F-1042', 0, 'pendiente'], ['F-1031', -1, 'vencida'], ['F-1019', -2, 'pagada'], ['F-1004', -3, 'pagada']]
+          .map(([id, m, estado]) => ({ id, fecha: dia(m), concepto: 'Plan Pro, mensual', total: Math.round(49900 * (1 + IVA)), estado })) };
+    },
+    async cambiarPlan(id) { await esperar(500); return S.plan ? { plan: id } : { plan: id, inicio: dia(0), renueva: dia(1) }; },
+    async guardarTarjeta(t) { await esperar(500); return t; },
+    async guardarDatos(d) { await esperar(500); return d; },
+    async reintentar(id) { await esperar(700); if (!S.tarjeta) throw new Error('sin tarjeta'); return id; },
+    async descargar(f) { await esperar(200); return new Blob([`Factura ${f.id}\n${fecha(f.fecha)}\n${f.concepto}\nTotal ${clp(f.total)}\n`], { type: 'text/plain' }); },
+    async cancelar(m) { await esperar(500); return m; },
+    async reactivar() { await esperar(500); }
+  };
+  window.API = API;
+
+  let S = null;
+  const mostrar = e => { ['cargando', 'error', 'vacio', 'contenido'].forEach(v => { $('v-' + v).hidden = v !== e; }); if (e === 'error' || e === 'vacio') $('v-' + e).focus(); };
+  async function cargar(modo) {
+    mostrar('cargando');
+    try { S = await API.cargar(modo); render(); mostrar(S.plan ? 'contenido' : 'vacio'); } catch (e) { mostrar('error'); }
+  }
+  $('demo').addEventListener('change', e => e.target.value === 'cargando' ? mostrar('cargando') : cargar(e.target.value));
+  $('b-reintentar').addEventListener('click', () => { $('demo').value = 'contenido'; cargar('contenido'); });
+  $('b-elegir').addEventListener('click', () => abrirPlan());
+
+  const RUT = {
+    ok(v) { const s = v.replace(/[.\-\s]/g, '').toUpperCase(); if (!/^\d{7,8}[\dK]$/.test(s)) return false; let t = 0, m = 2;
+      for (let i = s.length - 2; i >= 0; i--) { t += +s[i] * m; m = m === 7 ? 2 : m + 1; } const r = 11 - t % 11; return s.at(-1) === (r === 11 ? '0' : r === 10 ? 'K' : String(r)); },
+    fmt(v) { const s = v.replace(/[^\dkK]/g, '').toUpperCase(); return s.length < 2 ? s : s.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + s.slice(-1); }
+  };
+  const MARCAS = [['Visa', /^4/], ['Mastercard', /^(5[1-5]|2[2-7])/], ['American Express', /^3[47]/], ['Diners', /^3(0[0-5]|[68])/]];
+  const marcaDe = n => (MARCAS.find(m => m[1].test(n)) || [''])[0];
+  const luhn = n => { let s = 0; for (let i = 0; i < n.length; i++) { let d = +n[n.length - 1 - i]; if (i % 2) { d *= 2; if (d > 9) d -= 9; } s += d; } return s % 10 === 0; };
+  const dig = v => v.replace(/\D/g, '');
+
+  function render() {
+    const p = PLANES[S.plan]; if (!p) return;
+    $('plan-nombre').textContent = p.nombre;
+    $('plan-precio').textContent = clp(p.precio) + ' / mes + IVA';
+    $('plan-renov').textContent = S.cancelada ? 'Tu plan termina el ' + fecha(S.renueva) : `Se renueva el ${fecha(S.renueva)} por ${clp(Math.round(p.precio * (1 + IVA)))} con IVA`;
+    $('aviso-cancel').hidden = !S.cancelada; $('b-cancelar').hidden = S.cancelada;
+    $('cancel-txt').textContent = 'Cancelaste tu suscripción. Mantienes el acceso hasta el ' + fecha(S.renueva) + '.';
+    $('usos').replaceChildren(...USOS.map(([k, nom, u]) => {
+      const usado = S.uso[k] || 0, max = p[k], pct = Math.min(1, usado / max);
+      const b = el('div', 'fs-uso' + (pct >= .9 ? ' alto' : '')), r = el('div', 'row');
+      r.append(el('span', '', nom), el('span', '', `${UI.formato.num(usado)} de ${UI.formato.num(max)}${u}${pct >= .9 ? ' (casi al límite)' : ''}`));
+      const bar = el('div', 'progreso'); bar.setAttribute('role', 'progressbar'); bar.setAttribute('aria-label', nom); bar.setAttribute('aria-valuemin', 0); bar.setAttribute('aria-valuemax', max); bar.setAttribute('aria-valuenow', usado);
+      const s = el('span'); s.style.setProperty('--p', pct); bar.append(s); b.append(r, bar); return b;
+    }));
+    $('tarjeta-txt').textContent = S.tarjeta ? `${S.tarjeta.marca} ****${S.tarjeta.ult4} · vence ${S.tarjeta.vence}` : 'Sin método de pago';
+    Object.entries(S.datos).forEach(([k, v]) => { $('f-datos').elements[k].value = v; });
+    $('facturas').replaceChildren(...(S.facturas.length ? S.facturas.map(fila) : [(() => { const tr = el('tr'), td = el('td', 'muted', 'Aún no tienes facturas.'); td.colSpan = 5; tr.append(td); return tr; })()]));
+  }
+
+  function fila(f) {
+    const tr = el('tr'), est = el('td'), ac = el('td'), cont = el('div', 'acciones-fila');
+    est.append(el('span', 'badge ' + { pagada: 'ok', pendiente: 'warn', vencida: 'bad' }[f.estado], f.estado[0].toUpperCase() + f.estado.slice(1)));
+    const des = el('button', 'btn btn-sec btn-sm', 'Descargar'); des.setAttribute('aria-label', 'Descargar factura ' + f.id);
+    des.addEventListener('click', async () => {
+      const a = el('a'); a.href = URL.createObjectURL(await API.descargar(f)); a.download = f.id + '.txt'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+    cont.append(des);
+    if (f.estado !== 'pagada') {
+      const re = el('button', 'btn btn-sm', 'Reintentar pago'); re.dataset.busy = 'Cobrando…'; re.setAttribute('aria-label', 'Reintentar pago de ' + f.id);
+      re.addEventListener('click', async () => {
+        try { await UI.busy(re, () => API.reintentar(f.id)); f.estado = 'pagada'; render(); UI.toast('Pago de ' + f.id + ' realizado.', 'ok'); }
+        catch (e) { UI.toast('El pago fue rechazado. Actualiza tu tarjeta e intenta de nuevo.', 'error'); }
+      });
+      cont.append(re);
+    }
+    ac.append(cont);
+    const total = el('td', 'num', clp(f.total));
+    tr.append(el('td', '', fecha(f.fecha)), el('td', '', f.id + ' · ' + f.concepto), total, est, ac); return tr;
+  }
+
+  function prorrateo(nuevo) {
+    const ciclo = S.plan ? Math.round((S.renueva - S.inicio) / 864e5) : 1, dias = S.plan ? Math.min(ciclo, Math.max(0, Math.ceil((S.renueva - new Date()) / 864e5))) : 1;
+    const neto = Math.round((PLANES[nuevo].precio - (S.plan ? PLANES[S.plan].precio : 0)) * dias / ciclo), iva = Math.round(neto * IVA);
+    return { dias, ciclo, neto, iva, total: neto + iva };
+  }
+  const fPlan = $('f-plan');
+  function resumen() {
+    const id = fPlan.elements.plan?.value, box = $('resumen'); box.replaceChildren();
+    const ok = !!id && id !== S.plan; $('ok-plan').disabled = !ok;
+    if (!ok) { box.append(el('p', 'muted small', 'Elige un plan distinto al actual para ver cuánto se cobra.')); return; }
+    const r = prorrateo(id), linea = (a, b, c) => { const d = el('div', c); d.append(el('span', '', a), el('span', '', b)); box.append(d); };
+    linea(S.plan ? `Diferencia prorrateada (${r.dias} de ${r.ciclo} días)` : 'Primer mes', clp(r.neto)); linea('IVA 19 %', clp(r.iva));
+    linea(r.total >= 0 ? 'Total a pagar hoy' : 'Saldo a favor', clp(Math.abs(r.total)), 'total');
+    if (r.total < 0) box.append(el('p', 'xs muted mt-8', 'Se descuenta de tu próxima factura.'));
+  }
+  function abrirPlan() {
+    $('planes').replaceChildren(...Object.entries(PLANES).map(([id, p]) => {
+      const l = el('label', 'fs-plan'), t = el('div', 'row'), i = el('input'), ul = el('ul');
+      i.type = 'radio'; i.name = 'plan'; i.value = id; i.checked = id === S.plan; t.append(i, el('strong', '', p.nombre));
+      if (id === S.plan) t.append(el('span', 'badge marca', 'Actual'));
+      [`${UI.formato.num(p.usuarios)} usuarios`, `${UI.formato.num(p.estudios)} estudios`, `${p.almacenamiento} GB de almacenamiento`].forEach(x => ul.append(el('li', '', x)));
+      l.append(t, el('div', 'mono', clp(p.precio) + ' / mes + IVA'), ul); return l;
+    }));
+    resumen(); UI.modal.abrir('m-plan');
+  }
+  $('b-cambiar').addEventListener('click', abrirPlan);
+  fPlan.addEventListener('change', resumen);
+  fPlan.addEventListener('submit', async e => {
+    e.preventDefault();
+    try { Object.assign(S, await UI.busy($('ok-plan'), () => API.cambiarPlan(fPlan.elements.plan.value))); UI.modal.cerrar('m-plan'); render(); mostrar('contenido'); UI.toast('Plan cambiado a ' + PLANES[S.plan].nombre + '.', 'ok'); }
+    catch (er) { UI.toast('No pudimos cambiar tu plan. Intenta de nuevo.', 'error'); }
+  });
+
+  function formulario(form, reglas, guardar) {
+    const valida = UI.validar(form, reglas);
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!valida()) { form.querySelector('[aria-invalid="true"]').focus(); return; }
+      try { await UI.busy(form.querySelector('[type=submit]'), () => guardar(form)); } catch (er) { UI.toast('No pudimos guardar. Intenta de nuevo.', 'error'); }
+    });
+  }
+  const fT = $('f-tarjeta'), fD = $('f-datos');
+  fT.elements.numero.addEventListener('input', e => { const n = dig(e.target.value).slice(0, 19), m = marcaDe(n); e.target.value = n.replace(/(\d{4})(?=\d)/g, '$1 '); $('t-marca').hidden = !m; $('t-marca').textContent = m; });
+  fT.elements.vence.addEventListener('input', e => { const n = dig(e.target.value).slice(0, 4); e.target.value = n.length > 2 ? n.slice(0, 2) + '/' + n.slice(2) : n; });
+  fD.elements.rut.addEventListener('blur', e => { e.target.value = RUT.fmt(e.target.value); });
+  formulario(fT, {
+    numero: v => { const n = dig(v); return n.length < 13 || n.length > 19 ? 'Ingresa los 13 a 19 dígitos de tu tarjeta.' : !luhn(n) ? 'El número no es válido. Revisa que no falte ni sobre un dígito.' : ''; },
+    nombre: v => v.trim().length < 3 ? 'Escribe el nombre como aparece en la tarjeta.' : '',
+    vence: v => { const m = v.match(/^(\d{2})\/(\d{2})$/); return !m || m[1] < 1 || m[1] > 12 ? 'Usa el formato MM/AA, por ejemplo 08/28.' : new Date(2000 + +m[2], +m[1], 1) <= new Date() ? 'La tarjeta está vencida.' : ''; },
+    cvc: (v, f) => dig(v).length === (marcaDe(dig(f.numero.value)) === 'American Express' ? 4 : 3) ? '' : 'Ingresa el código de seguridad (CVC).'
+  }, async f => {
+    const n = dig(f.numero.value); S.tarjeta = await API.guardarTarjeta({ marca: marcaDe(n) || 'Tarjeta', ult4: n.slice(-4), vence: f.vence.value });
+    f.reset(); $('t-marca').hidden = true; UI.modal.cerrar('m-tarjeta'); render(); UI.toast('Tarjeta actualizada.', 'ok');
+  });
+  const req = msg => v => v.trim() ? '' : msg;
+  formulario(fD, { rut: v => RUT.ok(v) ? '' : 'RUT no válido. Revisa el dígito verificador.', razon: req('Escribe la razón social.'), giro: req('Escribe el giro.'), direccion: req('Escribe la dirección.') },
+    async f => { S.datos = await API.guardarDatos({ rut: RUT.fmt(f.rut.value), razon: f.razon.value.trim(), giro: f.giro.value.trim(), direccion: f.direccion.value.trim() }); UI.toast('Datos de facturación guardados.', 'ok'); });
+
+  const fC = $('f-cancelar');
+  const validaC = UI.validar(fC, { motivo: v => v ? '' : 'Elige un motivo para continuar.' });
+  fC.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!validaC()) { fC.elements.motivo.focus(); return; }
+    const motivo = { motivo: fC.elements.motivo.value, comentario: fC.elements.comentario.value.trim() };
+    UI.modal.cerrar('m-cancelar');
+    if (!await UI.confirmar({ titulo: 'Cancelar suscripción', texto: `Mantendrás el acceso hasta el ${fecha(S.renueva)}. Después tu cuenta pasa a solo lectura.`, confirmar: 'Sí, cancelar', cancelar: 'Volver', peligro: true })) return;
+    try { await API.cancelar(motivo); S.cancelada = true; render(); fC.reset(); UI.toast('Suscripción cancelada.', 'warn'); }
+    catch (er) { UI.toast('No pudimos cancelar. Intenta de nuevo.', 'error'); }
+  });
+  $('b-cancelar').addEventListener('click', () => UI.modal.abrir('m-cancelar'));
+  $('b-reactivar').addEventListener('click', async e => {
+    try { await UI.busy(e.currentTarget, () => API.reactivar()); S.cancelada = false; render(); UI.toast('Suscripción reactivada.', 'ok'); }
+    catch (er) { UI.toast('No pudimos reactivarla. Intenta de nuevo.', 'error'); }
+  });
+
+  cargar('contenido');
+})();
+</script>
+</body>
+</html>

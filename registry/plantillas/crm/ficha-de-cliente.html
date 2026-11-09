@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Ficha de cliente · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: vista 360 de un cliente con cabecera y acciones (llamar, correo, agendar), pestañas Resumen (KPIs, próximos pasos, datos editables inline), Contactos, Actividad (filtro por tipo, nota rápida con Ctrl+Enter y deshacer) y Documentos (subida con validación y progreso).
+  Proyecto: CRM de Chile Consultores (crm-cumplitec y similares).
+  Cómo aplicarlo: ajusta `ACTIVIDAD` (tipos), `TIPOS_DOC` y `MAX_MB`. Un campo editable nuevo es otro input en #form-datos y una regla en `validar`.
+  Conectar: reemplaza el objeto `API` (tablas clientes, contactos, actividad y storage de Supabase para documentos).
+  Ganchos: #demo (estado), #form-datos, #nota, #filtro-tipo, #archivo, #dlg-contacto, #dlg-agenda.
+-->
+<style>
+  .fc-pag{max-width:1100px;margin:0 auto;padding:28px 16px 80px;position:relative}
+  .fc .btn,.fc .input,.fc .select{min-height:44px}
+  .fc-cab{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
+  .fc-id{display:flex;gap:14px;align-items:center;min-width:0}
+  .fc-id .avatar{width:56px;height:56px;font-size:1.1rem}
+  .fc-id h1{font-size:var(--fs-l);overflow-wrap:anywhere}
+  .fc-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+  .fc-fila{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--borde)}
+  .fc-fila:last-child{border-bottom:0}
+  .fc-fila > div{min-width:0;overflow-wrap:anywhere}
+  .fc-fila .check{min-height:44px}
+  .fc-hecho{text-decoration:line-through;color:var(--texto-2)}
+  .fc-det{display:grid;grid-template-columns:auto 1fr;gap:8px 20px;margin:0}
+  .fc-det dt{color:var(--texto-2);font-size:var(--fs-s)} .fc-det dd{margin:0;overflow-wrap:anywhere}
+  .fc-linea{list-style:none;margin:16px 0 0;padding:0 0 0 14px;border-left:2px solid var(--borde-2)}
+  .fc-linea li{margin-bottom:14px;font-size:var(--fs-s)}
+  .fc-linea time{color:var(--texto-2);font-size:var(--fs-xs);margin-left:8px}
+  .fc-dlg{background:#161624;color:var(--texto);border:1px solid var(--borde-2);border-radius:var(--r);padding:24px;width:min(480px,calc(100vw - 32px));max-height:92dvh;overflow:auto}
+  .fc-dlg::backdrop{background:rgba(0,0,0,.6)}
+  [hidden]{display:none}
+</style>
+</head>
+<body class="fc">
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="fc-pag">
+  <div class="row wrap mb-16"><label class="small muted" for="demo">Estado de demo</label>
+    <select id="demo" class="select" style="width:auto"><option value="ok">Con datos</option><option value="cargando">Cargando</option><option value="vacio">Cliente nuevo (vacío)</option><option value="error">Error</option></select></div>
+  <div id="cargando" aria-busy="true" hidden><div class="skeleton titulo"></div><div class="skeleton bloque"></div></div>
+  <div id="error" class="estado" role="alert" hidden><h3>No pudimos cargar al cliente</h3><p>Revisa tu conexión e inténtalo de nuevo.</p><button class="btn" id="reintentar" type="button">Reintentar</button></div>
+
+  <div id="ficha" hidden>
+    <header class="card fc-cab">
+      <div class="fc-id"><span class="avatar" id="c-ini" aria-hidden="true"></span>
+        <div><h1 id="c-nombre"></h1><p class="muted small" id="c-sub"></p><div class="row wrap mt-8"><span class="badge" id="c-estado"></span><span class="small muted" id="c-resp"></span></div></div></div>
+      <div class="row wrap"><button class="btn btn-sec" id="llamar" type="button">Llamar</button><button class="btn btn-sec" id="correo" type="button">Correo</button><button class="btn" id="agendar" type="button">Agendar</button></div>
+    </header>
+    <div class="tabs mt-24" role="tablist" aria-label="Secciones de la ficha">
+      <button role="tab" id="t1" aria-controls="p1" aria-selected="true">Resumen</button><button role="tab" id="t2" aria-controls="p2" aria-selected="false">Contactos</button>
+      <button role="tab" id="t3" aria-controls="p3" aria-selected="false">Actividad</button><button role="tab" id="t4" aria-controls="p4" aria-selected="false">Documentos</button>
+    </div>
+
+    <section id="p1" role="tabpanel" aria-labelledby="t1">
+      <div class="grid grid-3" id="kpis"></div>
+      <div class="grid grid-2 mt-16">
+        <div class="card"><div class="card-head"><h3>Próximos pasos</h3></div><ul class="fc-lista" id="pasos"></ul></div>
+        <div class="card"><div class="card-head"><h3>Datos del cliente</h3><button class="btn btn-sec" id="editar" type="button">Editar</button></div>
+          <dl class="fc-det" id="datos-ver"></dl>
+          <form id="form-datos" novalidate hidden>
+            <div class="campo"><label for="d-empresa">Razón social</label><input id="d-empresa" name="empresa" class="input" autocomplete="organization"><div class="error-msg" role="alert"></div></div>
+            <div class="campo"><label for="d-rut">RUT</label><input id="d-rut" name="rut" class="input" autocomplete="off" placeholder="12.345.678-5"><div class="error-msg" role="alert"></div></div>
+            <div class="campo"><label for="d-giro">Giro</label><input id="d-giro" name="giro" class="input" autocomplete="off"><div class="error-msg" role="alert"></div></div>
+            <div class="campo"><label for="d-estado">Estado</label><select id="d-estado" name="estado" class="select"></select><div class="error-msg"></div></div>
+            <div class="campo"><label for="d-resp">Responsable</label><select id="d-resp" name="responsable" class="select"></select><div class="error-msg"></div></div>
+            <p class="aviso warn" id="sin-guardar" role="status" hidden>Tienes cambios sin guardar.</p>
+            <div class="modal-foot"><button class="btn btn-sec" type="button" id="d-cancelar">Cancelar</button><button class="btn" type="submit" data-busy="Guardando…">Guardar</button></div>
+          </form></div>
+      </div>
+    </section>
+
+    <section id="p2" role="tabpanel" aria-labelledby="t2" hidden>
+      <div class="card"><div class="card-head"><h3>Contactos</h3><button class="btn btn-sec" id="nuevo-contacto" type="button">Agregar contacto</button></div><ul class="fc-lista" id="contactos"></ul></div>
+    </section>
+
+    <section id="p3" role="tabpanel" aria-labelledby="t3" hidden>
+      <div class="card">
+        <div class="campo"><label for="nota">Nota rápida</label><textarea id="nota" class="textarea" style="min-height:72px"></textarea><div class="ayuda">Ctrl+Enter para agregar.</div><div class="error-msg" id="nota-err" role="alert"></div></div>
+        <div class="row between wrap mt-8"><button class="btn" id="add-nota" type="button">Agregar nota</button>
+          <span class="row"><label class="small muted" for="filtro-tipo">Tipo</label><select id="filtro-tipo" class="select" style="width:auto"></select></span></div>
+        <ol class="fc-linea" id="actividad"></ol>
+      </div>
+    </section>
+
+    <section id="p4" role="tabpanel" aria-labelledby="t4" hidden>
+      <div class="card"><div class="card-head"><h3>Documentos</h3><span><input id="archivo" type="file" hidden accept=".pdf,.docx,.xlsx,.png,.jpg"><button class="btn btn-sec" id="subir" type="button">Subir documento</button></span></div>
+        <p class="ayuda">PDF, Word, Excel, PNG o JPG. Máximo 5 MB.</p><p class="error-msg" id="doc-err" role="alert"></p>
+        <div class="progreso" id="prog" role="progressbar" aria-label="Progreso de subida" aria-valuemin="0" aria-valuemax="100" hidden><span></span></div>
+        <ul class="fc-lista mt-16" id="docs"></ul></div>
+    </section>
+  </div>
+</main>
+
+<dialog class="fc-dlg" id="dlg-contacto" aria-labelledby="dc-t"><form id="form-contacto" novalidate>
+  <h2 id="dc-t">Agregar contacto</h2>
+  <div class="campo mt-16"><label for="k-nombre">Nombre</label><input id="k-nombre" name="nombre" class="input" autocomplete="name"><div class="error-msg" role="alert"></div></div>
+  <div class="campo"><label for="k-rol">Rol</label><input id="k-rol" name="rol" class="input" autocomplete="organization-title"><div class="error-msg" role="alert"></div></div>
+  <div class="campo"><label for="k-correo">Correo</label><input id="k-correo" name="correo" class="input" type="email" inputmode="email" autocomplete="email"><div class="error-msg" role="alert"></div></div>
+  <div class="campo"><label for="k-tel">Teléfono</label><input id="k-tel" name="telefono" class="input" type="tel" inputmode="tel" autocomplete="tel" placeholder="+56 9 1234 5678"><div class="error-msg" role="alert"></div></div>
+  <div class="modal-foot"><button class="btn btn-sec" type="button" data-cerrar>Cancelar</button><button class="btn" type="submit" data-busy="Guardando…">Guardar contacto</button></div>
+</form></dialog>
+
+<dialog class="fc-dlg" id="dlg-agenda" aria-labelledby="da-t"><form id="form-agenda" novalidate>
+  <h2 id="da-t">Agendar reunión</h2>
+  <div class="campo mt-16"><label for="a-tema">Tema</label><input id="a-tema" name="tema" class="input" autocomplete="off"><div class="error-msg" role="alert"></div></div>
+  <div class="campo"><label for="a-fecha">Fecha</label><input id="a-fecha" name="fecha" class="input" type="date"><div class="error-msg" role="alert"></div></div>
+  <div class="modal-foot"><button class="btn btn-sec" type="button" data-cerrar>Cancelar</button><button class="btn" type="submit" data-busy="Agendando…">Agendar</button></div>
+</form></dialog>
+
+<script src="../[base]/base.js"></script>
+<script>
+(() => {
+  const ACTIVIDAD = { nota:{n:'Nota',c:'info'}, llamada:{n:'Llamada',c:'marca'}, reunion:{n:'Reunión',c:'warn'}, estudio:{n:'Estudio',c:'ok'}, factura:{n:'Factura',c:''} };
+  const ESTADOS = ['Activo', 'En riesgo', 'Inactivo'];
+  const RESPONSABLES = ['Camila Rojas', 'Matías Soto', 'Valentina Pino'];
+  const TIPOS_DOC = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel', png: 'Imagen', jpg: 'Imagen' };
+  const MAX_MB = 5;
+
+  const SEMILLA = {
+    empresa: 'Agroexportadora Río Claro SpA', rut: '76.482.915-8', giro: 'Exportación de frutas frescas', estado: 'Activo', responsable: 'Camila Rojas',
+    kpis: { estudios: 6, facturacion: 18400000, nps: 42 },
+    pasos: [{ t: 'Enviar informe final de clima laboral', f: '2026-11-12', hecho: false }, { t: 'Reunión de cierre con gerencia', f: '2026-11-19', hecho: false }, { t: 'Renovar contrato anual', f: '2026-12-05', hecho: true }],
+    contactos: [{ id: 1, nombre: 'Paula Fuentes', rol: 'Gerenta de Personas', correo: 'paula.fuentes@rioclaro.cl', telefono: '+56 9 4821 3345' }, { id: 2, nombre: 'Rodrigo Vera', rol: 'Contador general', correo: 'rodrigo.vera@rioclaro.cl', telefono: '+56 9 5530 1182' }],
+    actividad: [
+      { id: 1, f: '2026-11-06T11:00', tipo: 'reunion', t: 'Presentación de resultados preliminares' }, { id: 2, f: '2026-11-03T09:30', tipo: 'llamada', t: 'Coordinación de visitas a terreno' },
+      { id: 3, f: '2026-10-28T16:00', tipo: 'factura', t: 'Factura N° 1042 emitida por $3.200.000' }, { id: 4, f: '2026-10-21T10:15', tipo: 'estudio', t: 'Estudio de clima laboral 2026 iniciado' },
+      { id: 5, f: '2026-10-14T12:00', tipo: 'nota', t: 'Piden incluir a la planta de Rancagua en el próximo estudio' }],
+    documentos: [{ id: 1, nombre: 'Propuesta clima 2026.pdf', tipo: 'PDF', bytes: 482000, f: '2026-10-10' }, { id: 2, nombre: 'Contrato anual.pdf', tipo: 'PDF', bytes: 1250000, f: '2026-09-02' }, { id: 3, nombre: 'Base de personal.xlsx', tipo: 'Excel', bytes: 96000, f: '2026-10-18' }]
+  };
+
+  // CONECTAR: reemplaza cada método por Supabase (select, insert, update, storage.upload/download).
+  const sim = v => new Promise(r => setTimeout(() => r(v), 300));
+  const API = {
+    cargar: () => new Promise((ok, mal) => { const e = $('#demo').value; if (e === 'cargando') return; setTimeout(() => e === 'error' ? mal(new Error('sin conexión')) : ok(e === 'vacio' ? { ...SEMILLA, kpis: { estudios: 0, facturacion: 0, nps: null }, pasos: [], contactos: [], actividad: [], documentos: [] } : JSON.parse(JSON.stringify(SEMILLA))), 500); }),
+    guardar: cambios => sim(cambios), crearContacto: k => sim({ ...k, id: Date.now() }), crearActividad: a => sim({ ...a, id: Date.now() }),
+    borrarActividad: id => sim(id), subir: f => sim({ id: Date.now(), nombre: f.name, tipo: TIPOS_DOC[f.name.split('.').pop().toLowerCase()], bytes: f.size, f: ahora().slice(0, 10) }),
+    descargar: d => sim(new Blob(['Documento de ejemplo: ' + d.nombre], { type: 'text/plain' }))
+  };
+
+  const $ = s => document.querySelector(s);
+  const h = (t, p = {}, ...c) => { const e = document.createElement(t); Object.assign(e, p); e.append(...c); return e; };
+  const fd = iso => UI.formato.fecha(iso + 'T12:00:00');
+  const fh = iso => new Date(iso).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
+  const ahora = () => new Date().toISOString().slice(0, 16);
+  const mb = b => b < 1e6 ? Math.max(1, Math.round(b / 1e3)) + ' KB' : (b / 1e6).toFixed(1).replace('.', ',') + ' MB';
+  const vacioTxt = t => h('li', { className: 'muted small', textContent: t });
+  const fila = (...c) => h('li', { className: 'fc-fila' }, ...c);
+  const campoErr = (el, msg) => { el.closest('.campo').classList.toggle('invalido', !!msg); el.setAttribute('aria-invalid', !!msg); el.closest('.campo').querySelector('.error-msg').textContent = msg; };
+  const rutOk = r => { const t = r.replace(/[.\s-]/g, '').toUpperCase(); if (!/^\d{7,8}[\dK]$/.test(t)) return false; let s = 0, m = 2; for (let i = t.length - 2; i >= 0; i--) { s += t[i] * m; m = m === 7 ? 2 : m + 1; } const d = 11 - s % 11; return (d === 11 ? '0' : d === 10 ? 'K' : String(d)) === t.slice(-1); };
+  const telOk = v => /^(\+?56)?\s?9[\s-]?\d{4}[\s-]?\d{4}$/.test(v.trim());
+  const telFmt = v => { const d = v.replace(/\D/g, '').slice(-8); return '+56 9 ' + d.slice(0, 4) + ' ' + d.slice(4); };
+
+  let c = null;
+
+  function cabecera() {
+    $('#c-ini').textContent = c.empresa.split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase();
+    $('#c-nombre').textContent = c.empresa; $('#c-sub').textContent = 'RUT ' + c.rut + ' · ' + c.giro;
+    const e = $('#c-estado'); e.textContent = c.estado; e.className = 'badge ' + { Activo: 'ok', 'En riesgo': 'warn', Inactivo: '' }[c.estado];
+    $('#c-resp').textContent = 'Responsable: ' + c.responsable;
+    $('#datos-ver').replaceChildren(...[['Razón social', c.empresa], ['RUT', c.rut], ['Giro', c.giro], ['Estado', c.estado], ['Responsable', c.responsable]].flatMap(([k, v]) => [h('dt', { textContent: k }), h('dd', { textContent: v })]));
+  }
+
+  function resumen() {
+    const kpi = (l, v) => h('div', { className: 'card kpi' }, h('span', { className: 'label', textContent: l }), h('span', { className: 'valor', textContent: v }));
+    $('#kpis').replaceChildren(kpi('Estudios realizados', String(c.kpis.estudios)), kpi('Facturación anual', UI.formato.clp(c.kpis.facturacion)), kpi('NPS', c.kpis.nps === null ? 'Sin datos' : String(c.kpis.nps)));
+    $('#pasos').replaceChildren(...(c.pasos.length ? c.pasos.map(p => {
+      const cb = h('input', { type: 'checkbox', checked: p.hecho }), tx = h('span', { className: p.hecho ? 'fc-hecho' : '', textContent: p.t + ' (' + fd(p.f) + ')' + (p.hecho ? ', hecho' : '') });
+      cb.addEventListener('change', () => { p.hecho = cb.checked; resumen(); });
+      return fila(h('label', { className: 'check' }, cb, tx));
+    }) : [vacioTxt('Aún no hay próximos pasos. Agenda una reunión para empezar.')]));
+  }
+
+  async function copiar(txt) {
+    try { await navigator.clipboard.writeText(txt); UI.toast('Copiado: ' + txt, 'ok'); } catch (e) { UI.toast('No pudimos copiar. Selecciona el texto a mano.', 'error'); }
+  }
+
+  function contactos() {
+    $('#contactos').replaceChildren(...(c.contactos.length ? c.contactos.map(k => {
+      const b = (t, v) => { const x = h('button', { className: 'btn btn-sm btn-sec', type: 'button', textContent: t }); x.addEventListener('click', () => copiar(v)); return x; };
+      return fila(h('div', {}, h('strong', { textContent: k.nombre }), ' ', h('span', { className: 'badge marca', textContent: k.rol }), h('div', { className: 'small muted', textContent: k.correo + ' · ' + k.telefono })), h('div', { className: 'row wrap' }, b('Copiar correo', k.correo), b('Copiar teléfono', k.telefono)));
+    }) : [vacioTxt('Este cliente aún no tiene contactos.')]));
+  }
+
+  function actividad() {
+    const f = $('#filtro-tipo').value, v = c.actividad.filter(a => !f || a.tipo === f).slice().reverse().sort((a, b) => b.f.localeCompare(a.f));
+    $('#actividad').replaceChildren(...(v.length ? v.map(a => h('li', {}, h('span', { className: 'badge ' + ACTIVIDAD[a.tipo].c, textContent: ACTIVIDAD[a.tipo].n }), h('time', { textContent: fh(a.f) }), h('div', { textContent: a.t }))) : [vacioTxt('No hay actividad de este tipo.')]));
+  }
+
+  function documentos() {
+    $('#docs').replaceChildren(...(c.documentos.length ? c.documentos.map(d => {
+      const b = h('button', { className: 'btn btn-sm btn-sec', type: 'button', textContent: 'Descargar', ariaLabel: 'Descargar ' + d.nombre });
+      b.addEventListener('click', () => UI.busy(b, async () => { const a = h('a', { href: URL.createObjectURL(await API.descargar(d)), download: d.nombre }); a.click(); URL.revokeObjectURL(a.href); }));
+      return fila(h('div', {}, h('strong', { textContent: d.nombre }), h('div', { className: 'small muted', textContent: d.tipo + ' · ' + mb(d.bytes) + ' · ' + fd(d.f) })), b);
+    }) : [vacioTxt('Aún no hay documentos. Sube el primero.')]));
+  }
+
+  async function agregarActividad(tipo, t) {
+    const a = await API.crearActividad({ f: ahora(), tipo, t }); c.actividad.push(a); actividad(); return a;
+  }
+
+  async function cargar() {
+    $('#cargando').hidden = false; $('#error').hidden = true; $('#ficha').hidden = true;
+    try { c = await API.cargar(); } catch (e) { $('#cargando').hidden = true; $('#error').hidden = false; $('#reintentar').focus(); return; }
+    $('#cargando').hidden = true; $('#ficha').hidden = false;
+    cabecera(); resumen(); contactos(); actividad(); documentos();
+  }
+
+  [['#d-estado', ESTADOS], ['#d-resp', RESPONSABLES]].forEach(([s, l]) => $(s).replaceChildren(...l.map(x => h('option', { value: x, textContent: x }))));
+  $('#filtro-tipo').replaceChildren(h('option', { value: '', textContent: 'Todos' }), ...Object.entries(ACTIVIDAD).map(([k, v]) => h('option', { value: k, textContent: v.n })));
+  $('#filtro-tipo').addEventListener('change', actividad);
+  $('#demo').addEventListener('change', cargar); $('#reintentar').addEventListener('click', cargar);
+  document.querySelectorAll('[data-cerrar]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
+
+  const fd1 = $('#form-datos'), reglas = { empresa: v => v.trim() ? '' : 'Escribe la razón social.', rut: v => rutOk(v) ? '' : 'RUT no válido. Revisa el dígito verificador.', giro: v => v.trim() ? '' : 'Escribe el giro.' };
+  const sucio = () => Object.keys(c).some(k => fd1.elements[k] && fd1.elements[k].value !== c[k]);
+  const salirEdicion = () => { fd1.hidden = true; $('#datos-ver').hidden = false; $('#editar').hidden = false; $('#sin-guardar').hidden = true; $('#editar').focus(); };
+  $('#editar').addEventListener('click', () => {
+    Object.keys(c).forEach(k => { if (fd1.elements[k]) fd1.elements[k].value = c[k]; });
+    fd1.querySelectorAll('.campo').forEach(x => { x.classList.remove('invalido'); x.querySelector('.error-msg').textContent = ''; });
+    fd1.hidden = false; $('#datos-ver').hidden = true; $('#editar').hidden = true; fd1.elements.empresa.focus();
+  });
+  fd1.addEventListener('input', () => { $('#sin-guardar').hidden = !sucio(); });
+  $('#d-cancelar').addEventListener('click', salirEdicion);
+  fd1.addEventListener('submit', async e => {
+    e.preventDefault();
+    const malo = Object.keys(reglas).filter(k => { const m = reglas[k](fd1.elements[k].value); campoErr(fd1.elements[k], m); return m; });
+    if (malo.length) { fd1.elements[malo[0]].focus(); return; }
+    const nuevo = Object.fromEntries(Object.keys(c).filter(k => fd1.elements[k]).map(k => [k, fd1.elements[k].value.trim()]));
+    await UI.busy(fd1.querySelector('[type=submit]'), () => API.guardar(nuevo));
+    Object.assign(c, nuevo); cabecera(); salirEdicion(); UI.toast('Datos guardados', 'ok');
+  });
+  window.addEventListener('beforeunload', e => { if (c && !fd1.hidden && sucio()) e.preventDefault(); });
+
+  async function nota() {
+    const t = $('#nota').value.trim();
+    if (!t) { $('#nota-err').textContent = 'Escribe algo antes de agregar la nota.'; $('#nota').setAttribute('aria-invalid', 'true'); $('#nota').focus(); return; }
+    $('#nota-err').textContent = ''; $('#nota').removeAttribute('aria-invalid');
+    const a = await agregarActividad('nota', t); $('#nota').value = '';
+    UI.toast('Nota agregada', 'ok', { duracion: 8000, deshacer: async () => { await API.borrarActividad(a.id); c.actividad = c.actividad.filter(x => x.id !== a.id); actividad(); } });
+  }
+  $('#add-nota').addEventListener('click', nota);
+  $('#nota').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); nota(); } });
+
+  const dialogo = (dlg, form, reglas, enviar) => {
+    const validar = UI.validar(form, reglas);
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!validar()) { form.querySelector('[aria-invalid="true"]').focus(); return; }
+      await UI.busy(form.querySelector('[type=submit]'), () => enviar(form.elements)); dlg.close();
+    });
+    return () => { form.reset(); form.querySelectorAll('.invalido').forEach(x => x.classList.remove('invalido')); form.querySelectorAll('.error-msg').forEach(x => { x.textContent = ''; }); form.querySelectorAll('[aria-invalid]').forEach(x => x.removeAttribute('aria-invalid')); dlg.showModal(); };
+  };
+  const abrirContacto = dialogo($('#dlg-contacto'), $('#form-contacto'), {
+    nombre: v => v.trim() ? '' : 'Escribe el nombre.', rol: v => v.trim() ? '' : 'Escribe el rol.',
+    correo: v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) ? '' : 'Usa un correo válido, por ejemplo nombre@empresa.cl.', telefono: v => telOk(v) ? '' : 'Usa un celular chileno: +56 9 1234 5678.'
+  }, async f => { c.contactos.push(await API.crearContacto({ nombre: f.nombre.value.trim(), rol: f.rol.value.trim(), correo: f.correo.value.trim(), telefono: telFmt(f.telefono.value) })); contactos(); UI.toast('Contacto agregado', 'ok'); });
+  const abrirAgenda = dialogo($('#dlg-agenda'), $('#form-agenda'), { tema: v => v.trim() ? '' : 'Escribe el tema de la reunión.', fecha: v => v ? '' : 'Elige una fecha.' },
+    async f => { await agregarActividad('reunion', 'Reunión agendada: ' + f.tema.value.trim() + ' (' + fd(f.fecha.value) + ')'); UI.toast('Reunión agendada', 'ok'); });
+  $('#nuevo-contacto').addEventListener('click', abrirContacto); $('#agendar').addEventListener('click', abrirAgenda);
+  [['#llamar', 'telefono', 'tel:'], ['#correo', 'correo', 'mailto:']].forEach(([s, k, p]) => $(s).addEventListener('click', () => {
+    if (!c.contactos.length) { UI.toast('Agrega un contacto primero.', 'warn'); return; }
+    location.href = p + c.contactos[0][k].replace(/\s/g, '');
+  }));
+
+  const arch = $('#archivo');
+  $('#subir').addEventListener('click', () => arch.click());
+  arch.addEventListener('change', async () => {
+    const f = arch.files[0]; if (!f) return;
+    const err = !TIPOS_DOC[f.name.split('.').pop().toLowerCase()] ? 'Tipo no permitido. Sube PDF, Word, Excel, PNG o JPG.' : f.size > MAX_MB * 1048576 ? 'El archivo pesa ' + mb(f.size) + '. El máximo es ' + MAX_MB + ' MB.' : '';
+    $('#doc-err').textContent = err; arch.value = '';
+    if (err) { $('#subir').setAttribute('aria-invalid', 'true'); return; }
+    $('#subir').removeAttribute('aria-invalid');
+    const p = $('#prog'); p.hidden = false;
+    for (let i = 0; i <= 100; i += 20) { p.style.setProperty('--p', i / 100); p.setAttribute('aria-valuenow', i); await new Promise(r => setTimeout(r, 150)); }
+    c.documentos.unshift(await API.subir(f)); p.hidden = true; documentos(); UI.toast('Documento subido', 'ok');
+  });
+
+  cargar();
+})();
+</script>
+</body>
+</html>

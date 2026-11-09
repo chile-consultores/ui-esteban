@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Encuesta de clima · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: encuesta pública de clima laboral por enlace con token (?t=...). Bienvenida, una pregunta por pantalla con progreso, resumen de confirmación, gracias y estados de enlace inválido, expirado o ya respondida.
+  Proyecto: Clima Laboral (respondentes sin login).
+  Cómo aplicarlo: edita PREGUNTAS (única fuente). Un tipo nuevo es una entrada en QUESTION_TYPES con render, valor, valida y texto.
+  Conectar: API.validarEnlace(token) devuelve 'ok'|'invalido'|'expirado'|'respondida' y API.enviar(respuestas) guarda sin datos personales (Supabase: rpc que marca el token como usado). El avance usa localStorage con try/catch.
+  Ganchos: PREGUNTAS, QUESTION_TYPES, ESTADOS, API, [data-pant], #enc-demo (selector de demo, bórralo en producción).
+  Reglas UX: una pregunta a la vez, foco al enunciado, números eligen opción, Enter avanza, error junto a la pregunta, confirmar antes de enviar, el avance no se pierde.
+-->
+<style>
+  .enc-pagina{max-width:680px;margin:0 auto;padding:24px 16px 64px;display:flex;flex-direction:column;gap:20px}
+  .enc-cab{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .enc-pagina .btn,.enc-pagina .select{min-height:44px}
+  .enc-pagina .select{width:auto;flex:none}
+  .enc-card{display:flex;flex-direction:column;gap:16px;padding:24px}
+  [tabindex="-1"]:focus{outline:none}
+  .enc-datos{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+  .enc-datos li{padding:12px 14px;border:1px solid var(--borde);border-radius:var(--r-s);background:var(--superficie);font-size:var(--fs-s)}
+  .enc-escala{display:grid;gap:8px}
+  .enc-likert{grid-template-columns:repeat(5,1fr)}
+  .enc-nps{grid-template-columns:repeat(11,1fr)}
+  .enc-sino{grid-template-columns:1fr 1fr}
+  .enc-ext{grid-column:1/-1;display:flex;justify-content:space-between;font-size:var(--fs-xs);color:var(--texto-2)}
+  .enc-op{position:relative;display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 12px;border:1px solid var(--borde-2);border-radius:var(--r-s);background:var(--fondo-2);cursor:pointer;font-size:var(--fs-s)}
+  .enc-op input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+  .enc-op:hover{background:var(--superficie-2)}
+  .enc-op::before{content:"";flex:none;width:16px;height:16px;border-radius:50%;border:2px solid var(--borde-2)}
+  .enc-op:has(input[type=checkbox])::before{border-radius:4px}
+  .enc-op:has(input:checked){border-color:var(--marca);background:var(--marca-l)}
+  .enc-op:has(input:checked)::before{border-color:var(--marca);background:var(--marca);box-shadow:inset 0 0 0 3px var(--fondo-2)}
+  .enc-op:has(input:focus-visible){outline:2px solid var(--marca);outline-offset:2px}
+  .enc-likert .enc-op{flex-direction:column;justify-content:center;text-align:center}
+  .enc-nps .enc-op{justify-content:center;padding:8px 0;font-weight:600}
+  .enc-nps .enc-op::before{display:none}
+  .enc-nps .enc-op:has(input:checked){border-width:2px}
+  .enc-cont{text-align:right}
+  .enc-lista{list-style:none;margin:0;padding:0}
+  .enc-fila{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:12px 0;border-bottom:1px solid var(--borde)}
+  .enc-q{color:var(--texto-2);font-size:var(--fs-s)}
+  .enc-a{font-weight:500;overflow-wrap:anywhere}
+  .enc-fila .btn{grid-column:2;grid-row:1/3;align-self:center}
+  @media (max-width:560px){
+    .enc-card{padding:16px}
+    .enc-likert{grid-template-columns:1fr}
+    .enc-likert .enc-op{flex-direction:row;justify-content:flex-start;text-align:left}
+    .enc-nps{grid-template-columns:repeat(6,1fr)}
+  }
+  [hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="enc-pagina">
+  <div class="enc-cab">
+    <div class="logo"><span class="dot"></span>Chile Consultores</div>
+    <div><label for="enc-demo" class="sr-only">Estado del enlace (demo)</label>
+      <select id="enc-demo" class="select">
+        <option value="ok">Demo: enlace válido</option><option value="invalido">Demo: enlace inválido</option>
+        <option value="expirado">Demo: enlace expirado</option><option value="respondida">Demo: ya respondida</option>
+      </select></div>
+  </div>
+
+  <section class="card enc-card" data-pant="cargando" aria-busy="true">
+    <div class="skeleton titulo"></div><div class="skeleton bloque"></div>
+  </section>
+
+  <section class="card enc-card" data-pant="bienvenida" hidden>
+    <h1 class="gradient-text" tabindex="-1">Encuesta de clima laboral</h1>
+    <ul class="enc-datos">
+      <li><strong>Qué es:</strong> la encuesta de clima de Transportes Maitén Ltda. Tu opinión ayuda a mejorar cómo se trabaja ahí.</li>
+      <li><strong>Cuánto dura:</strong> <span id="enc-dur"></span></li>
+      <li><strong>Es anónima:</strong> no pedimos tu nombre, correo ni RUT. Los resultados se muestran agrupados, nunca por persona.</li>
+    </ul>
+    <div class="aviso info" id="enc-retoma" role="status" hidden><span id="enc-retoma-t"></span></div>
+    <div class="row wrap">
+      <button type="button" class="btn btn-lg" id="enc-comenzar">Comenzar</button>
+      <button type="button" class="btn btn-ghost" id="enc-reiniciar" hidden>Empezar de nuevo</button>
+    </div>
+  </section>
+
+  <section class="card enc-card" data-pant="pregunta" hidden>
+    <div class="stack" style="gap:8px">
+      <p class="small muted" id="enc-cuenta"></p>
+      <div class="progreso" id="enc-barra" role="progressbar" aria-label="Progreso de la encuesta" aria-valuemin="0" aria-valuemax="100"><span></span></div>
+    </div>
+    <h2 id="enc-enun" tabindex="-1"></h2>
+    <p class="small muted" id="enc-ayuda"></p>
+    <div class="campo">
+      <div id="enc-cuerpo" aria-labelledby="enc-enun" aria-describedby="enc-ayuda"></div>
+      <p class="error-msg" id="enc-err" role="alert"></p>
+    </div>
+    <div class="row between">
+      <button type="button" class="btn btn-sec" id="enc-atras">Atrás</button>
+      <button type="button" class="btn" id="enc-sig">Siguiente</button>
+    </div>
+  </section>
+
+  <section class="card enc-card" data-pant="resumen" hidden>
+    <h2 tabindex="-1">Revisa tus respuestas</h2>
+    <p class="small muted">Al enviar no podrás cambiarlas. Tus respuestas son anónimas.</p>
+    <ol class="enc-lista" id="enc-lista"></ol>
+    <p class="error-msg" id="enc-err2" role="alert"></p>
+    <div class="row between">
+      <button type="button" class="btn btn-sec" id="enc-volver">Volver</button>
+      <button type="button" class="btn" id="enc-enviar">Enviar respuestas</button>
+    </div>
+  </section>
+
+  <section class="card enc-card" data-pant="estado" hidden>
+    <div class="estado">
+      <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path id="enc-ed" d=""/></svg></div>
+      <h2 id="enc-et" tabindex="-1"></h2><p id="enc-ex"></p>
+    </div>
+  </section>
+</main>
+<script>
+/* PUNTO DE CONEXION: reemplaza por Supabase. validarEnlace consulta el token; enviar guarda las respuestas sin datos personales. */
+const esperar = ms => new Promise(r => setTimeout(r, ms));
+const API = {
+  validarEnlace: async token => { await esperar(400); return document.querySelector('#enc-demo').value; },
+  enviar: async respuestas => { await esperar(700); }
+};
+
+const PREGUNTAS = [
+  { id: 'orgullo', tipo: 'likert', obligatoria: true, texto: 'Me siento orgulloso(a) de trabajar en esta empresa.' },
+  { id: 'feedback', tipo: 'likert', obligatoria: true, texto: 'Mi jefatura directa me da retroalimentación útil.' },
+  { id: 'recomendar', tipo: 'nps', obligatoria: true, texto: '¿Qué tan probable es que recomiendes esta empresa como lugar de trabajo?' },
+  { id: 'remoto', tipo: 'unica', obligatoria: true, texto: '¿Con qué frecuencia trabajas de forma remota?', opciones: ['Nunca', 'Algunos días al mes', 'Algunos días a la semana', 'Siempre'] },
+  { id: 'beneficios', tipo: 'multiple', max: 3, texto: '¿Qué beneficios valoras más?', ayuda: 'Elige hasta 3.', opciones: ['Horario flexible', 'Seguro complementario', 'Capacitación', 'Bono de desempeño', 'Días libres extra'] },
+  { id: 'carga', tipo: 'si_no', obligatoria: true, texto: '¿Sientes que tu carga de trabajo es manejable?' },
+  { id: 'herramientas', tipo: 'likert', texto: 'Tengo las herramientas necesarias para hacer bien mi trabajo.' },
+  { id: 'cambio', tipo: 'texto', max: 500, texto: '¿Qué cambiarías primero para mejorar el clima laboral?', ayuda: 'No incluyas nombres ni datos personales.' }
+];
+
+const LIKERT = ['Muy en desacuerdo', 'En desacuerdo', 'Ni de acuerdo ni en desacuerdo', 'De acuerdo', 'Muy de acuerdo'];
+const el = (t, c, x) => { const n = document.createElement(t); if (c) n.className = c; if (x != null) n.textContent = x; return n; };
+function opcion(c, tipo, p, valor, texto, n, marcado) {
+  const l = el('label', 'enc-op'), i = el('input');
+  i.type = tipo; i.name = p.id; i.value = valor; i.checked = marcado;
+  if (n != null) i.dataset.n = n;
+  l.append(i, el('span', null, texto)); c.append(l);
+}
+const leerRadio = c => { const x = c.querySelector('input:checked'); return x ? x.value : null; };
+const radios = (c, clase, p, lista, v) => {
+  c.className = 'enc-escala ' + clase; c.setAttribute('role', 'radiogroup');
+  lista.forEach(([val, txt], k) => opcion(c, 'radio', p, val, txt, k + 1, v === val));
+};
+
+/* Una entrada por tipo: render(contenedor, pregunta, valor), valor(contenedor), valida(pregunta, valor no vacio), texto(pregunta, valor) para el resumen. */
+const QUESTION_TYPES = {
+  likert: {
+    render: (c, p, v) => radios(c, 'enc-likert', p, LIKERT.map((t, k) => [k + 1, `${k + 1}. ${t}`]), v),
+    valor: c => { const x = leerRadio(c); return x && +x; },
+    valida: (p, v) => Number.isInteger(v) && v >= 1 && v <= 5 ? '' : 'Elige un valor de 1 a 5.',
+    texto: (p, v) => `${v} de 5 (${LIKERT[v - 1]})`
+  },
+  nps: {
+    render: (c, p, v) => {
+      c.className = 'enc-escala enc-nps'; c.setAttribute('role', 'radiogroup');
+      for (let k = 0; k <= 10; k++) opcion(c, 'radio', p, k, k, k < 10 ? k : null, v === k);
+      const f = el('div', 'enc-ext'); f.append(el('span', null, '0 = Nada probable'), el('span', null, '10 = Muy probable')); c.append(f);
+    },
+    valor: c => { const x = leerRadio(c); return x && +x; },
+    valida: (p, v) => Number.isInteger(v) && v >= 0 && v <= 10 ? '' : 'Elige un valor de 0 a 10.',
+    texto: (p, v) => `${v} de 10`
+  },
+  unica: {
+    render: (c, p, v) => radios(c, '', p, p.opciones.map(t => [t, t]), v),
+    valor: leerRadio,
+    valida: (p, v) => p.opciones.includes(v) ? '' : 'Elige una opción.',
+    texto: (p, v) => v
+  },
+  multiple: {
+    render: (c, p, v) => {
+      c.className = 'enc-escala'; c.setAttribute('role', 'group');
+      p.opciones.forEach((t, k) => opcion(c, 'checkbox', p, t, t, k + 1, (v || []).includes(t)));
+    },
+    valor: c => [...c.querySelectorAll('input:checked')].map(x => x.value),
+    valida: (p, v) => v.length > p.max ? `Elige hasta ${p.max} opciones.` : '',
+    texto: (p, v) => v.join(', ')
+  },
+  texto: {
+    render: (c, p, v) => {
+      const t = el('textarea', 'textarea'), n = el('p', 'small muted enc-cont');
+      t.maxLength = p.max; t.value = v || ''; t.setAttribute('aria-labelledby', 'enc-enun');
+      const act = () => { n.textContent = `${t.value.length} / ${p.max}`; };
+      t.addEventListener('input', act); act(); c.append(t, n);
+    },
+    valor: c => c.querySelector('textarea').value.trim(),
+    valida: (p, v) => v.length > p.max ? `Máximo ${p.max} caracteres.` : '',
+    texto: (p, v) => v
+  },
+  si_no: {
+    render: (c, p, v) => radios(c, 'enc-sino', p, [['si', 'Sí'], ['no', 'No']], v),
+    valor: leerRadio,
+    valida: (p, v) => v === 'si' || v === 'no' ? '' : 'Elige Sí o No.',
+    texto: (p, v) => v === 'si' ? 'Sí' : 'No'
+  }
+};
+
+const ESTADOS = {
+  invalido: ['Este enlace no es válido', 'Revisa que copiaste el enlace completo o pide uno nuevo a quien te lo envió.', 'M9 9l6 6M15 9l-6 6'],
+  expirado: ['Este enlace expiró', 'La encuesta ya cerró. Si aún quieres participar, pide un enlace nuevo.', 'M12 7v5l3 2'],
+  respondida: ['Ya respondiste esta encuesta', 'Cada enlace sirve una sola vez. Gracias por participar.', 'M8 12.5l3 3 5-6'],
+  gracias: ['Gracias por responder', 'Recibimos tus respuestas. Ya puedes cerrar esta ventana.', 'M8 12.5l3 3 5-6']
+};
+
+const $ = s => document.querySelector(s);
+const TOKEN = new URLSearchParams(location.search).get('t') || 'demo';
+const CLAVE = 'enc-progreso-' + TOKEN, N = PREGUNTAS.length;
+let resp = {}, i = 0, vuelve = false;
+const guardado = () => { try { return JSON.parse(localStorage.getItem(CLAVE)); } catch { return null; } };
+const guardar = () => { try { localStorage.setItem(CLAVE, JSON.stringify({ resp, i })); } catch { /* sin almacenamiento */ } };
+const borrar = () => { try { localStorage.removeItem(CLAVE); } catch { /* sin almacenamiento */ } };
+const vacio = v => v == null || v === '' || (Array.isArray(v) && !v.length);
+const validar = (p, v) => vacio(v) ? (p.obligatoria ? 'Esta pregunta es obligatoria.' : '') : QUESTION_TYPES[p.tipo].valida(p, v);
+
+function ver(n, enfocar = true) {
+  document.querySelectorAll('[data-pant]').forEach(s => { s.hidden = s.dataset.pant !== n; });
+  if (enfocar) $(`[data-pant="${n}"]`).querySelector('h1,h2').focus();
+}
+function estado(n, enfocar) {
+  const [t, x, d] = ESTADOS[n];
+  $('#enc-et').textContent = t; $('#enc-ex').textContent = x; $('#enc-ed').setAttribute('d', d);
+  ver('estado', enfocar);
+}
+
+async function iniciar() {
+  ver('cargando', false);
+  const e = await API.validarEnlace(TOKEN);
+  if (e !== 'ok') return estado(e, false);
+  const g = guardado();
+  resp = g && typeof g.resp === 'object' && g.resp || {};
+  i = g ? Math.min(Math.max(+g.i || 0, 0), N - 1) : 0;
+  const n = PREGUNTAS.filter(p => !vacio(resp[p.id])).length;
+  $('#enc-dur').textContent = `${N} preguntas, unos ${Math.ceil(N / 3)} minutos.`;
+  $('#enc-retoma').hidden = $('#enc-reiniciar').hidden = !n;
+  $('#enc-retoma-t').textContent = `Tienes ${n} de ${N} respuestas guardadas en este dispositivo.`;
+  $('#enc-comenzar').textContent = n ? 'Retomar' : 'Comenzar';
+  ver('bienvenida', false);
+}
+
+function mostrar(k) {
+  i = k; guardar();
+  const p = PREGUNTAS[i], c = $('#enc-cuerpo');
+  c.replaceChildren(); c.className = '';
+  ['role', 'aria-invalid'].forEach(a => c.removeAttribute(a));
+  QUESTION_TYPES[p.tipo].render(c, p, resp[p.id]);
+  $('#enc-enun').textContent = p.texto;
+  $('#enc-ayuda').textContent = [p.obligatoria ? 'Obligatoria' : 'Opcional', p.ayuda].filter(Boolean).join('. ') + '.';
+  $('#enc-err').textContent = '';
+  $('#enc-cuenta').textContent = `Pregunta ${i + 1} de ${N}`;
+  const b = $('#enc-barra'), pct = (i + 1) / N;
+  b.style.setProperty('--p', pct); b.setAttribute('aria-valuenow', Math.round(pct * 100));
+  $('#enc-atras').disabled = i === 0;
+  $('#enc-sig').textContent = i === N - 1 ? 'Revisar' : 'Siguiente';
+  ver('pregunta');
+}
+
+function falla(m) {
+  const c = $('#enc-cuerpo');
+  $('#enc-err').textContent = m; c.setAttribute('aria-invalid', 'true');
+  c.querySelector('input,textarea').focus();
+}
+
+function siguiente() {
+  const p = PREGUNTAS[i], m = validar(p, resp[p.id]);
+  if (m) return falla(m);
+  if (vuelve || i === N - 1) resumen(); else mostrar(i + 1);
+}
+
+function resumen() {
+  vuelve = false; guardar();
+  const l = $('#enc-lista'); l.replaceChildren(); $('#enc-err2').textContent = '';
+  PREGUNTAS.forEach((p, k) => {
+    const v = resp[p.id], li = el('li', 'enc-fila'), b = el('button', 'btn btn-ghost btn-sm', 'Cambiar');
+    b.type = 'button'; b.setAttribute('aria-label', `Cambiar la respuesta ${k + 1}`);
+    b.addEventListener('click', () => { vuelve = true; mostrar(k); });
+    li.append(el('span', 'enc-q', `${k + 1}. ${p.texto}`), el('span', 'enc-a', vacio(v) ? 'Sin responder' : QUESTION_TYPES[p.tipo].texto(p, v)), b);
+    l.append(li);
+  });
+  ver('resumen');
+}
+
+async function enviar() {
+  const b = $('#enc-enviar'), e = $('#enc-err2');
+  const k = PREGUNTAS.findIndex(p => validar(p, resp[p.id]));
+  if (k >= 0) { vuelve = true; mostrar(k); return falla(validar(PREGUNTAS[k], resp[PREGUNTAS[k].id])); }
+  b.disabled = true; b.textContent = 'Enviando…'; e.textContent = '';
+  try {
+    await API.enviar(Object.fromEntries(PREGUNTAS.map(p => [p.id, vacio(resp[p.id]) ? null : resp[p.id]])));
+    borrar(); resp = {}; b.disabled = false; b.textContent = 'Enviar respuestas';
+    return estado('gracias');
+  } catch { /* se informa abajo */ }
+  b.disabled = false; b.textContent = 'Enviar respuestas';
+  e.textContent = 'No pudimos enviar tus respuestas. Revisa tu conexión e inténtalo de nuevo. Siguen guardadas aquí.';
+  b.focus();
+}
+
+$('#enc-cuerpo').addEventListener('input', () => {
+  const p = PREGUNTAS[i], c = $('#enc-cuerpo');
+  resp[p.id] = QUESTION_TYPES[p.tipo].valor(c);
+  $('#enc-err').textContent = ''; c.removeAttribute('aria-invalid'); guardar();
+});
+$('#enc-comenzar').addEventListener('click', () => mostrar(i));
+$('#enc-reiniciar').addEventListener('click', () => { resp = {}; borrar(); mostrar(0); });
+$('#enc-atras').addEventListener('click', () => mostrar(i - 1));
+$('#enc-sig').addEventListener('click', siguiente);
+$('#enc-volver').addEventListener('click', () => mostrar(N - 1));
+$('#enc-enviar').addEventListener('click', enviar);
+$('#enc-demo').addEventListener('change', iniciar);
+document.addEventListener('keydown', e => {
+  if ($('[data-pant="pregunta"]').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target.tagName;
+  if (t === 'TEXTAREA' || t === 'SELECT' || t === 'BUTTON') return;
+  if (e.key === 'Enter') { e.preventDefault(); siguiente(); }
+  else if (/^\d$/.test(e.key)) {
+    const x = $(`#enc-cuerpo input[data-n="${e.key}"]`);
+    if (x) { x.click(); x.focus(); }
+  }
+});
+iniciar();
+</script>
+</body>
+</html>

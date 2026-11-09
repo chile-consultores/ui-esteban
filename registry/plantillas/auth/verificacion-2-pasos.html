@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Verificación en 2 pasos · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: código de 6 dígitos con casillas separadas (autoavance, pegar el código completo, retroceso, flechas), autoenvío al completar, error con vibración suave, reenvío con cuenta regresiva, código de recuperación alternativo y "confiar en este dispositivo 30 días".
+  Proyecto: segundo paso de login de todas las apps privadas de Chile Consultores.
+  Cómo aplicarlo: copia main, style y script. Soporta ?next=/ruta (solo rutas internas) para el botón Continuar.
+  Conectar: reemplaza API.verificar (Supabase auth.mfa.challengeAndVerify o tu Edge Function) y API.reenviar. Prueba: código 123456, recuperación ABCD-1234.
+  Ganchos: API, #casillas, #f-rec, #confiar, mostrarOk().
+  Reglas UX: inputmode numeric y one-time-code, sin botón obligatorio (se envía solo), error anunciado y foco a la primera casilla sin perder el contexto, la vibración se anula con prefers-reduced-motion (regla de base.css).
+-->
+<style>
+  .vf-centro{min-height:100vh;display:grid;grid-template-columns:minmax(0,440px);place-content:center;padding:24px 16px}
+  .vf-tarjeta{width:100%;max-width:440px;display:flex;flex-direction:column;gap:16px;padding:28px 24px}
+  @media (max-width:480px){.vf-tarjeta{padding:24px 16px}}
+  .vf-pag .btn,.vf-pag .input,.vf-pag .check{min-height:44px}
+  .vf-pag .btn{white-space:normal;text-align:center}
+  .vf-logo{justify-content:center}
+  .vf-vista{display:flex;flex-direction:column;gap:16px}
+  .vf-vista h1{font-size:var(--fs-l)} .vf-vista h1:focus{outline:none}
+  .vf-casillas{display:flex;gap:6px}
+  .vf-casillas input{flex:1;min-width:0;height:56px;padding:0;text-align:center;font:600 1.5rem var(--display);border-radius:var(--r-s);border:1px solid var(--borde-2);background:var(--fondo-2);color:var(--texto)}
+  .vf-casillas input:focus{outline:none;border-color:var(--marca);box-shadow:0 0 0 3px var(--marca-l)}
+  .vf-casillas input[aria-invalid="true"]{border-color:var(--rojo)}
+  .vf-casillas.vf-error{animation:vf-vibra 360ms ease-in-out}
+  @keyframes vf-vibra{0%,100%{transform:none}20%{transform:translateX(-6px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+  .vf-msg{min-height:1.2em;font-size:var(--fs-xs)}
+  .vf-msg.vf-bad{color:var(--rojo)}
+  [hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="vf-centro vf-pag">
+  <div class="card vf-tarjeta">
+    <div class="logo vf-logo"><span class="dot"></span>Chile Consultores</div>
+
+    <section class="vf-vista" id="v-codigo">
+      <h1 tabindex="-1">Verifica que eres tú</h1>
+      <p class="muted small">Ingresa el código de 6 dígitos de tu app de autenticación.</p>
+      <div>
+        <div class="vf-casillas" id="casillas" role="group" aria-label="Código de verificación de 6 dígitos"></div>
+        <p class="vf-msg" id="msg" role="alert"></p>
+      </div>
+      <label class="check"><input type="checkbox" id="confiar">Confiar en este dispositivo 30 días</label>
+      <button class="btn btn-sec btn-lg" id="reenviar" disabled>Reenviar código</button>
+      <button class="btn btn-ghost" id="ir-rec">Usar código de recuperación</button>
+    </section>
+
+    <section class="vf-vista" id="v-rec" hidden>
+      <h1 tabindex="-1">Código de recuperación</h1>
+      <p class="muted small">Usa uno de los códigos que guardaste al activar la verificación. Cada código sirve una sola vez.</p>
+      <form id="f-rec" class="vf-vista" novalidate>
+        <div class="campo"><label for="rec">Código de recuperación</label>
+          <input class="input mono" id="rec" name="rec" autocomplete="off" autocapitalize="characters" placeholder="ABCD-1234" aria-describedby="msg-rec">
+          <div class="error-msg" id="msg-rec" role="alert"></div></div>
+        <button class="btn btn-lg" id="b-rec" data-busy="Verificando…">Verificar</button>
+      </form>
+      <button class="btn btn-ghost" id="ir-cod">Volver al código de la app</button>
+    </section>
+
+    <section class="vf-vista" id="v-ok" hidden>
+      <h1 tabindex="-1">Identidad verificada</h1>
+      <p class="muted small">Todo listo. Ya puedes seguir a tu panel.</p>
+      <a class="btn btn-lg" id="continuar" href="/">Continuar</a>
+    </section>
+  </div>
+</main>
+<script src="../[base]/base.js"></script>
+<script>
+  const espera = ms => new Promise(r => setTimeout(r, ms));
+  // CONECTAR: reemplaza por Supabase. verificar({ tipo: 'totp' | 'recuperacion', codigo, confiar }) devuelve { ok }.
+  const API = {
+    verificar: async ({ tipo, codigo, confiar }) => { await espera(600); return { ok: tipo === 'totp' ? codigo === '123456' : codigo === 'ABCD-1234' }; },
+    reenviar: async () => { await espera(400); }
+  };
+
+  const $ = id => document.getElementById(id);
+  const q = new URLSearchParams(location.search).get('next') || '';
+  if (/^\/(?![\/\\])/.test(q)) $('continuar').href = q;
+
+  function vista(id) {
+    ['v-codigo', 'v-rec', 'v-ok'].forEach(v => { $(v).hidden = v !== id; });
+    $(id).querySelector('h1').focus();
+  }
+  const mostrarOk = () => vista('v-ok');
+
+  /* Casillas */
+  const cont = $('casillas'), msg = $('msg');
+  const I = Array.from({ length: 6 }, (_, i) => {
+    const el = document.createElement('input');
+    el.inputMode = 'numeric'; el.autocomplete = i ? 'off' : 'one-time-code'; el.setAttribute('aria-label', 'Dígito ' + (i + 1) + ' de 6');
+    cont.append(el); return el;
+  });
+  const codigo = () => I.map(c => c.value).join('');
+  let enviando = false;
+
+  async function enviar() {
+    if (enviando) return; enviando = true; msg.className = 'vf-msg'; msg.textContent = 'Verificando…';
+    I.forEach(c => { c.disabled = true; });
+    try {
+      const r = await API.verificar({ tipo: 'totp', codigo: codigo(), confiar: $('confiar').checked });
+      if (r.ok) return mostrarOk();
+      throw new Error();
+    } catch (_) {
+      I.forEach(c => { c.disabled = false; c.value = ''; c.setAttribute('aria-invalid', 'true'); });
+      msg.className = 'vf-msg vf-bad'; msg.textContent = 'Código incorrecto o vencido. Revisa tu app e intenta de nuevo.';
+      cont.classList.remove('vf-error'); void cont.offsetWidth; cont.classList.add('vf-error');
+      I[0].focus();
+    } finally { enviando = false; }
+  }
+
+  function poner(i, texto) {
+    const d = texto.replace(/\D/g, '').slice(0, 6 - i);
+    I.forEach(c => c.removeAttribute('aria-invalid')); msg.textContent = '';
+    if (!d) { I[i].value = ''; return; }
+    d.split('').forEach((c, k) => { I[i + k].value = c; });
+    I[Math.min(i + d.length, 5)].focus();
+    if (codigo().length === 6) enviar();
+  }
+
+  I.forEach((el, i) => {
+    el.addEventListener('input', () => poner(i, el.value));
+    el.addEventListener('focus', () => el.select());
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' && !el.value && i) { e.preventDefault(); I[i - 1].value = ''; I[i - 1].focus(); }
+      if (e.key === 'ArrowLeft' && i) { e.preventDefault(); I[i - 1].focus(); }
+      if (e.key === 'ArrowRight' && i < 5) { e.preventDefault(); I[i + 1].focus(); }
+    });
+  });
+
+  /* Reenviar */
+  const bRe = $('reenviar'); let reloj;
+  function contar() {
+    let s = 30; clearInterval(reloj); bRe.disabled = true;
+    const pintar = () => { bRe.textContent = 'Reenviar código en ' + s + ' s'; }; pintar();
+    reloj = setInterval(() => {
+      if (--s > 0) return pintar();
+      clearInterval(reloj); bRe.disabled = false; bRe.textContent = 'Reenviar código';
+    }, 1000);
+  }
+  bRe.addEventListener('click', async () => {
+    try { await API.reenviar(); UI.toast('Te enviamos un código nuevo.', 'ok'); } catch (_) { UI.toast('No pudimos reenviar el código.', 'error'); }
+    contar(); I[0].focus();
+  });
+
+  /* Código de recuperación */
+  $('ir-rec').addEventListener('click', () => { vista('v-rec'); });
+  $('ir-cod').addEventListener('click', () => { vista('v-codigo'); I[0].focus(); });
+  $('f-rec').addEventListener('submit', async e => {
+    e.preventDefault();
+    const rec = $('rec'), err = $('msg-rec'), v = rec.value.trim().toUpperCase();
+    if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(v)) { err.textContent = 'El código tiene el formato ABCD-1234.'; rec.setAttribute('aria-invalid', 'true'); return rec.focus(); }
+    try {
+      const r = await UI.busy($('b-rec'), () => API.verificar({ tipo: 'recuperacion', codigo: v, confiar: $('confiar').checked }));
+      if (r.ok) return mostrarOk();
+      err.textContent = 'Ese código no es válido o ya fue usado.'; rec.setAttribute('aria-invalid', 'true'); rec.focus();
+    } catch (_) { err.textContent = 'No pudimos verificar el código. Intenta de nuevo.'; }
+  });
+  $('rec').addEventListener('input', () => { $('rec').removeAttribute('aria-invalid'); $('msg-rec').textContent = ''; });
+
+  contar(); I[0].focus();
+</script>
+</body>
+</html>

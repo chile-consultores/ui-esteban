@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Navegación secundaria · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: migas de pan (con colapso), pestañas con indicador deslizante, pestañas con scroll horizontal, stepper de pasos, paginación con elipsis, índice lateral con scrollspy y volver arriba.
+  Proyecto: cualquier app o sitio de Chile Consultores.
+  Cómo aplicarlo: copia el CSS y la función del patrón (migas, pestanas, stepper, paginacion, scrollspy). Cada función recibe el contenedor y los datos.
+  Conectar: los clics llaman a callbacks (alIr, alCambiar) donde pones tu router o fetch.
+  Ganchos: .migas, [role=tablist], .stepper, .pag, .toc, .arriba.
+  Accesibilidad: aria-current en el elemento actual, tablist con flechas y Home/End, stepper con aria-current=step, paginación con aria-label por página.
+-->
+<style>
+  .pagina{max-width:1000px;margin:0 auto;padding:24px 16px 80px;display:flex;flex-direction:column;gap:22px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .tarjeta{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+  .tarjeta h2{margin:0;font-size:1.05rem}
+  .fila{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+  /* === COMPONENTE: migas de pan === */
+  .migas ol{list-style:none;margin:0;padding:0;display:flex;align-items:center;flex-wrap:wrap;gap:2px}
+  .migas li{display:flex;align-items:center;gap:2px}
+  .migas li + li::before{content:"/";color:var(--borde);margin:0 6px}
+  .migas a,.migas button{color:var(--texto-2);text-decoration:none;border:0;background:none;font:inherit;cursor:pointer;padding:4px 6px;border-radius:6px}
+  .migas a:hover,.migas button:hover{color:var(--texto);background:rgba(255,255,255,.06)}
+  .migas [aria-current=page]{color:var(--texto);font-weight:700;padding:4px 6px}
+
+  /* === COMPONENTE: pestañas con indicador === */
+  .tabs-i{position:relative;display:flex;gap:4px;border-bottom:1px solid var(--borde);overflow-x:auto;scrollbar-width:none}
+  .tabs-i::-webkit-scrollbar{display:none}
+  .tabs-i [role=tab]{flex:none;padding:12px 16px;border:0;background:none;color:var(--texto-2);font:inherit;font-weight:600;cursor:pointer;white-space:nowrap;transition:color .2s}
+  .tabs-i [role=tab]:hover{color:var(--texto)}
+  .tabs-i [role=tab][aria-selected=true]{color:var(--texto)}
+  .tabs-i .barra{position:absolute;bottom:0;left:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,var(--marca),var(--acento));transition:transform .3s var(--ease-salida),width .3s var(--ease-salida)}
+  .tabs-p{display:inline-flex;max-width:100%;overflow-x:auto;scrollbar-width:none;gap:4px;padding:4px;border-radius:99px;background:var(--superficie-2);border:1px solid var(--borde);position:relative}
+  .tabs-p [role=tab]{position:relative;z-index:1;flex:none;padding:8px 14px;border:0;background:none;color:var(--texto-2);font:inherit;font-weight:600;cursor:pointer;border-radius:99px;transition:color .2s}
+  .tabs-p [role=tab][aria-selected=true]{color:#fff}
+  .tabs-p .pil{position:absolute;top:4px;bottom:4px;left:0;border-radius:99px;background:var(--marca);transition:transform .3s var(--ease-salida),width .3s var(--ease-salida)}
+  .panel-t{padding:14px 2px;color:var(--texto-2)}
+  .panel-t[hidden]{display:none}
+  .con-cnt .n{margin-left:6px;font-size:.72rem;padding:1px 7px;border-radius:99px;background:var(--superficie-2);color:var(--texto-2)}
+
+  /* === COMPONENTE: stepper === */
+  .stepper{display:flex;gap:0;list-style:none;margin:0;padding:0;counter-reset:p}
+  .stepper li{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;text-align:center;font-size:var(--fs-s);color:var(--texto-2);min-width:0}
+  .stepper li::before{content:counter(p);counter-increment:p;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--borde);background:var(--superficie);font-weight:700;z-index:1;transition:all .3s}
+  .stepper li::after{content:"";position:absolute;top:17px;left:calc(50% + 20px);right:calc(-50% + 20px);height:2px;background:var(--borde);transition:background .4s}
+  .stepper li:last-child::after{display:none}
+  .stepper li.hecho::before{content:"✓";background:var(--marca);border-color:var(--marca);color:#fff}
+  .stepper li.hecho::after{background:var(--marca)}
+  .stepper li[aria-current=step]{color:var(--texto);font-weight:700}
+  .stepper li[aria-current=step]::before{border-color:var(--acento);box-shadow:0 0 0 4px rgba(56,189,248,.2);color:var(--texto)}
+  .stepper li span{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  @media(max-width:520px){.stepper li:not([aria-current=step]) span{display:none}}
+  .paso-cuerpo{padding:16px;border:1px dashed var(--borde);border-radius:12px;min-height:70px}
+
+  /* === COMPONENTE: paginacion === */
+  .pag{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+  .pag button{min-width:40px;height:40px;padding:0 10px;border-radius:10px;border:1px solid var(--borde);background:var(--superficie-2);color:var(--texto);font:inherit;cursor:pointer;transition:background .2s,border-color .2s}
+  .pag button:hover:not(:disabled){border-color:var(--marca)}
+  .pag button[aria-current=page]{background:var(--marca);border-color:var(--marca);color:#fff;font-weight:700}
+  .pag button:disabled{opacity:.4;cursor:not-allowed}
+  .pag .el{padding:0 6px;color:var(--texto-2)}
+
+  /* === COMPONENTE: scrollspy === */
+  .doc{display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:start}
+  @media(max-width:700px){.doc{grid-template-columns:1fr}.toc{position:static!important}}
+  .toc{position:sticky;top:12px;display:flex;flex-direction:column;gap:2px;border-left:1px solid var(--borde)}
+  .toc a{padding:7px 12px;margin-left:-1px;border-left:2px solid transparent;color:var(--texto-2);text-decoration:none;font-size:var(--fs-s);transition:color .2s,border-color .2s}
+  .toc a:hover{color:var(--texto)}
+  .toc a[aria-current=true]{color:var(--texto);border-left-color:var(--marca);font-weight:700}
+  .cuerpo-doc{height:300px;overflow:auto;padding-right:8px;scroll-behavior:smooth}
+  .cuerpo-doc section{padding-bottom:140px}
+  .cuerpo-doc h3{margin:0 0 6px}
+  .cuerpo-doc p{margin:0;color:var(--texto-2)}
+  .arriba{position:fixed;right:18px;bottom:18px;width:46px;height:46px;border-radius:50%;border:1px solid var(--borde);background:var(--superficie-2);color:var(--texto);cursor:pointer;display:grid;place-items:center;opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .25s,transform .25s;z-index:30}
+  .arriba.on{opacity:1;transform:none;pointer-events:auto}
+  .arriba svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.01ms!important}.cuerpo-doc{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header><h1 class="gradient-text" style="margin:0 0 6px">Navegación secundaria</h1><p class="small" style="margin:0">Migas, pestañas, pasos, paginación e índice con seguimiento de scroll.</p></header>
+
+  <section class="tarjeta"><h2>Migas de pan</h2><nav class="migas" aria-label="Ruta" id="migas"></nav>
+    <div class="fila"><button class="btn btn-sec btn-sm" id="m-prof" type="button">Ir más profundo</button><button class="btn btn-sec btn-sm" id="m-reset" type="button">Reiniciar</button></div><p class="small">Con más de 4 niveles se colapsa el centro en un botón "...".</p></section>
+
+  <section class="tarjeta"><h2>Pestañas con indicador deslizante</h2>
+    <div class="tabs-i con-cnt" id="tabs1" role="tablist" aria-label="Secciones del cliente"></div><div id="paneles1"></div></section>
+
+  <section class="tarjeta"><h2>Pestañas tipo píldora</h2>
+    <div><div class="tabs-p" id="tabs2" role="tablist" aria-label="Periodo"></div></div><div id="paneles2"></div></section>
+
+  <section class="tarjeta"><h2>Stepper</h2><ol class="stepper" id="stepper" aria-label="Progreso"></ol><div class="paso-cuerpo" id="paso-cuerpo" aria-live="polite"></div>
+    <div class="fila"><button class="btn btn-sec" id="s-atras" type="button">Atrás</button><button class="btn" id="s-sig" type="button">Siguiente</button></div></section>
+
+  <section class="tarjeta"><h2>Paginación</h2><nav aria-label="Paginación"><div class="pag" id="pag"></div></nav><p class="small" id="pag-info" aria-live="polite"></p>
+    <div class="fila"><label class="small" for="in-tot">Total de páginas</label><input class="input" id="in-tot" name="tot" type="number" min="1" max="200" value="24" style="width:90px"></div></section>
+
+  <section class="tarjeta"><h2>Índice con scrollspy</h2>
+    <div class="doc"><nav class="toc" id="toc" aria-label="En esta página"></nav><div class="cuerpo-doc" id="cuerpo-doc"></div></div></section>
+</main>
+<button class="arriba" id="arriba" type="button" aria-label="Volver arriba"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const toast = m => (window.UI && UI.toast) && UI.toast(m, 'info');
+
+  /* === migas === */
+  const RUTA0 = ['Inicio', 'Clientes'], PROF = ['Minera Aconcagua', 'Estudios', 'Clima 2026', 'Resultados', 'Dotación', 'Gerencia'];
+  let ruta = [...RUTA0], abierta = false;
+  function migas() {
+    const ol = el('ol'); const n = ruta.length; const ocultar = n > 4 && !abierta;
+    ruta.forEach((t, i) => {
+      if (ocultar && i > 1 && i < n - 2) { if (i === 2) { const li = el('li'); const b = el('button', '', '...'); b.type = 'button'; b.setAttribute('aria-label', 'Mostrar ' + (n - 4) + ' niveles ocultos'); b.addEventListener('click', () => { abierta = true; migas(); }); li.appendChild(b); ol.appendChild(li); } return; }
+      const li = el('li'); if (i === n - 1) { const s = el('span', '', t); s.setAttribute('aria-current', 'page'); li.appendChild(s); } else { const a = el('a', '', t); a.href = '#'; a.addEventListener('click', e => { e.preventDefault(); ruta = ruta.slice(0, i + 1); abierta = false; migas(); toast('Ir a ' + t); }); li.appendChild(a); } ol.appendChild(li);
+    }); $('#migas').replaceChildren(ol);
+  }
+  $('#m-prof').addEventListener('click', () => { if (ruta.length < RUTA0.length + PROF.length) ruta.push(PROF[ruta.length - RUTA0.length]); abierta = false; migas(); });
+  $('#m-reset').addEventListener('click', () => { ruta = [...RUTA0]; abierta = false; migas(); }); migas();
+
+  /* === COMPONENTE: pestanas (reutilizable) === */
+  function pestanas(cont, panelesEl, items, tipo, alCambiar) {
+    const ind = el('span', tipo === 'pil' ? 'pil' : 'barra'); ind.setAttribute('aria-hidden', 'true'); cont.appendChild(ind);
+    const id0 = cont.id; const bs = [], ps = [];
+    items.forEach((d, i) => {
+      const b = el('button'); b.type = 'button'; b.setAttribute('role', 'tab'); b.id = id0 + '-t' + i; b.setAttribute('aria-controls', id0 + '-p' + i); b.append(document.createTextNode(d.t)); if (d.n != null) b.appendChild(el('span', 'n', String(d.n))); cont.appendChild(b); bs.push(b);
+      const p = el('div', 'panel-t'); p.id = id0 + '-p' + i; p.setAttribute('role', 'tabpanel'); p.setAttribute('aria-labelledby', b.id); p.tabIndex = 0; p.textContent = d.c; p.hidden = true; panelesEl.appendChild(p); ps.push(p);
+      b.addEventListener('click', () => ir(i, true));
+      b.addEventListener('keydown', e => { let n = null; if (e.key === 'ArrowRight') n = (i + 1) % bs.length; else if (e.key === 'ArrowLeft') n = (i - 1 + bs.length) % bs.length; else if (e.key === 'Home') n = 0; else if (e.key === 'End') n = bs.length - 1; if (n != null) { e.preventDefault(); bs[n].focus(); ir(n, true); } });
+    });
+    function ir(i, aviso) { bs.forEach((b, k) => { const on = k === i; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; ps[k].hidden = !on; }); mover(i); bs[i].scrollIntoView({ block: 'nearest', inline: 'center' }); if (aviso && alCambiar) alCambiar(i); }
+    function mover(i) { const b = bs[i]; ind.style.width = b.offsetWidth + 'px'; ind.style.transform = 'translateX(' + b.offsetLeft + 'px)'; }
+    ir(0); window.addEventListener('resize', () => mover(bs.findIndex(b => b.getAttribute('aria-selected') === 'true'))); document.fonts && document.fonts.ready.then(() => mover(bs.findIndex(b => b.getAttribute('aria-selected') === 'true')));
+  }
+  pestanas($('#tabs1'), $('#paneles1'), [{ t: 'Resumen', c: 'Vista general del cliente y sus indicadores clave.' }, { t: 'Estudios', n: 4, c: 'Cuatro estudios activos este año.' }, { t: 'Informes', n: 12, c: 'Doce informes entregados.' }, { t: 'Contactos', n: 7, c: 'Siete personas de contacto.' }, { t: 'Facturación', c: 'Historial de cobros y pagos.' }, { t: 'Notas', n: 2, c: 'Dos notas internas.' }, { t: 'Archivos', c: 'Documentos compartidos con el cliente.' }], 'barra');
+  pestanas($('#tabs2'), $('#paneles2'), [{ t: 'Semana', c: 'Resultados de los últimos 7 días.' }, { t: 'Mes', c: 'Resultados del mes en curso.' }, { t: 'Trimestre', c: 'Comparado con el trimestre anterior.' }, { t: 'Año', c: 'Acumulado del año.' }], 'pil', i => toast('Periodo cambiado'));
+
+  /* === stepper === */
+  const PASOS = [['Datos', 'Completa los datos de la empresa.'], ['Encuesta', 'Elige preguntas y escala.'], ['Audiencia', 'Define quién responde.'], ['Revisión', 'Revisa y confirma todo.'], ['Publicar', 'Listo para enviar.']];
+  let paso = 0; const st = $('#stepper');
+  PASOS.forEach(([t]) => { const li = el('li'); li.appendChild(el('span', '', t)); st.appendChild(li); });
+  function pintarPaso() { [...st.children].forEach((li, i) => { li.classList.toggle('hecho', i < paso); if (i === paso) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current'); }); $('#paso-cuerpo').textContent = 'Paso ' + (paso + 1) + ' de ' + PASOS.length + ': ' + PASOS[paso][1]; $('#s-atras').disabled = paso === 0; $('#s-sig').textContent = paso === PASOS.length - 1 ? 'Finalizar' : 'Siguiente'; }
+  $('#s-sig').addEventListener('click', () => { if (paso < PASOS.length - 1) paso++; else { toast('Proceso finalizado'); paso = 0; } pintarPaso(); });
+  $('#s-atras').addEventListener('click', () => { if (paso > 0) paso--; pintarPaso(); }); pintarPaso();
+
+  /* === paginacion === */
+  let pg = 1; const cont = $('#pag'), tot = $('#in-tot');
+  function rango(p, t) { if (t <= 7) return Array.from({ length: t }, (_, i) => i + 1); const r = [1]; const a = Math.max(2, p - 1), b = Math.min(t - 1, p + 1); if (a > 2) r.push('…'); for (let i = a; i <= b; i++) r.push(i); if (b < t - 1) r.push('…'); r.push(t); return r; }
+  function pintarPag() {
+    const t = Math.max(1, Math.min(200, +tot.value || 1)); pg = Math.min(pg, t); cont.replaceChildren();
+    const nb = (txt, aria, p, off) => { const b = el('button', '', txt); b.type = 'button'; b.setAttribute('aria-label', aria); b.disabled = off; b.addEventListener('click', () => { pg = p; pintarPag(); }); return b; };
+    cont.appendChild(nb('‹', 'Página anterior', pg - 1, pg === 1));
+    rango(pg, t).forEach(x => { if (x === '…') { cont.appendChild(el('span', 'el', '…')); return; } const b = nb(String(x), 'Página ' + x, x, false); if (x === pg) b.setAttribute('aria-current', 'page'); cont.appendChild(b); });
+    cont.appendChild(nb('›', 'Página siguiente', pg + 1, pg === t)); $('#pag-info').textContent = 'Mostrando ' + ((pg - 1) * 20 + 1) + ' a ' + (pg * 20) + ' de ' + (t * 20) + ' resultados';
+  }
+  tot.addEventListener('input', pintarPag); pintarPag();
+
+  /* === scrollspy === */
+  const SECS = [['intro', 'Introducción'], ['metodo', 'Metodología'], ['resultados', 'Resultados'], ['conclusion', 'Conclusiones']];
+  const cd = $('#cuerpo-doc'), toc = $('#toc');
+  SECS.forEach(([id, t]) => { const s = el('section'); s.id = 'sec-' + id; s.append(el('h3', '', t), el('p', '', 'Contenido de la sección ' + t.toLowerCase() + '. Scrollea y el índice sigue tu posición. Haz clic en un enlace para saltar con animación suave.')); cd.appendChild(s);
+    const a = el('a', '', t); a.href = '#sec-' + id; a.addEventListener('click', e => { e.preventDefault(); cd.scrollTo({ top: s.offsetTop - cd.offsetTop, behavior: matchMedia('(prefers-reduced-motion:reduce)').matches ? 'auto' : 'smooth' }); }); toc.appendChild(a); });
+  const enl = [...toc.children], secs = [...cd.children];
+  function spy() { let a = 0; const y = cd.scrollTop + 30; secs.forEach((s, i) => { if (s.offsetTop - cd.offsetTop <= y) a = i; }); if (cd.scrollTop + cd.clientHeight >= cd.scrollHeight - 4) a = secs.length - 1; enl.forEach((l, i) => { if (i === a) l.setAttribute('aria-current', 'true'); else l.removeAttribute('aria-current'); }); }
+  cd.addEventListener('scroll', spy, { passive: true }); spy();
+
+  /* === volver arriba === */
+  const up = $('#arriba'); window.addEventListener('scroll', () => up.classList.toggle('on', scrollY > 400), { passive: true });
+  up.addEventListener('click', () => scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion:reduce)').matches ? 'auto' : 'smooth' }));
+});
+</script>
+</body>
+</html>

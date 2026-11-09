@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Usuarios y roles · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: administración de usuarios de una empresa: tabla con búsqueda, filtros, selección múltiple y acciones masivas, invitaciones, rol inline, suspender/reactivar, eliminar con deshacer y matriz de permisos de solo lectura.
+  Proyecto: panel admin de Clima, Mystery, CRM y DataDash (tabla sugerida: profiles con company_id, rol, estado, ultimo_acceso; invitaciones por Edge Function).
+  Cómo aplicarlo: edita PERMISOS y ACCIONES (la matriz y los selects de rol se generan solos). Reglas de negocio en motivo().
+  Conectar: reemplaza el objeto API (listar, actualizar, invitar, reinvitar, eliminar, restaurar) por llamadas a Supabase; USUARIOS es solo dato de ejemplo.
+  Ganchos: #demo (estado de la vista), #q, #f-rol, #f-estado, #lista tbody, #masivas, #mInvitar, #matriz.
+  Reglas UX: no se puede cambiar tu propio rol ni quitar al último admin activo (mensaje claro), toda acción destructiva confirma y ofrece deshacer, en móvil la tabla pasa a tarjetas.
+-->
+<style>
+  [hidden]{display:none!important}
+  .usr-pagina{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+  .btn,.input,.select{min-height:44px}
+  .btn,.btn-icon{min-width:44px}
+  .usr-barra,.usr-masivas{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .usr-barra .input-icon{flex:1;min-width:200px}
+  .usr-auto{width:auto;flex:none}
+  .usr-masivas{padding:8px 12px;border:1px solid var(--marca);border-radius:var(--r-s);background:var(--marca-l)}
+  .usr-chk{display:grid;place-items:center;min-width:44px;min-height:44px;cursor:pointer}
+  .usr-acc{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+  .usr-correo{overflow-wrap:anywhere}@media (min-width:761px){.usr-correo{white-space:nowrap}}
+  @media (max-width:760px){
+    #lista .tabla-wrap{border:0;background:none;overflow:visible}
+    .usr-t thead{display:none}
+    .usr-t,.usr-t tbody,.usr-t tr,.usr-t td{display:block}
+    .usr-t tr{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:8px 12px;margin-bottom:8px}
+    .usr-t td{display:flex;justify-content:space-between;align-items:center;gap:12px;border:0;padding:6px 0}
+    .usr-t td[data-label]::before{content:attr(data-label);color:var(--texto-2);font-size:var(--fs-xs);flex:none}
+  }
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="usr-pagina">
+  <div class="page-head">
+    <div>
+      <div class="breadcrumb"><span>Administración</span><span>/</span><span aria-current="page">Usuarios y roles</span></div>
+      <h1>Usuarios y roles</h1>
+      <p class="muted small">Agrícola Los Aromos SpA, RUT 76.123.456-7</p>
+    </div>
+    <div class="acciones">
+      <label class="sr-only" for="demo">Estado de la vista (demo)</label>
+      <select id="demo" class="select usr-auto"><option value="contenido">Demo: con datos</option><option value="cargando">Demo: cargando</option><option value="vacio">Demo: vacío</option><option value="error">Demo: error</option></select>
+      <button class="btn" data-modal="mInvitar" type="button">Invitar usuario</button>
+    </div>
+  </div>
+
+  <div class="usr-barra">
+    <div class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+      <label class="sr-only" for="q">Buscar por nombre o correo</label><input id="q" class="input" type="search" placeholder="Buscar por nombre o correo" autocomplete="off"></div>
+    <label class="sr-only" for="f-rol">Filtrar por rol</label><select id="f-rol" class="select usr-auto"></select>
+    <label class="sr-only" for="f-estado">Filtrar por estado</label><select id="f-estado" class="select usr-auto"></select>
+  </div>
+  <p class="muted small mb-8" id="cuenta" aria-live="polite"></p>
+
+  <div id="sk" aria-busy="true"><span class="sr-only" role="status">Cargando usuarios</span>
+    <div class="skeleton bloque"></div><div class="skeleton linea"></div><div class="skeleton linea"></div></div>
+  <div id="err" class="estado" role="alert" hidden><div class="ico" aria-hidden="true">!</div><h3>No pudimos cargar los usuarios</h3><p>Revisa tu conexión e inténtalo de nuevo.</p><button class="btn" id="reintentar" type="button">Reintentar</button></div>
+  <div id="vacio" class="estado" hidden><div class="ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6"/></svg></div>
+    <h3 id="vacio-t"></h3><p id="vacio-p"></p><button class="btn" id="vacio-inv" data-modal="mInvitar" type="button">Invitar usuario</button><button class="btn btn-sec" id="vacio-lim" type="button">Limpiar filtros</button></div>
+  <div id="lista" hidden>
+    <div class="usr-masivas" id="masivas" role="region" aria-label="Acciones masivas" hidden>
+      <strong id="n-sel" aria-live="polite"></strong>
+      <button class="btn btn-sec btn-sm" data-m="suspender" type="button">Suspender</button>
+      <button class="btn btn-sec btn-sm" data-m="reactivar" type="button">Reactivar</button>
+      <button class="btn btn-danger btn-sm" data-m="eliminar" type="button">Eliminar</button>
+    </div>
+    <div class="tabla-wrap"><table class="tabla usr-t"><caption class="sr-only">Usuarios de la empresa</caption>
+      <thead><tr><th><label class="usr-chk"><input type="checkbox" id="todos" aria-label="Seleccionar todos"></label></th><th scope="col">Nombre</th><th scope="col">Correo</th><th scope="col">Rol</th><th scope="col">Estado</th><th scope="col">Último acceso</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead>
+      <tbody></tbody></table></div>
+  </div>
+
+  <h2 class="mt-24 mb-16">Permisos por rol</h2>
+  <div class="tabla-wrap"><table class="tabla" id="matriz"><caption class="sr-only">Matriz de permisos por rol, solo lectura</caption></table></div>
+</main>
+
+<div class="telon" id="mInvitar"><div class="modal" role="dialog" aria-labelledby="mi-t">
+  <div class="modal-head"><h3 id="mi-t">Invitar usuario</h3><button class="btn btn-ghost btn-icon" data-cerrar-modal aria-label="Cerrar" type="button">✕</button></div>
+  <form id="f-inv" novalidate>
+    <div class="campo"><label for="i-correo">Correo</label><input class="input" id="i-correo" name="correo" type="email" autocomplete="off" inputmode="email" aria-describedby="e-correo"><div class="error-msg" id="e-correo" role="alert"></div></div>
+    <div class="campo"><label for="i-rol">Rol</label><select class="select" id="i-rol" name="rol"></select></div>
+    <div class="modal-foot"><button class="btn btn-sec" data-cerrar-modal type="button">Cancelar</button><button class="btn" type="submit" data-busy="Enviando…">Enviar invitación</button></div>
+  </form>
+</div></div>
+
+<script src="../[base]/base.js"></script>
+<script>
+(function () {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+
+  const PERMISOS = {
+    Admin: ['ver', 'exportar', 'editar', 'eliminar', 'usuarios', 'facturacion'],
+    Gestor: ['ver', 'exportar', 'editar', 'eliminar'],
+    Analista: ['ver', 'exportar'],
+    Lector: ['ver']
+  };
+  const ACCIONES = { ver: 'Ver reportes', exportar: 'Exportar datos', editar: 'Crear y editar registros', eliminar: 'Eliminar registros', usuarios: 'Gestionar usuarios', facturacion: 'Ver facturación' };
+  const ROLES = Object.keys(PERMISOS);
+  const ESTADOS = { Activo: 'ok', Invitado: 'info', Suspendido: 'bad' };
+  const YO = 1;
+
+  const hace = hrs => new Date(Date.now() - hrs * 36e5).toISOString();
+  let USUARIOS = [
+    { id: 1, nombre: 'Camila Reyes', correo: 'camila.reyes@aromos.cl', rol: 'Admin', estado: 'Activo', ultimo: hace(0.2) },
+    { id: 2, nombre: 'Matías Fuentes', correo: 'matias.fuentes@aromos.cl', rol: 'Admin', estado: 'Activo', ultimo: hace(26) },
+    { id: 3, nombre: 'Javiera Contreras', correo: 'javiera.contreras@aromos.cl', rol: 'Gestor', estado: 'Activo', ultimo: hace(3) },
+    { id: 4, nombre: 'Sebastián Araya', correo: 'sebastian.araya@aromos.cl', rol: 'Gestor', estado: 'Activo', ultimo: hace(52) },
+    { id: 5, nombre: 'Francisca Muñoz', correo: 'francisca.munoz@aromos.cl', rol: 'Analista', estado: 'Activo', ultimo: hace(7) },
+    { id: 6, nombre: 'Diego Olivares', correo: 'diego.olivares@aromos.cl', rol: 'Analista', estado: 'Suspendido', ultimo: hace(720) },
+    { id: 7, nombre: 'Valentina Soto', correo: 'valentina.soto@aromos.cl', rol: 'Lector', estado: 'Activo', ultimo: hace(130) },
+    { id: 8, nombre: 'Nicolás Parra', correo: 'nicolas.parra@aromos.cl', rol: 'Lector', estado: 'Activo', ultimo: hace(9) },
+    { id: 9, nombre: 'Constanza Vidal', correo: 'constanza.vidal@aromos.cl', rol: 'Analista', estado: 'Invitado', ultimo: null },
+    { id: 10, nombre: 'Tomás Herrera', correo: 'tomas.herrera@proveedor.cl', rol: 'Lector', estado: 'Invitado', ultimo: null },
+    { id: 11, nombre: 'Daniela Lagos', correo: 'daniela.lagos@aromos.cl', rol: 'Gestor', estado: 'Suspendido', ultimo: hace(2100) },
+    { id: 12, nombre: 'Felipe Carrasco', correo: 'felipe.carrasco@aromos.cl', rol: 'Lector', estado: 'Activo', ultimo: hace(300) }
+  ];
+
+  let demo = 'contenido';
+  const espera = () => new Promise(r => setTimeout(r, 250));
+  /* PUNTO DE CONEXION: cada método de API se reemplaza por Supabase (select/update/delete sobre profiles, Edge Function para invitar) */
+  const API = {
+    async listar() {
+      await espera();
+      if (demo === 'error') throw new Error('sin conexión');
+      if (demo === 'cargando') return new Promise(() => {});
+      return demo === 'vacio' ? [] : USUARIOS.map(u => ({ ...u }));
+    },
+    async actualizar(ids, cambios) { await espera(); USUARIOS.forEach(u => { if (ids.includes(u.id)) Object.assign(u, cambios); }); },
+    async invitar(correo, rol) { await espera(); USUARIOS.push({ id: Math.max(...USUARIOS.map(u => u.id)) + 1, nombre: correo.split('@')[0], correo, rol, estado: 'Invitado', ultimo: null }); },
+    async reinvitar() { await espera(); },
+    async eliminar(ids) { await espera(); const q = USUARIOS.filter(u => ids.includes(u.id)); USUARIOS = USUARIOS.filter(u => !ids.includes(u.id)); return q; },
+    async restaurar(us) { await espera(); USUARIOS.push(...us); USUARIOS.sort((a, b) => a.id - b.id); }
+  };
+
+  let datos = [], vista = [], pedido = 0;
+  const sel = new Set();
+
+  function motivo(ids, accion, rol) {
+    if (accion === 'rol' && ids.includes(YO)) return 'No puedes cambiar tu propio rol. Pídele a otro administrador que lo haga.';
+    if (accion !== 'rol' && ids.includes(YO)) return 'No puedes suspenderte ni eliminarte a ti mismo.';
+    const quita = accion !== 'rol' || rol !== 'Admin';
+    const esAdmin = u => u.rol === 'Admin' && u.estado === 'Activo';
+    if (quita && datos.some(u => ids.includes(u.id) && esAdmin(u)) && !datos.some(u => !ids.includes(u.id) && esAdmin(u)))
+      return 'Debe quedar al menos un administrador activo. Asigna el rol Admin a otra persona primero.';
+    return null;
+  }
+
+  function mostrar(x) { ['sk', 'err', 'vacio', 'lista'].forEach(k => { $('#' + k).hidden = k !== x; }); }
+
+  async function cargar(esqueleto = true) {
+    const n = ++pedido;
+    if (esqueleto) mostrar('sk');
+    try { const d = await API.listar(); if (n !== pedido) return; datos = d; render(); }
+    catch (e) { if (n === pedido) mostrar('err'); }
+  }
+
+  function fila(u) {
+    const tr = h('tr'); tr.dataset.id = u.id;
+    const cb = h('input'); cb.type = 'checkbox'; cb.checked = sel.has(u.id); cb.setAttribute('aria-label', 'Seleccionar a ' + u.nombre);
+    const lb = h('label', 'usr-chk'); lb.append(cb);
+    const rol = h('select', 'select usr-auto'); rol.setAttribute('aria-label', 'Rol de ' + u.nombre);
+    rol.append(...ROLES.map(r => new Option(r, r))); rol.value = u.rol;
+    const acc = h('div', 'usr-acc');
+    const lista = u.estado === 'Activo' ? [['suspender', 'Suspender'], ['eliminar', 'Eliminar']]
+      : u.estado === 'Suspendido' ? [['reactivar', 'Reactivar'], ['eliminar', 'Eliminar']]
+      : [['reinvitar', 'Reinvitar'], ['eliminar', 'Cancelar invitación']];
+    lista.forEach(([a, t]) => { const b = h('button', 'btn btn-sec btn-sm', t); b.type = 'button'; b.dataset.a = a; acc.append(b); });
+    const celda = (et, n) => { const d = h('td'); if (et) d.dataset.label = et; d.append(n); return d; };
+    tr.append(celda(null, lb), celda('Nombre', h('strong', null, u.nombre + (u.id === YO ? ' (tú)' : ''))), celda('Correo', h('span', 'usr-correo', u.correo)),
+      celda('Rol', rol), celda('Estado', h('span', 'badge ' + ESTADOS[u.estado], u.estado)),
+      celda('Último acceso', h('span', null, u.ultimo ? UI.formato.relativo(u.ultimo) : 'Nunca')), celda(null, acc));
+    return tr;
+  }
+
+  function pintarSel() {
+    const n = sel.size, t = $('#todos');
+    $('#masivas').hidden = !n;
+    $('#n-sel').textContent = n + (n === 1 ? ' seleccionado' : ' seleccionados');
+    t.checked = n > 0 && n === vista.length; t.indeterminate = n > 0 && n < vista.length;
+  }
+
+  function render() {
+    const q = $('#q').value.trim().toLowerCase(), fr = $('#f-rol').value, fe = $('#f-estado').value;
+    vista = datos.filter(u => (!fr || u.rol === fr) && (!fe || u.estado === fe) && (u.nombre + ' ' + u.correo).toLowerCase().includes(q));
+    [...sel].forEach(id => { if (!vista.some(u => u.id === id)) sel.delete(id); });
+    $('#cuenta').textContent = vista.length + ' de ' + datos.length + ' usuarios';
+    if (!vista.length) {
+      const sin = !datos.length;
+      $('#vacio-t').textContent = sin ? 'Aún no hay usuarios' : 'Sin resultados';
+      $('#vacio-p').textContent = sin ? 'Invita a tu equipo para que acceda a la plataforma.' : 'Ningún usuario coincide con la búsqueda o los filtros.';
+      $('#vacio-inv').hidden = !sin; $('#vacio-lim').hidden = sin;
+      return mostrar('vacio');
+    }
+    $('#lista tbody').replaceChildren(...vista.map(fila));
+    pintarSel(); mostrar('lista');
+  }
+
+  async function accion(a, ids) {
+    const us = datos.filter(u => ids.includes(u.id));
+    if (a === 'reinvitar') { await API.reinvitar(ids[0]); return UI.toast('Invitación reenviada a ' + us[0].correo + '.', 'ok'); }
+    const m = motivo(ids, a); if (m) return UI.toast(m, 'warn');
+    if (a === 'eliminar') {
+      const inv = us.every(u => u.estado === 'Invitado');
+      const ok = await UI.confirmar({ titulo: inv ? 'Cancelar invitación' : 'Eliminar a ' + (us.length > 1 ? us.length + ' usuarios' : us[0].nombre), texto: 'Perderán el acceso de inmediato. Podrás deshacerlo unos segundos después.', confirmar: inv ? 'Cancelar invitación' : 'Eliminar', peligro: true });
+      if (!ok) return;
+      const q = await API.eliminar(ids); sel.clear(); await cargar(false);
+      return UI.toast(q.length > 1 ? q.length + ' usuarios eliminados.' : 'Usuario eliminado.', 'ok', { deshacer: async () => { await API.restaurar(q); await cargar(false); } });
+    }
+    const desde = a === 'suspender' ? 'Activo' : 'Suspendido', nuevo = a === 'suspender' ? 'Suspendido' : 'Activo';
+    const ap = us.filter(u => u.estado === desde).map(u => u.id);
+    if (!ap.length) return UI.toast('Ninguno de los seleccionados está ' + desde.toLowerCase() + '.', 'info');
+    await API.actualizar(ap, { estado: nuevo }); await cargar(false);
+    const v = a === 'suspender' ? 'suspendido' : 'reactivado';
+    UI.toast(ap.length > 1 ? ap.length + ' usuarios ' + v + 's.' : 'Usuario ' + v + '.', 'ok', { deshacer: async () => { await API.actualizar(ap, { estado: desde }); await cargar(false); } });
+  }
+
+  async function cambiarRol(id, s) {
+    const u = datos.find(x => x.id === id), m = motivo([id], 'rol', s.value);
+    if (m) { s.value = u.rol; return UI.toast(m, 'warn'); }
+    const antes = u.rol; await API.actualizar([id], { rol: s.value }); await cargar(false);
+    UI.toast('El rol de ' + u.nombre + ' ahora es ' + s.value + '.', 'ok', { deshacer: async () => { await API.actualizar([id], { rol: antes }); await cargar(false); } });
+  }
+
+  const tbody = $('#lista tbody');
+  tbody.addEventListener('click', e => { const b = e.target.closest('button[data-a]'); if (b) accion(b.dataset.a, [+b.closest('tr').dataset.id]); });
+  tbody.addEventListener('change', e => {
+    const t = e.target, id = +t.closest('tr').dataset.id;
+    if (t.type === 'checkbox') { t.checked ? sel.add(id) : sel.delete(id); pintarSel(); } else cambiarRol(id, t);
+  });
+  $('#todos').addEventListener('change', e => { vista.forEach(u => e.target.checked ? sel.add(u.id) : sel.delete(u.id)); render(); });
+  $('#masivas').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b) accion(b.dataset.m, [...sel]); });
+  ['#q', '#f-rol', '#f-estado'].forEach(s => $(s).addEventListener('input', render));
+  $('#vacio-lim').addEventListener('click', () => { $('#q').value = ''; $('#f-rol').value = ''; $('#f-estado').value = ''; render(); });
+  $('#reintentar').addEventListener('click', () => cargar());
+  $('#demo').addEventListener('change', e => { demo = e.target.value; cargar(); });
+
+  $('#f-rol').append(new Option('Todos los roles', ''), ...ROLES.map(r => new Option(r, r)));
+  $('#f-estado').append(new Option('Todos los estados', ''), ...Object.keys(ESTADOS).map(r => new Option(r, r)));
+  $('#i-rol').append(...ROLES.map(r => new Option(r, r)));
+
+  const f = $('#f-inv');
+  const validar = UI.validar(f, { correo: v => {
+    v = v.trim().toLowerCase();
+    if (!v) return 'Escribe el correo de la persona.';
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return 'Revisa el formato, por ejemplo nombre@empresa.cl.';
+    return datos.some(u => u.correo.toLowerCase() === v) ? 'Ese correo ya está en la lista.' : '';
+  } });
+  f.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!validar()) return f.correo.focus();
+    const correo = f.correo.value.trim();
+    await UI.busy(f.querySelector('[type=submit]'), () => API.invitar(correo, f.rol.value));
+    UI.modal.cerrar('mInvitar'); f.reset(); await cargar(false);
+    UI.toast('Invitación enviada a ' + correo + '.', 'ok');
+  });
+
+  const cab = h('tr'); cab.append(h('th', null, 'Permiso'), ...ROLES.map(r => h('th', null, r)));
+  $('#matriz').createTHead().append(cab);
+  $('#matriz').createTBody().append(...Object.entries(ACCIONES).map(([k, txt]) => {
+    const tr = h('tr'); tr.append(h('td', null, txt), ...ROLES.map(r => {
+      const ok = PERMISOS[r].includes(k), td = h('td'); td.append(h('span', ok ? 'badge ok' : 'badge', ok ? 'Sí' : 'No')); return td;
+    })); return tr;
+  }));
+
+  cargar();
+})();
+</script>
+</body>
+</html>

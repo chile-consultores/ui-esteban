@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Kanban con arrastre · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: tablero kanban (embudo de ventas o tareas) con arrastre por puntero (mouse y táctil), reordenar dentro de la columna, mover con teclado (Espacio levanta, flechas mueven, Espacio suelta, Escape cancela), anuncios para lector de pantalla, límites de trabajo en curso (WIP) por columna, tarjeta nueva rápida, edición en el lugar, filtro por responsable, totales por columna y deshacer.
+  Proyecto: embudo comercial del CRM, tareas de proyectos, seguimiento de estudios.
+  Cómo aplicarlo: copia el CSS `.kb` y `Kanban.crear(contenedor, columnas, tarjetas)`. `alMover(tarjeta, desde, hasta, indice)` es tu punto para guardar en Supabase.
+  Conectar: guarda `orden` (número) por tarjeta y por columna; aquí el orden es la posición del arreglo.
+  Ganchos: .kb-col[data-col], .kb-card[data-id], window.Kanban, evento `kanban:mover`.
+  Reglas UX: el arrastre es opcional (siempre hay otra vía con teclado o menú), se ve dónde caerá la tarjeta (línea guía), la columna llena avisa sin bloquear en seco, mover es reversible, scroll automático al arrastrar cerca del borde y el tablero hace scroll horizontal en móvil con columnas de ancho cómodo.
+-->
+<style>
+  .pagina{max-width:1280px;margin:0 auto;padding:20px 16px 80px;display:flex;flex-direction:column;gap:14px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .barra{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .barra h1{margin:0;flex:1;min-width:180px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{padding:7px 12px;border-radius:99px;border:1px solid var(--borde);background:var(--superficie);color:var(--texto-2);font:inherit;font-size:.85rem;cursor:pointer;min-height:36px}
+  .chip[aria-pressed=true]{background:rgba(124,109,242,.22);border-color:var(--marca);color:var(--texto)}
+
+  /* === COMPONENTE: tablero === */
+  .kb{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(270px,1fr);gap:12px;overflow-x:auto;padding-bottom:12px;align-items:start;scroll-snap-type:x proximity}
+  .kb-col{background:var(--superficie);border:1px solid var(--borde);border-radius:var(--r);display:flex;flex-direction:column;max-height:calc(100dvh - 190px);scroll-snap-align:start;min-width:0}
+  .kb-col.sobre{border-color:var(--marca);background:rgba(124,109,242,.07)}
+  .kb-col.lleno .kb-cnt{color:var(--rojo)}
+  .kb-cab{padding:12px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--borde)}
+  .kb-cab h2{margin:0;font-size:.95rem;flex:1}
+  .kb-dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .kb-cnt{font-size:.78rem;color:var(--texto-2);font-variant-numeric:tabular-nums}
+  .kb-tot{padding:6px 14px;font-size:.78rem;color:var(--texto-2);font-variant-numeric:tabular-nums}
+  .kb-lista{padding:8px;overflow:auto;display:flex;flex-direction:column;gap:8px;min-height:60px;flex:1}
+  .kb-card{background:var(--superficie-2);border:1px solid var(--borde);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none;transition:border-color .15s,box-shadow .15s}
+  .kb-card:hover{border-color:var(--marca)}
+  .kb-card:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+  .kb-card.levantada{border-color:var(--acento);box-shadow:0 0 0 3px rgba(56,189,248,.25)}
+  .kb-card.fantasma{opacity:.35;border-style:dashed}
+  .kb-card h3{margin:0;font-size:.95rem;font-weight:600;word-break:break-word}
+  .kb-card .meta{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--texto-2)}
+  .kb-card .av{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:.65rem;font-weight:800;color:#fff;flex:none}
+  .kb-card .monto{margin-left:auto;font-weight:700;color:var(--texto);font-variant-numeric:tabular-nums}
+  .kb-card input.ed{width:100%;min-height:36px}
+  .kb-vuelo{position:fixed;z-index:500;pointer-events:none;width:var(--w);transform:rotate(2.5deg);box-shadow:0 24px 50px rgba(0,0,0,.6);opacity:.96;cursor:grabbing}
+  .kb-guia{height:3px;border-radius:3px;background:var(--acento);margin:-5px 0;box-shadow:0 0 8px var(--acento);flex:none}
+  .kb-nueva{margin:0 8px 8px;display:flex;gap:6px}
+  .kb-nueva input{flex:1;min-width:0;min-height:40px}
+  .kb-add{margin:0 8px 8px;background:none;border:1px dashed var(--borde);color:var(--texto-2);border-radius:10px;padding:10px;font:inherit;cursor:pointer;text-align:left}
+  .kb-add:hover{color:var(--texto);border-color:var(--marca)}
+  .kb-vacio{padding:18px 8px;text-align:center;color:var(--texto-2);font-size:.85rem;border:1px dashed var(--borde);border-radius:10px}
+  .solo-lector{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .ayuda{font-size:.8rem;color:var(--texto-2)}
+  kbd{font:inherit;font-size:.72rem;padding:1px 6px;border:1px solid var(--borde);border-bottom-width:2px;border-radius:5px;background:var(--superficie-2)}
+  body.arrastrando{cursor:grabbing;user-select:none;-webkit-user-select:none}
+  @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}.kb-vuelo{transform:none}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <div class="barra"><h1 class="gradient-text">Embudo comercial</h1><div class="chips" id="chips" role="group" aria-label="Filtrar por responsable"></div></div>
+  <p class="ayuda">Arrastra las tarjetas. Con teclado: enfoca una tarjeta, <kbd>Espacio</kbd> para levantar, <kbd>←</kbd> <kbd>→</kbd> cambian de columna, <kbd>↑</kbd> <kbd>↓</kbd> reordenan, <kbd>Espacio</kbd> suelta y <kbd>Esc</kbd> cancela.</p>
+  <div class="kb" id="kb"></div>
+  <div class="solo-lector" id="anuncio" role="status" aria-live="assertive" aria-atomic="true"></div>
+</main>
+
+<script src="../[base]/base.js" defer></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const toast = (m, t, o) => (window.UI && UI.toast) && UI.toast(m, t || 'info', o);
+  const anuncio = m => { const a = $('#anuncio'); a.textContent = ''; setTimeout(() => { a.textContent = m; }, 30); };
+  const reducido = matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const $$$ = n => '$' + n.toLocaleString('es-CL');
+
+  /* === datos (reemplazar) === */
+  const COLS = [{ id: 'nuevo', t: 'Nuevos', c: '#64748b' }, { id: 'cont', t: 'Contactados', c: '#38BDF8', wip: 5 }, { id: 'prop', t: 'Propuesta', c: '#7C6DF2', wip: 4 }, { id: 'neg', t: 'Negociación', c: '#facc15', wip: 3 }, { id: 'gan', t: 'Ganados', c: '#34d399' }];
+  const RESP = { C: ['Camila', '#7C6DF2'], D: ['Diego', '#38BDF8'], V: ['Valentina', '#34d399'] };
+  let id = 0; const T = (t, col, r, m) => ({ id: ++id, t, col, r, m });
+  let tarjetas = [T('Minera Aconcagua', 'nuevo', 'C', 4800000), T('Transportes del Sur', 'nuevo', 'D', 2100000), T('Banco Austral', 'cont', 'V', 6500000), T('Clínica Los Andes', 'cont', 'C', 3200000), T('Retail Pacífico', 'prop', 'D', 5400000), T('Universidad del Norte', 'prop', 'V', 2900000), T('Agrícola Maule', 'neg', 'C', 3700000), T('Salmones Patagonia', 'gan', 'D', 8200000), T('Constructora Andes', 'cont', 'D', 1900000)];
+  let filtro = 'todos';
+  const alMover = (t, desde, hasta, i) => { window.dispatchEvent(new CustomEvent('kanban:mover', { detail: { id: t.id, desde, hasta, i } })); };
+
+  /* === render === */
+  const kb = $('#kb');
+  const enCol = c => tarjetas.filter(t => t.col === c);
+  function render(focoId) {
+    const sc = kb.scrollLeft; kb.replaceChildren();
+    COLS.forEach(col => {
+      const todas = enCol(col.id), vis = todas.filter(t => filtro === 'todos' || t.r === filtro);
+      const s = el('section', 'kb-col' + (col.wip && todas.length > col.wip ? ' lleno' : '')); s.dataset.col = col.id; s.setAttribute('aria-labelledby', 'h-' + col.id);
+      const cab = el('div', 'kb-cab'); const d = el('span', 'kb-dot'); d.style.background = col.c; const h = el('h2', '', col.t); h.id = 'h-' + col.id; const n = el('span', 'kb-cnt', todas.length + (col.wip ? ' / ' + col.wip : '')); n.title = col.wip ? 'Límite sugerido de ' + col.wip : ''; cab.append(d, h, n); s.appendChild(cab);
+      s.appendChild(el('div', 'kb-tot', 'Total: ' + $$$(vis.reduce((a, t) => a + t.m, 0))));
+      const lista = el('div', 'kb-lista'); lista.setAttribute('role', 'list'); lista.dataset.col = col.id;
+      if (!vis.length) lista.appendChild(el('div', 'kb-vacio', filtro === 'todos' ? 'Suelta una tarjeta aquí' : 'Sin tarjetas con este filtro'));
+      vis.forEach(t => lista.appendChild(card(t, col))); s.appendChild(lista);
+      s.appendChild(agregar(col)); kb.appendChild(s);
+    }); kb.scrollLeft = sc; if (focoId) { const c = $('.kb-card[data-id="' + focoId + '"]'); c && c.focus(); }
+  }
+  function card(t, col) {
+    const c = el('div', 'kb-card'); c.dataset.id = t.id; c.tabIndex = 0; c.setAttribute('role', 'listitem'); c.setAttribute('aria-roledescription', 'tarjeta arrastrable'); c.setAttribute('aria-label', t.t + ', ' + RESP[t.r][0] + ', ' + $$$(t.m) + ', en ' + col.t);
+    const h = el('h3', '', t.t); const m = el('div', 'meta'); const av = el('span', 'av', t.r); av.style.background = RESP[t.r][1]; av.title = RESP[t.r][0]; m.append(av, el('span', '', RESP[t.r][0]), el('span', 'monto', $$$(t.m))); c.append(h, m);
+    h.addEventListener('dblclick', e => { e.stopPropagation(); editar(c, t, h); });
+    c.addEventListener('pointerdown', e => iniciarPuntero(e, c, t));
+    c.addEventListener('keydown', e => teclado(e, c, t));
+    return c;
+  }
+  function agregar(col) { const w = el('div'); const b = el('button', 'kb-add', '+ Agregar tarjeta'); b.type = 'button'; b.addEventListener('click', () => { const f = el('form', 'kb-nueva'); const i = el('input', 'input'); i.name = 'nuevo-' + col.id; i.placeholder = 'Nombre del cliente'; i.setAttribute('aria-label', 'Nombre de la nueva tarjeta en ' + col.t); const ok = el('button', 'btn btn-sm', 'Crear'); ok.type = 'submit'; f.append(i, ok); w.replaceChildren(f); i.focus(); f.addEventListener('submit', e => { e.preventDefault(); const v = i.value.trim(); if (!v) { i.focus(); return; } const t = T(v, col.id, 'C', 0); tarjetas.push(t); render(t.id); anuncio('Tarjeta ' + v + ' creada en ' + col.t); toast('Tarjeta creada', 'ok', { deshacer: () => { tarjetas = tarjetas.filter(x => x !== t); render(); } }); }); i.addEventListener('keydown', e => { if (e.key === 'Escape') render(); }); }); w.appendChild(b); return w; }
+  function editar(c, t, h) { const i = el('input', 'input ed'); i.value = t.t; i.name = 'ed'; i.setAttribute('aria-label', 'Nombre'); h.replaceWith(i); i.focus(); i.select(); let fin = false; const ok = g => { if (fin) return; fin = true; const v = i.value.trim(); if (g && v && v !== t.t) { const a = t.t; t.t = v; toast('Renombrada', 'ok', { deshacer: () => { t.t = a; render(); } }); } render(t.id); }; i.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') ok(true); if (e.key === 'Escape') ok(false); }); i.addEventListener('blur', () => ok(true)); }
+
+  /* === mover (logica comun) === */
+  function mover(t, hasta, indice, silencio) {
+    const desde = t.col; const antIdx = tarjetas.indexOf(t); const antCol = t.col;
+    tarjetas.splice(antIdx, 1); t.col = hasta;
+    const enDest = tarjetas.filter(x => x.col === hasta); const ref = enDest[indice]; if (ref) tarjetas.splice(tarjetas.indexOf(ref), 0, t); else { const ult = enDest[enDest.length - 1]; if (ult) tarjetas.splice(tarjetas.indexOf(ult) + 1, 0, t); else tarjetas.push(t); }
+    alMover(t, desde, hasta, indice); render(t.id);
+    const col = COLS.find(c => c.id === hasta); const n = enCol(hasta).length;
+    if (!silencio) { anuncio(t.t + ' movida a ' + col.t + ', posición ' + (enCol(hasta).indexOf(t) + 1) + ' de ' + n); if (desde !== hasta) { if (col.wip && n > col.wip) toast(col.t + ' superó el límite sugerido de ' + col.wip, 'info'); toast('Movida a ' + col.t, 'ok', { deshacer: () => { tarjetas.splice(tarjetas.indexOf(t), 1); t.col = antCol; tarjetas.splice(Math.min(antIdx, tarjetas.length), 0, t); render(t.id); } }); } }
+  }
+
+  /* === arrastre por puntero === */
+  let drag = null;
+  function iniciarPuntero(e, c, t) {
+    if (e.button !== 0 || e.target.closest('input')) return; const x0 = e.clientX, y0 = e.clientY; const esTactil = e.pointerType === 'touch'; let activo = false, timer = null, vuelo = null, guia = null, dx = 0, dy = 0;
+    const r = c.getBoundingClientRect();
+    const empezar = () => { activo = true; document.body.classList.add('arrastrando'); vuelo = c.cloneNode(true); vuelo.classList.add('kb-vuelo'); vuelo.style.setProperty('--w', r.width + 'px'); vuelo.removeAttribute('tabindex'); document.body.appendChild(vuelo); c.classList.add('fantasma'); guia = el('div', 'kb-guia'); dx = x0 - r.left; dy = y0 - r.top; mover2(x0, y0); if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {} };
+    const mover2 = (x, y) => { vuelo.style.left = x - dx + 'px'; vuelo.style.top = y - dy + 'px'; vuelo.style.display = 'none'; const bajo = document.elementFromPoint(x, y); vuelo.style.display = ''; const col = bajo && bajo.closest('.kb-col'); $$('.kb-col.sobre').forEach(k => k.classList.remove('sobre')); guia.remove(); drag = null; if (col) { col.classList.add('sobre'); const lista = $('.kb-lista', col); const cards = $$('.kb-card:not(.fantasma)', lista); let idx = cards.length; for (let i = 0; i < cards.length; i++) { const b = cards[i].getBoundingClientRect(); if (y < b.top + b.height / 2) { idx = i; break; } } if (cards[idx]) lista.insertBefore(guia, cards[idx]); else lista.appendChild(guia); drag = { col: col.dataset.col, idx }; const vac = $('.kb-vacio', lista); if (vac) vac.style.display = 'none'; }
+      const kbr = kb.getBoundingClientRect(); if (x < kbr.left + 50) kb.scrollLeft -= 14; else if (x > kbr.right - 50) kb.scrollLeft += 14; const lista2 = col && $('.kb-lista', col); if (lista2) { const lr = lista2.getBoundingClientRect(); if (y < lr.top + 36) lista2.scrollTop -= 10; else if (y > lr.bottom - 36) lista2.scrollTop += 10; } };
+    const move = ev => { if (!activo) { if (esTactil) { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 8) { clearTimeout(timer); cleanup(); } return; } if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 5) empezar(); else return; } ev.preventDefault(); mover2(ev.clientX, ev.clientY); };
+    const soltar = () => { clearTimeout(timer); const d = drag; cleanup(); if (activo && d) { const origen = enCol(t.col).filter(x => filtro === 'todos' || x.r === filtro); const pos = origen.indexOf(t); let idx = d.idx; if (d.col === t.col && pos < idx) idx--; if (!(d.col === t.col && idx === pos)) mover(t, d.col, filtro === 'todos' ? idx : indiceReal(d.col, idx, t), false); else render(t.id); } else if (activo) render(t.id); };
+    const cleanup = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', soltar); document.removeEventListener('pointercancel', soltar); if (vuelo) vuelo.remove(); if (guia) guia.remove(); c.classList.remove('fantasma'); $$('.kb-col.sobre').forEach(k => k.classList.remove('sobre')); document.body.classList.remove('arrastrando'); drag = null; };
+    document.addEventListener('pointermove', move, { passive: false }); document.addEventListener('pointerup', soltar); document.addEventListener('pointercancel', () => { clearTimeout(timer); cleanup(); });
+    if (esTactil) timer = setTimeout(() => { empezar(); }, 220);
+  }
+  function indiceReal(colId, idxVisible, t) { const vis = enCol(colId).filter(x => x !== t && (filtro === 'todos' || x.r === filtro)); const ref = vis[idxVisible]; const todas = enCol(colId).filter(x => x !== t); return ref ? todas.indexOf(ref) : todas.length; }
+
+  /* === teclado === */
+  let levantada = null;
+  function teclado(e, c, t) {
+    if (e.target.matches('input')) return;
+    if (e.key === ' ' || e.key === 'Enter' && levantada) { e.preventDefault(); if (!levantada) { levantada = { t, col: t.col, idx: enCol(t.col).indexOf(t) }; c.classList.add('levantada'); anuncio(t.t + ' levantada. Usa las flechas para mover y Espacio para soltar.'); } else { const l = levantada; levantada = null; c.classList.remove('levantada'); anuncio(t.t + ' soltada en ' + COLS.find(x => x.id === t.col).t + ', posición ' + (enCol(t.col).indexOf(t) + 1)); if (l.col !== t.col) { toast('Movida a ' + COLS.find(x => x.id === t.col).t, 'ok', { deshacer: () => { mover(t, l.col, l.idx, true); } }); } } return; }
+    if (e.key === 'Escape' && levantada) { e.preventDefault(); const l = levantada; levantada = null; mover(t, l.col, l.idx, true); anuncio('Movimiento cancelado'); return; }
+    if (e.key === 'F2') { e.preventDefault(); editar(c, t, $('h3', c)); return; }
+    if (!levantada || levantada.t !== t) return;
+    const ci = COLS.findIndex(x => x.id === t.col), lista = enCol(t.col), i = lista.indexOf(t);
+    if (e.key === 'ArrowRight' && ci < COLS.length - 1) { e.preventDefault(); mover(t, COLS[ci + 1].id, Math.min(i, enCol(COLS[ci + 1].id).length), true); reLevantar(t); }
+    else if (e.key === 'ArrowLeft' && ci > 0) { e.preventDefault(); mover(t, COLS[ci - 1].id, Math.min(i, enCol(COLS[ci - 1].id).length), true); reLevantar(t); }
+    else if (e.key === 'ArrowUp' && i > 0) { e.preventDefault(); mover(t, t.col, i - 1, true); reLevantar(t); }
+    else if (e.key === 'ArrowDown' && i < lista.length - 1) { e.preventDefault(); mover(t, t.col, i + 1, true); reLevantar(t); }
+  }
+  function reLevantar(t) { const c = $('.kb-card[data-id="' + t.id + '"]'); if (c) { c.classList.add('levantada'); c.focus(); } const col = COLS.find(x => x.id === t.col); anuncio(col.t + ', posición ' + (enCol(t.col).indexOf(t) + 1) + ' de ' + enCol(t.col).length); }
+
+  /* === filtros === */
+  const ch = $('#chips'); [['todos', 'Todos'], ...Object.entries(RESP).map(([k, v]) => [k, v[0]])].forEach(([k, n]) => { const b = el('button', 'chip', n); b.type = 'button'; b.setAttribute('aria-pressed', String(k === 'todos')); b.dataset.f = k; b.addEventListener('click', () => { filtro = k; $$('.chip', ch).forEach(x => x.setAttribute('aria-pressed', String(x === b))); render(); anuncio('Filtro: ' + n); }); ch.appendChild(b); });
+  window.Kanban = { tarjetas: () => tarjetas, mover, render };
+  render();
+});
+</script>
+</body>
+</html>

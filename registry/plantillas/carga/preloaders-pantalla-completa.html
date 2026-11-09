@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Preloaders de pantalla completa · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: 8 pantallas de carga inicial (splash) a pantalla completa, con salida animada que revela la página.
+  Proyecto: Clima, Mystery, DataDash, landing (cualquier SPA de Chile Consultores).
+  Cómo aplicarlo: copia el CSS ".pre*" y la función mostrarPreloader(tipo, promesaDeCarga). Pasa la promesa real (ej. Promise.all([supabase.auth.getSession(), fetch(...)])).
+  Regla anti-parpadeo: si la carga termina antes de 300 ms (UMBRAL) el preloader nunca se muestra. Si se muestra, dura al menos 600 ms para no destellar.
+  Accesibilidad: role="status" + aria-live, botón Omitir enfocado, la página detrás queda inert. Con movimiento reducido se usa fundido simple.
+  Ganchos: #pre (overlay), .pre[data-tipo], PRE.duracion (ms), PRE.umbral (ms), botón [data-ver].
+-->
+<style>
+  :root{--pre-bg:#07070f}
+  .pagina{max-width:1000px;margin:0 auto;padding:24px 16px 64px}
+  .barra{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin:20px 0 24px;padding:12px 16px;border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie)}
+  .aviso[hidden]{display:none}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:14px}
+  .ficha{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie)}
+  .ficha .miniatura{height:110px;border-radius:var(--r-s);background:var(--pre-bg);display:grid;place-items:center;overflow:hidden;position:relative;color:#fff;font:600 .9rem var(--display)}
+  .ficha h3{font-size:.95rem} .ficha p{font-size:var(--fs-xs);color:var(--texto-2);margin:0}
+  #resultado{margin-top:18px}
+  /* Dibujos de las miniaturas */
+  .m-num{font:700 2rem var(--display)} .m-aur{position:absolute;inset:-30%;background:radial-gradient(40% 50% at 30% 30%,#7C6DF2,transparent 60%),radial-gradient(40% 50% at 70% 70%,#38BDF8,transparent 60%);filter:blur(24px);opacity:.8}
+  .m-cort{position:absolute;top:0;bottom:0;width:50%;background:#1a1a2e}.m-cort.i{left:0}.m-cort.d{right:0;background:#232340}
+
+  /* === COMPONENTE: overlay preloader === */
+  .pre{position:fixed;inset:0;z-index:10000;background:var(--pre-bg);color:#fff;display:grid;place-items:center;overflow:hidden;opacity:1;transition:opacity .5s ease}
+  .pre[hidden]{display:none}
+  .pre.salir{opacity:0;pointer-events:none}
+  .pre .omitir{position:absolute;right:16px;bottom:16px;z-index:5}
+  .pre .centro{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;padding:0 24px}
+  .pre .pct{font:600 .9rem var(--sans);color:rgba(255,255,255,.6);font-variant-numeric:tabular-nums}
+  /* 1 trazo de logo */
+  .p-trazo svg{width:min(46vw,200px);height:auto;overflow:visible}
+  .p-trazo .linea{fill:none;stroke:url(#gTraz);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:var(--len);stroke-dashoffset:calc(var(--len) * (1 - var(--p)))}
+  .p-trazo .relleno{fill:url(#gTraz);opacity:calc((var(--p) - .8) * 5)}
+  /* 2 contador + cortina */
+  .p-contador .gran{font:700 clamp(5rem,22vw,12rem)/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.04em;background:linear-gradient(135deg,#fff,#a89cff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .p-contador .tapa{position:absolute;inset:0;background:var(--pre-bg);transform-origin:top;transform:scaleY(calc(1 - var(--p)));display:none}
+  .pre.salir.sal-cortina{opacity:1;transform:translateY(-100%);transition:transform .7s cubic-bezier(.7,0,.2,1)}
+  /* 3 aurora */
+  .p-aurora .mancha{position:absolute;inset:-25%;background:radial-gradient(35% 45% at 25% 30%,#7C6DF2,transparent 60%),radial-gradient(35% 45% at 75% 35%,#38BDF8,transparent 60%),radial-gradient(40% 50% at 50% 85%,#A78BFA,transparent 60%);filter:blur(50px);animation:respira 4s ease-in-out infinite alternate}
+  @keyframes respira{from{transform:scale(1) rotate(0)}to{transform:scale(1.25) rotate(14deg)}}
+  .p-aurora h2{font-size:clamp(1.6rem,5vw,2.6rem);text-shadow:0 2px 30px rgba(0,0,0,.4)}
+  /* 4 máquina de escribir */
+  .p-escribe .linea-t{font:600 clamp(1.2rem,4vw,2rem) var(--display);min-height:1.4em}
+  .p-escribe .cur{display:inline-block;width:3px;height:1em;background:var(--acento);vertical-align:-.12em;margin-left:3px;animation:parp .8s steps(1) infinite}
+  @keyframes parp{50%{opacity:0}}
+  /* 5 máscara de texto */
+  .p-mascara .tx{font:700 clamp(2.4rem,11vw,6.5rem)/1 var(--display);letter-spacing:-.03em;color:rgba(255,255,255,.12);background:linear-gradient(0deg,#fff,#a89cff) no-repeat;background-size:100% calc(var(--p) * 100%);background-position:0 100%;-webkit-background-clip:text;background-clip:text}
+  .p-mascara .tx span{display:block}
+  /* 6 puntos a logo */
+  .p-puntos .lienzo{position:relative;width:160px;height:160px}
+  .p-puntos i{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px;border-radius:50%;background:linear-gradient(135deg,#7C6DF2,#38BDF8);transform:translate(calc(var(--dx) * (1 - var(--p)) * 1px),calc(var(--dy) * (1 - var(--p)) * 1px)) scale(calc(.5 + var(--p) * .5))}
+  .p-puntos .logo-c{position:absolute;inset:34px;border-radius:50%;border:6px solid transparent;border-top-color:#7C6DF2;border-right-color:#38BDF8;opacity:calc((var(--p) - .85) * 6.6);transform:rotate(calc(var(--p) * 360deg))}
+  /* 7 cortinas */
+  .p-cortinas .mitad{position:absolute;top:0;bottom:0;width:50%;background:#10101f;transition:transform .9s cubic-bezier(.7,0,.2,1);z-index:1}
+  .p-cortinas .mitad.i{left:0;border-right:1px solid rgba(255,255,255,.06)}.p-cortinas .mitad.d{right:0;background:#161630}
+  .pre.salir.sal-abrir{opacity:1;background:transparent;transition:none}
+  .pre.salir.sal-abrir .mitad.i{transform:translateX(-100%)}.pre.salir.sal-abrir .mitad.d{transform:translateX(100%)}
+  .pre.salir.sal-abrir .centro{opacity:0;transition:opacity .3s}
+  .p-cortinas .marca{font:700 clamp(1.6rem,6vw,3rem) var(--display);letter-spacing:.2em;text-transform:uppercase}
+  /* 8 consejos */
+  .p-consejos .aro{width:64px;height:64px;border-radius:50%;border:4px solid rgba(255,255,255,.12);border-top-color:#38BDF8;animation:gira .9s linear infinite}
+  @keyframes gira{to{transform:rotate(360deg)}}
+  .p-consejos .consejo{max-width:30ch;min-height:3.2em;color:rgba(255,255,255,.85);transition:opacity .35s}
+  .p-consejos .consejo.cambia{opacity:0}
+  .pre .barrita{width:min(60vw,260px);height:4px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}
+  .pre .barrita span{display:block;height:100%;width:calc(var(--p) * 100%);background:linear-gradient(90deg,#7C6DF2,#38BDF8)}
+  @media (prefers-reduced-motion:reduce){
+    .pre{transition:opacity .3s}.p-aurora .mancha,.p-consejos .aro{animation:none}.p-escribe .cur{animation:none}
+    .pre.salir.sal-cortina,.pre.salir.sal-abrir{transform:none;opacity:0;transition:opacity .3s}
+    .p-cortinas .mitad{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="pagina" id="app">
+  <h1>Preloaders de <span class="gradient-text">pantalla completa</span></h1>
+  <p class="muted">Ocho pantallas de carga inicial. Elige una, ajusta la duración y mira cómo revela la página. Si la carga real tarda menos que el umbral, el preloader no se muestra.</p>
+
+  <div class="barra" role="group" aria-label="Configuración">
+    <label class="small muted" for="in-dur">Duración</label>
+    <input id="in-dur" type="range" min="1500" max="6000" step="250" value="3000"><output class="mono small" id="outDur" for="in-dur">3,0 s</output>
+    <label class="check"><input type="checkbox" id="in-rapida" name="rapida"><span class="small">Simular carga rápida (200 ms, no debe mostrarse)</span></label>
+    <label class="check"><input type="checkbox" id="in-falla" name="falla"><span class="small">Simular error de carga</span></label>
+  </div>
+
+  <div class="grid" id="fichas"></div>
+  <div id="resultado" role="status" aria-live="polite" class="aviso ok" hidden></div>
+</main>
+
+<div class="pre" id="pre" role="status" aria-live="polite" aria-label="Cargando la aplicación" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const sv = (t, a) => { const e = document.createElementNS(NS, t); Object.keys(a || {}).forEach(k => e.setAttribute(k, a[k])); return e; };
+  const esperar = ms => new Promise(r => setTimeout(r, ms));
+  const reducido = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const PRE = window.PRE = { duracion: 3000, umbral: 300, minimo: 600 };
+
+  /* ---------- 8 variantes: construir(raiz) devuelve actualizar(p) con p de 0 a 1 ---------- */
+  const TIPOS = [
+    { id: 'trazo', nombre: 'Logo que se dibuja', desc: 'Trazo SVG con stroke-dashoffset y relleno final.', mini: m => { m.textContent = 'CC'; },
+      construir(r) {
+        r.classList.add('p-trazo'); const c = el('div', 'centro'); const s = sv('svg', { viewBox: '0 0 100 100' });
+        const d = sv('defs'); const g = sv('linearGradient', { id: 'gTraz', x1: 0, y1: 0, x2: 1, y2: 1 }); g.append(sv('stop', { offset: '0', 'stop-color': '#7C6DF2' }), sv('stop', { offset: '1', 'stop-color': '#38BDF8' })); d.appendChild(g);
+        const pa = 'M68 30 A28 28 0 1 0 68 70'; const l1 = sv('path', { d: pa, class: 'linea' }); l1.style.setProperty('--len', 150);
+        const l2 = sv('circle', { cx: 50, cy: 50, r: 6, class: 'relleno' });
+        s.append(d, l1, l2); c.append(s, el('div', 'pct', 'Chile Consultores')); r.appendChild(c);
+        return p => { r.style.setProperty('--p', p); };
+      } },
+    { id: 'contador', nombre: 'Contador y cortina', desc: 'Número de 0 a 100 y salida con cortina hacia arriba.', mini: m => { m.className += ' m-num'; m.textContent = '73'; }, salida: 'sal-cortina',
+      construir(r) {
+        r.classList.add('p-contador'); const c = el('div', 'centro'); const n = el('div', 'gran', '0'); c.append(n, el('div', 'pct', 'Cargando tu espacio de trabajo')); r.appendChild(c);
+        return p => { n.textContent = String(Math.round(p * 100)); };
+      } },
+    { id: 'aurora', nombre: 'Aurora que respira', desc: 'Gradiente de malla animado con mensaje central.', mini: m => { const a = el('div', 'm-aur'); m.appendChild(a); },
+      construir(r) {
+        r.classList.add('p-aurora'); r.appendChild(el('div', 'mancha')); const c = el('div', 'centro'); const b = el('div', 'barrita'); b.appendChild(el('span'));
+        c.append(el('h2', '', 'Preparando tu panel'), b); r.appendChild(c); return p => { r.style.setProperty('--p', p); };
+      } },
+    { id: 'escribe', nombre: 'Máquina de escribir', desc: 'Texto que se escribe con cursor parpadeante.', mini: m => { m.textContent = 'Cargando|'; },
+      construir(r) {
+        r.classList.add('p-escribe'); const c = el('div', 'centro'); const t = el('div', 'linea-t'); const tx = el('span'); const cur = el('span', 'cur'); cur.setAttribute('aria-hidden', 'true'); t.append(tx, cur);
+        const FRASE = 'Analizando resultados de clima laboral…'; c.append(t, el('div', 'pct', 'Un momento, por favor')); r.appendChild(c);
+        return p => { tx.textContent = FRASE.slice(0, Math.ceil(FRASE.length * Math.min(1, p / .9))); };
+      } },
+    { id: 'mascara', nombre: 'Máscara de texto', desc: 'El nombre se rellena de abajo hacia arriba.', mini: m => { m.textContent = 'CHILE'; m.style.letterSpacing = '.1em'; },
+      construir(r) {
+        r.classList.add('p-mascara'); const c = el('div', 'centro'); const t = el('div', 'tx'); t.append(el('span', '', 'Chile'), el('span', '', 'Consultores')); const pc = el('div', 'pct', '0%'); c.append(t, pc); r.appendChild(c);
+        return p => { r.style.setProperty('--p', p); pc.textContent = Math.round(p * 100) + '%'; };
+      } },
+    { id: 'puntos', nombre: 'Puntos que forman el logo', desc: 'Partículas que convergen y se funden en un aro.', mini: m => { m.textContent = '. : ○'; },
+      construir(r) {
+        r.classList.add('p-puntos'); const c = el('div', 'centro'); const l = el('div', 'lienzo');
+        for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, d = 220 + (i % 3) * 40; const pt = el('i'); pt.style.setProperty('--dx', Math.cos(a) * d); pt.style.setProperty('--dy', Math.sin(a) * d); l.appendChild(pt); }
+        l.appendChild(el('div', 'logo-c')); c.append(l, el('div', 'pct', 'Sincronizando datos')); r.appendChild(c);
+        return p => { r.style.setProperty('--p', Math.min(1, p * 1.1)); };
+      } },
+    { id: 'cortinas', nombre: 'Cortinas que se abren', desc: 'Dos mitades que se separan para revelar la página.', mini: m => { m.append(el('div', 'm-cort i'), el('div', 'm-cort d')); }, salida: 'sal-abrir',
+      construir(r) {
+        r.classList.add('p-cortinas'); r.append(el('div', 'mitad i'), el('div', 'mitad d')); const c = el('div', 'centro'); const b = el('div', 'barrita'); b.appendChild(el('span')); c.append(el('div', 'marca', 'Chile Consultores'), b); r.appendChild(c);
+        return p => { r.style.setProperty('--p', p); };
+      } },
+    { id: 'consejos', nombre: 'Consejos rotativos', desc: 'Aro de carga con tips que cambian cada 1,5 s.', mini: m => { m.textContent = 'Tip'; },
+      construir(r) {
+        r.classList.add('p-consejos'); const c = el('div', 'centro'); const TIPS = ['Usa la paleta de comandos con Ctrl+K.', 'Exporta cualquier tabla a Excel desde el menú.', 'Los informes se guardan solos cada 30 segundos.', 'Invita a tu equipo desde Configuración.'];
+        const t = el('p', 'consejo', TIPS[0]); let i = 0, ult = 0; c.append(el('div', 'aro'), t, el('div', 'pct', '0%')); r.appendChild(c);
+        return p => { const k = Math.floor(p * 100 / 30) % TIPS.length; c.lastChild.textContent = Math.round(p * 100) + '%'; if (k !== i) { i = k; t.classList.add('cambia'); setTimeout(() => { t.textContent = TIPS[i]; t.classList.remove('cambia'); }, 250); } };
+      } }
+  ];
+
+  /* ---------- Motor: mostrarPreloader(tipo, promesaDeCarga) ---------- */
+  const pre = $('#pre'), app = $('#app'); let activo = null;
+  async function mostrarPreloader(tipo, promesa) {
+    const t0 = performance.now(); let visible = false, cancelado = false;
+    // Regla anti-parpadeo: solo muestra si pasan más de PRE.umbral ms
+    const espera = Promise.race([promesa.then(() => 'listo', e => { throw e; }), esperar(PRE.umbral).then(() => 'tarde')]);
+    const r1 = await espera;
+    if (r1 === 'listo') return { mostrado: false, ms: Math.round(performance.now() - t0) };
+    visible = true; pre.className = 'pre'; pre.replaceChildren(); pre.hidden = false; app.inert = true;
+    const act = tipo.construir(pre); activo = { cancelar: () => { cancelado = true; } };
+    const om = el('button', 'btn btn-sec btn-sm omitir', 'Omitir'); om.type = 'button'; om.addEventListener('click', () => { cancelado = true; }); pre.appendChild(om); om.focus({ preventScroll: true });
+    const ini = performance.now(); let err = null;
+    let listo = false; promesa.then(() => { listo = true; }, e => { err = e; listo = true; });
+    await new Promise(res => {
+      (function frame(now) {
+        const dt = now - ini, p = Math.min(1, dt / PRE.duracion);
+        act(Math.min(p, listo ? 1 : .96));
+        if (cancelado || (p >= 1 && listo && dt >= PRE.minimo)) return res();
+        requestAnimationFrame(frame);
+      })(ini);
+    });
+    act(1);
+    if (!cancelado) await esperar(220);
+    pre.classList.add('salir'); if (tipo.salida) pre.classList.add(tipo.salida);
+    await esperar(reducido() ? 320 : tipo.salida ? 800 : 520);
+    pre.hidden = true; pre.replaceChildren(); app.inert = false; activo = null;
+    if (err) throw err;
+    return { mostrado: true, ms: Math.round(performance.now() - t0), omitido: cancelado };
+  }
+
+  /* ---------- Galería ---------- */
+  const fichas = $('#fichas'), res = $('#resultado');
+  TIPOS.forEach(t => {
+    const f = el('div', 'ficha'); const m = el('div', 'miniatura'); t.mini(m); const h = el('h3', '', t.nombre);
+    const b = el('button', 'btn btn-sm', 'Ver pantalla de carga'); b.type = 'button'; b.dataset.ver = t.id;
+    f.append(m, h, el('p', '', t.desc), b); fichas.appendChild(f);
+    b.addEventListener('click', async () => {
+      res.hidden = true; const rapida = $('#in-rapida').checked, falla = $('#in-falla').checked;
+      b.disabled = true; app.setAttribute('aria-busy', 'true');
+      const carga = esperar(rapida ? 200 : PRE.duracion).then(() => { if (falla) throw new Error('No se pudo cargar'); });
+      try {
+        const r = await mostrarPreloader(t, carga);
+        res.className = 'aviso ok'; res.textContent = r.mostrado ? 'Listo: el preloader se mostró ' + (r.ms / 1000).toFixed(1).replace('.', ',') + ' s' + (r.omitido ? ' (lo omitiste).' : '.') : 'Listo en ' + r.ms + ' ms: carga más rápida que el umbral de ' + PRE.umbral + ' ms, así que no se mostró preloader.';
+      } catch (e) {
+        res.className = 'aviso bad'; res.setAttribute('role', 'alert'); res.textContent = 'Error al cargar: ' + e.message + '. Puedes reintentar.';
+      }
+      res.hidden = false; b.disabled = false; app.removeAttribute('aria-busy'); b.focus();
+    });
+  });
+  const dur = $('#in-dur');
+  dur.addEventListener('input', () => { PRE.duracion = +dur.value; $('#outDur').textContent = (dur.value / 1000).toFixed(1).replace('.', ',') + ' s'; });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && activo) activo.cancelar(); });
+})();
+</script>
+</body>
+</html>

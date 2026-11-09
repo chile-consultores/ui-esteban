@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Precios · Chile Consultores</title>
+<meta name="description" content="Planes de Chile Consultores para estudios de Clima Laboral y Mystery Shopper. Precios en pesos chilenos más IVA, con pago mensual o anual.">
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: página pública de precios con 3 planes, selector mensual/anual con ahorro calculado, tabla comparativa, plan recomendado, FAQ y CTA a ?plan=x.
+  Proyecto: sitio comercial de Chile Consultores (Clima, Mystery).
+  Cómo aplicarlo: edita solo el objeto PLANES (precios, características y valores). Tarjetas y tabla se generan desde ahí. Un valor true/false se muestra como Incluido/No incluido.
+  Conectar: PLANES puede leerse de la tabla plans en Supabase. Cambia DESTINO por la ruta de contratación; recibirá ?plan=id&ciclo=mensual|anual.
+  Ganchos: #pr-planes, #pr-tabla, input[name=ciclo], PLANES.iva, PLANES.mesesGratis.
+-->
+<style>
+  [hidden]{display:none}
+  .pr{max-width:1040px;margin:0 auto;padding:32px 16px 64px}
+  .pr .btn{min-height:44px}
+  .pr-cab{text-align:center;margin-bottom:32px}
+  .pr-cab p{color:var(--texto-2);margin-top:8px}
+  .pr-seg{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--borde-2);border-radius:var(--pill);background:var(--superficie);margin:24px 0 0;min-width:0}
+  .pr-seg label{position:relative;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border-radius:var(--pill);cursor:pointer;font-weight:500;font-size:var(--fs-s)}
+  .pr-seg input{position:absolute;opacity:0;inset:0;cursor:pointer}
+  .pr-seg label:has(input:checked){background:var(--marca);color:#fff}
+  .pr-seg label:has(input:checked) .badge{background:#fff;color:#0B5B2E}
+  .pr-seg label:has(input:focus-visible){outline:2px solid var(--acento);outline-offset:2px}
+  .pr-planes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:48px}
+  .pr-plan{display:flex;flex-direction:column;gap:12px}
+  .pr-rec{border-color:var(--marca);box-shadow:0 0 0 1px var(--marca),var(--sombra-f)}
+  .pr-precio{font:600 2rem/1.1 var(--display);font-variant-numeric:tabular-nums}
+  .pr-precio small{font:400 var(--fs-s) var(--sans);color:var(--texto-2)}
+  .pr-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:var(--fs-s);flex:1}
+  .pr-tabla{min-width:560px}
+  .pr-tabla tbody th{text-transform:none;letter-spacing:0;font-size:var(--fs-s);color:var(--texto);position:sticky;left:0;background:var(--fondo-2);z-index:1}
+  .pr-tabla thead th:first-child{position:sticky;left:0;background:var(--fondo-2);z-index:1}
+  .pr-tabla td{text-align:center}
+  .pr-sec{font-size:var(--fs-l);margin-bottom:16px}
+  .pr-plan h2{font-size:var(--fs-m)}
+  .pr-faq details{border-bottom:1px solid var(--borde)}
+  .pr-faq summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:500}
+  .pr-faq p{color:var(--texto-2);padding-bottom:16px;max-width:70ch}
+</style>
+</head>
+<body>
+<div class="aurora"></div><div class="estrellas"></div>
+<main class="pr">
+  <header class="pr-cab">
+    <h1 class="gradient-text">Planes simples para medir a tu gente y tus clientes</h1>
+    <p>Precios en pesos chilenos (CLP), netos. Se suma IVA 19%.</p>
+    <fieldset class="pr-seg"><legend class="sr-only">Ciclo de facturación</legend>
+      <label><input type="radio" name="ciclo" value="mensual" checked>Mensual</label>
+      <label><input type="radio" name="ciclo" value="anual">Anual <span class="badge ok" id="pr-ahorro"></span></label>
+    </fieldset>
+  </header>
+  <p class="sr-only" role="status" id="pr-live"></p>
+  <p class="aviso ok mb-24" id="pr-elegido" role="status" hidden></p>
+  <div class="pr-planes" id="pr-planes"></div>
+
+  <h2 class="pr-sec" id="pr-th">Compara todas las características</h2>
+  <div class="tabla-wrap mb-24" role="region" aria-labelledby="pr-th" tabindex="0">
+    <table class="tabla pr-tabla" id="pr-tabla"></table>
+  </div>
+
+  <h2 class="pr-sec">Preguntas frecuentes</h2>
+  <div class="pr-faq">
+    <details><summary>¿Los precios incluyen IVA?</summary><p>No. Los precios son netos y se les suma IVA 19%. En cada plan te mostramos el total con IVA.</p></details>
+    <details><summary>¿Puedo cambiar de plan más adelante?</summary><p>Sí. Puedes subir de plan en cualquier momento y bajar al terminar tu periodo vigente.</p></details>
+    <details><summary>¿Cómo funciona el pago anual?</summary><p>Pagas una sola vez y recibes meses sin costo. El ahorro exacto se calcula arriba según el plan que elijas.</p></details>
+    <details><summary>¿Emiten factura?</summary><p>Sí, emitimos factura electrónica a nombre de tu empresa con tu RUT.</p></details>
+  </div>
+</main>
+<script src="../[base]/base.js"></script>
+<script>
+(() => {
+  /* CONECTAR: PLANES es la única fuente de datos de tarjetas y tabla. Puede venir de Supabase (tabla plans). */
+  const PLANES = {
+    iva: 0.19, mesesGratis: 2,
+    caracteristicas: ['Estudios de clima al año', 'Personas por estudio', 'Visitas Mystery Shopper al mes', 'Usuarios administradores', 'Informe PDF descargable', 'Panel de métricas', 'Integración por API', 'Soporte'],
+    planes: [
+      { id: 'inicial', nombre: 'Inicial', para: 'Pymes que parten midiendo clima.', mensual: 39000, valores: ['1', 'Hasta 50', false, '2', true, false, false, 'Correo'] },
+      { id: 'pro', nombre: 'Pro', para: 'Equipos que miden clima y experiencia de cliente.', mensual: 99000, recomendado: true, valores: ['3', 'Hasta 250', '4', '10', true, true, false, 'Correo y chat'] },
+      { id: 'empresa', nombre: 'Empresa', para: 'Organizaciones con varias sedes.', mensual: 249000, valores: ['Ilimitados', 'Ilimitadas', '20', 'Ilimitados', true, true, true, 'Ejecutivo dedicado'] },
+    ],
+  };
+  const DESTINO = '';
+  const $ = id => document.getElementById(id);
+  const el = (tag, cls, texto) => { const e = document.createElement(tag); if (cls) e.className = cls; if (texto != null) e.textContent = texto; return e; };
+  const params = new URLSearchParams(location.search);
+  const clp = UI.formato.clp;
+  const ciclo = () => document.querySelector('[name=ciclo]:checked').value;
+  const precio = (p, c) => c === 'anual'
+    ? { mes: Math.round(p.mensual * (12 - PLANES.mesesGratis) / 12), total: p.mensual * (12 - PLANES.mesesGratis), ahorro: p.mensual * PLANES.mesesGratis }
+    : { mes: p.mensual, total: p.mensual, ahorro: 0 };
+  const valor = v => v === true ? '✓ Incluido' : v === false ? '✕ No incluido' : v;
+
+  function planes() {
+    const c = ciclo();
+    $('pr-planes').replaceChildren(...PLANES.planes.map(p => {
+      const { mes, total, ahorro } = precio(p, c), t = el('h2', null, p.nombre), card = el('article', 'card pr-plan' + (p.recomendado ? ' pr-rec' : ''));
+      t.id = 'pr-' + p.id;
+      card.setAttribute('aria-labelledby', t.id);
+      const cab = el('div', 'row between'); cab.append(t); if (p.recomendado) cab.append(el('span', 'badge marca', 'Recomendado'));
+      const pr = el('div', 'pr-precio', clp(mes)); pr.append(el('small', null, ' /mes + IVA'));
+      const nota = el('p', 'muted small', c === 'anual' ? 'Facturado una vez al año: ' + clp(total) + ' + IVA. Ahorras ' + clp(ahorro) + '.' : 'Total con IVA: ' + clp(Math.round(mes * (1 + PLANES.iva))) + ' al mes.');
+      const ul = el('ul', 'pr-lista');
+      PLANES.caracteristicas.slice(0, 4).forEach((n, i) => ul.append(el('li', null, n + ': ' + valor(p.valores[i]))));
+      const cta = el('a', 'btn' + (p.recomendado ? '' : ' btn-sec'), 'Elegir ' + p.nombre);
+      cta.href = DESTINO + '?plan=' + p.id + '&ciclo=' + c;
+      card.append(cab, el('p', 'muted small', p.para), pr, nota, ul, cta); return card;
+    }));
+  }
+
+  function tabla() {
+    const cap = el('caption', 'sr-only', 'Comparación de planes'), cab = el('tr', null), filaTh = el('th', null, 'Característica');
+    filaTh.scope = 'col'; cab.append(filaTh);
+    PLANES.planes.forEach(p => { const th = el('th', null, p.nombre + (p.recomendado ? ' (recomendado)' : '')); th.scope = 'col'; cab.append(th); });
+    const cuerpo = el('tbody');
+    PLANES.caracteristicas.forEach((n, i) => {
+      const tr = el('tr'), th = el('th', null, n); th.scope = 'row'; tr.append(th);
+      PLANES.planes.forEach(p => tr.append(el('td', null, valor(p.valores[i])))); cuerpo.append(tr);
+    });
+    const cabeza = el('thead'); cabeza.append(cab); $('pr-tabla').replaceChildren(cap, cabeza, cuerpo);
+  }
+
+  $('pr-ahorro').textContent = 'Ahorra ' + PLANES.mesesGratis + ' meses';
+  const elegido = PLANES.planes.find(p => p.id === params.get('plan'));
+  if (params.get('ciclo') === 'anual') document.querySelector('[name=ciclo][value=anual]').checked = true;
+  if (elegido) { $('pr-elegido').textContent = 'Elegiste el plan ' + elegido.nombre + ' (' + ciclo() + '). Te contactaremos para activarlo.'; $('pr-elegido').hidden = false; }
+  document.querySelectorAll('[name=ciclo]').forEach(r => r.addEventListener('change', () => { planes(); $('pr-live').textContent = 'Mostrando precios ' + ciclo() + 'es.'; }));
+  planes(); tabla();
+})();
+</script>
+</body>
+</html>
