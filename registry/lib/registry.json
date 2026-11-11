@@ -1,0 +1,24 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "items": [
+    {
+      "name": "format-date",
+      "type": "registry:lib",
+      "title": "formatDate",
+      "description": "Fechas en pantalla en un solo formato: «21 oct 2026» y «21 oct 2026, 09:56» (24 h). Las fechas sin hora no se corren de día por la zona horaria.",
+      "categories": [
+        "lib",
+        "fechas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "format-date/format-date.ts",
+          "type": "registry:lib",
+          "target": "lib/format-date.ts"
+        }
+      ]
+    }
+  ]
+}

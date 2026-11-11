@@ -6,13 +6,54 @@
       "type": "registry:hook",
       "title": "useMediaQuery",
       "description": "Hook para reaccionar a media queries desde React. Sirve para desactivar animaciones pesadas en pantallas chicas o respetar prefers-reduced-motion.",
-      "categories": ["hooks", "responsive"],
+      "categories": [
+        "hooks",
+        "responsive"
+      ],
       "dependencies": [],
       "registryDependencies": [],
       "files": [
         {
           "path": "use-media-query/use-media-query.ts",
           "type": "registry:hook"
+        }
+      ]
+    },
+    {
+      "name": "use-unsaved-changes",
+      "type": "registry:hook",
+      "title": "useUnsavedChanges",
+      "description": "Cambios sin guardar: al salir de la pantalla pregunta Guardar / Seguir editando / Salir sin guardar. Cubre la navegación propia, atrás/adelante del navegador y cerrar o recargar la pestaña.",
+      "categories": [
+        "hooks",
+        "formularios"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "use-unsaved-changes/use-unsaved-changes.ts",
+          "type": "registry:hook",
+          "target": "hooks/use-unsaved-changes.ts"
+        }
+      ]
+    },
+    {
+      "name": "use-tab-save",
+      "type": "registry:hook",
+      "title": "useTabSave",
+      "description": "Un solo «Guardar cambios» por pestaña: cada bloque anota si tiene cambios y cómo guardarlos; la pestaña guarda todo junto. Nada se guarda al tocar un control.",
+      "categories": [
+        "hooks",
+        "formularios"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "use-tab-save/use-tab-save.tsx",
+          "type": "registry:hook",
+          "target": "hooks/use-tab-save.tsx"
         }
       ]
     }

@@ -40,6 +40,26 @@
           "target": "components/ui/toggle-accordion.tsx"
         }
       ]
+    },
+    {
+      "name": "menu-button",
+      "type": "registry:ui",
+      "title": "Menu Button",
+      "description": "Botón que abre una lista corta de acciones (Exportar, Más). Deja una sola acción a la vista; se cierra al elegir, con Escape (el foco vuelve al botón) o con clic afuera. Cero dependencias npm.",
+      "categories": [
+        "ui",
+        "menu",
+        "accesibilidad"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "menu-button/menu-button.tsx",
+          "type": "registry:ui",
+          "target": "components/ui/menu-button.tsx"
+        }
+      ]
     }
   ]
 }
