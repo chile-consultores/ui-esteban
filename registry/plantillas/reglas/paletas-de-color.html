@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Paletas de color · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: 7 paletas probadas en claro y oscuro (océano, bosque, terracota, ciruela, grafito, cancha, coral), cada una con vista previa real de interfaz en ambos temas, contraste WCAG calculado en vivo y botón para copiar los tokens CSS listos.
+  Proyecto: punto de partida cuando un cliente no tiene manual de marca o para derivar los colores que le faltan. Si hay manual, manda el manual.
+  Cómo aplicarlo: copia el CSS de la paleta. Usa el contrato de tokens de ux-sistema-visual (--marca, --marca-d, --marca-l, --sobre-marca, --fondo, --superficie, --superficie-2, --linea, --tinta, --gris, --exito, --aviso, --peligro).
+  Conectar: nada. Agrega paletas en PALETAS; marca-d, marca-l, superficie-2 y linea se derivan solos.
+  Ganchos: PALETAS, .pal[data-id], window.Paletas.
+  Accesibilidad: cada par se mide con la fórmula WCAG y se marca con texto (AA o Falla), no solo color. Todas cumplen AA de fábrica.
+-->
+<style>
+  .pagina{max-width:1100px;margin:0 auto;padding:24px 16px 80px;display:flex;flex-direction:column;gap:22px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .bloque{display:flex;flex-direction:column;gap:12px}
+  .bloque>h2{padding-top:14px;border-top:1px solid var(--borde)}
+  .reglas-c{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+  .reglas-c article{border:1px solid var(--borde);border-radius:12px;padding:14px;background:var(--superficie)}
+  .reglas-c h3{font-size:.95rem;margin-bottom:4px}
+  .reglas-c p{font-size:var(--fs-s);color:var(--texto-2)}
+  .proporcion{display:flex;height:34px;border-radius:8px;overflow:hidden;margin-top:8px;font-size:.7rem;font-weight:600}
+  .proporcion span{display:grid;place-items:center}
+
+  .pal{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:16px;display:flex;flex-direction:column;gap:12px}
+  .pal-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+  .pal-cab h3{font-size:1.05rem}
+  .pal-cab p{font-size:var(--fs-s);color:var(--texto-2)}
+  .temas{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:760px){.temas{grid-template-columns:1fr}}
+
+  /* Vista previa: usa SOLO los tokens del contrato */
+  .ui{background:var(--fondo);color:var(--tinta);border:1px solid var(--linea);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;font-family:system-ui,sans-serif;font-size:.85rem}
+  .ui .u-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .ui .u-logo{font-weight:700;color:var(--marca)}
+  .ui .u-tag{font-size:.7rem;color:var(--gris);border:1px solid var(--linea);border-radius:99px;padding:2px 8px}
+  .ui .u-card{background:var(--superficie);border:1px solid var(--linea);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:4px}
+  .ui .u-kpi{font-size:1.3rem;font-weight:700}
+  .ui .u-gris{color:var(--gris)}
+  .ui .u-link{color:var(--marca);font-weight:600}
+  .ui .u-btns{display:flex;gap:6px;flex-wrap:wrap}
+  .ui .u-b{border-radius:8px;padding:7px 12px;font-weight:600;font-size:.78rem;border:1px solid transparent}
+  .ui .u-p{background:var(--marca);color:var(--sobre-marca)}
+  .ui .u-p:hover{background:var(--marca-d)}
+  .ui .u-s{background:var(--superficie);color:var(--tinta);border-color:var(--linea)}
+  .ui .u-suave{background:var(--marca-l);color:var(--marca)}
+  .ui .u-chips{display:flex;gap:6px;flex-wrap:wrap}
+  .ui .u-chip{font-size:.7rem;font-weight:600;border-radius:99px;padding:3px 8px}
+  .ui .ok{background:color-mix(in srgb,var(--exito) 14%,transparent);color:var(--exito)}
+  .ui .av{background:color-mix(in srgb,var(--aviso) 16%,transparent);color:var(--aviso)}
+  .ui .pe{background:color-mix(in srgb,var(--peligro) 14%,transparent);color:var(--peligro)}
+  .ui .u-in{background:var(--superficie-2);border:1px solid var(--linea);border-radius:8px;padding:7px 10px;color:var(--gris)}
+  .ui .u-t{font-size:.7rem;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.06em}
+
+  .muestras{display:flex;gap:4px;flex-wrap:wrap}
+  .muestras span{width:22px;height:22px;border-radius:6px;border:1px solid rgba(255,255,255,.15)}
+  .contraste{display:flex;flex-wrap:wrap;gap:6px}
+  .contraste span{font-size:var(--fs-xs);padding:3px 8px;border-radius:99px;background:var(--superficie-2);color:var(--texto-2);font-variant-numeric:tabular-nums}
+  .contraste span.falla{background:var(--rojo-l);color:var(--rojo)}
+  .pal-pie{display:flex;gap:8px;flex-wrap:wrap}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header class="bloque" style="gap:8px">
+    <h1>Paletas de color</h1>
+    <p class="small">Combinaciones que se ven bien en claro y en oscuro, con el contraste medido. Úsalas cuando el cliente no tiene manual de marca o para derivar los colores que le faltan. Si hay manual, manda el manual.</p>
+  </header>
+
+  <section class="bloque" aria-labelledby="t-reglas">
+    <h2 id="t-reglas">Cómo combinar</h2>
+    <div class="reglas-c">
+      <article><h3>60, 30, 10</h3><p>60 % neutro de fondo, 30 % superficies y texto, 10 % color de marca. El color fuerte se reserva para lo que se aprieta.</p>
+        <div class="proporcion" aria-hidden="true"><span style="flex:6;background:#F7F9FC;color:#55607A">60</span><span style="flex:3;background:#DDE3EE;color:#141B2D">30</span><span style="flex:1;background:#2457D6;color:#fff">10</span></div></article>
+      <article><h3>Un color de marca y neutros con su tinte</h3><p>Los grises llevan un poco del color de marca. Así todo se ve de la misma familia sin agregar colores.</p></article>
+      <article><h3>Semánticos fijos</h3><p>Verde éxito, ámbar aviso, rojo peligro. No se usan como decoración y siempre van con icono o texto.</p></article>
+      <article><h3>En oscuro, la marca se aclara</h3><p>El mismo tono más claro y menos saturado, y el texto sobre ella pasa a oscuro. Fondo gris con tinte, nunca negro puro.</p></article>
+      <article><h3>Elevación distinta por tema</h3><p>En claro, sombras suaves. En oscuro, cada nivel es una superficie un poco más clara.</p></article>
+      <article><h3>Evita</h3><p>Rojo y verde juntos como única diferencia, degradados morado y azul neón, texto de marca sobre fondo de marca suave sin medir, y blanco puro sobre negro puro.</p></article>
+    </div>
+  </section>
+
+  <section class="bloque" aria-labelledby="t-pal">
+    <h2 id="t-pal">7 paletas listas</h2>
+    <div id="paletas" class="bloque"></div>
+  </section>
+</main>
+
+<script src="../[base]/base.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const SEM = { claro: { exito: '#1B7F3A', aviso: '#8A5A00', peligro: '#C62828' }, oscuro: { exito: '#4ADE80', aviso: '#FBBF24', peligro: '#F87171' } };
+  // Base de cada tema: marca, sobre-marca, fondo, superficie, tinta, gris. El resto se deriva.
+  const PALETAS = [
+    { id: 'oceano', nombre: 'Océano', para: 'Corporativo, B2B, finanzas, consultoría.', claro: ['#2457D6', '#FFFFFF', '#F7F9FC', '#FFFFFF', '#141B2D', '#55607A'], oscuro: ['#7AA5FF', '#0B1530', '#0E1320', '#161D2E', '#E7ECF6', '#9AA6BF'] },
+    { id: 'bosque', nombre: 'Bosque', para: 'Salud, bienestar, sustentabilidad, RR.HH.', claro: ['#1F6F5C', '#FFFFFF', '#F6F8F6', '#FFFFFF', '#14211D', '#52615B'], oscuro: ['#5CCBA8', '#062019', '#0F1714', '#17221E', '#E4EEEA', '#97AAA2'] },
+    { id: 'terracota', nombre: 'Terracota', para: 'Restaurantes, gastronomía, hogar, artesanía.', claro: ['#B4472A', '#FFFFFF', '#FBF8F4', '#FFFFFF', '#24170F', '#6A5A4F'], oscuro: ['#F2916F', '#2A0F06', '#18120F', '#231A16', '#F2E9E3', '#B3A297'] },
+    { id: 'ciruela', nombre: 'Ciruela', para: 'Educación, creatividad, eventos.', claro: ['#6A3FC4', '#FFFFFF', '#F9F8FC', '#FFFFFF', '#1C1530', '#5E5873'], oscuro: ['#B39BFF', '#1A0E3A', '#13111C', '#1C1928', '#ECE9F6', '#A6A0BA'] },
+    { id: 'grafito', nombre: 'Grafito y ámbar', para: 'Industria, construcción, logística, terreno.', claro: ['#A14B05', '#FFFFFF', '#F7F7F5', '#FFFFFF', '#1A1A18', '#5C5C57'], oscuro: ['#F5B544', '#2A1A00', '#121211', '#1C1C1A', '#EDEDEA', '#A5A59F'] },
+    { id: 'cancha', nombre: 'Cancha', para: 'Deporte, pádel, clubes, torneos.', claro: ['#2F6E1C', '#FFFFFF', '#F7F9F5', '#FFFFFF', '#172014', '#56604F'], oscuro: ['#93D95B', '#0E2005', '#10140E', '#181E15', '#E8EEE4', '#9FAA98'] },
+    { id: 'coral', nombre: 'Coral', para: 'Belleza, retail, moda, estética.', claro: ['#B3194F', '#FFFFFF', '#FCF8F9', '#FFFFFF', '#26131A', '#6B5560'], oscuro: ['#FF8FB3', '#2E0716', '#181114', '#23191D', '#F5E9EE', '#B9A3AD'] }
+  ];
+
+  const hex = h => h.replace('#', '').match(/../g).map(x => parseInt(x, 16));
+  const aHex = rgb => '#' + rgb.map(v => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase();
+  const mezcla = (a, b, t) => { const A = hex(a), B = hex(b); return aHex(A.map((v, i) => v + (B[i] - v) * t)); };
+  const lum = h => { const [r, g, b] = hex(h).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * r + .7152 * g + .0722 * b; };
+  const contraste = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+
+  function tokens(base, tema) {
+    const [marca, sobre, fondo, sup, tinta, gris] = base;
+    const oscuro = tema === 'oscuro';
+    return {
+      marca, 'marca-d': oscuro ? mezcla(marca, '#FFFFFF', .15) : mezcla(marca, '#000000', .15),
+      'marca-l': mezcla(fondo, marca, oscuro ? .18 : .1), 'sobre-marca': sobre,
+      fondo, superficie: sup, 'superficie-2': mezcla(sup, tinta, oscuro ? .06 : .04),
+      linea: mezcla(fondo, tinta, oscuro ? .16 : .12), tinta, gris, ...SEM[tema]
+    };
+  }
+  const css = (t, sangria) => Object.entries(t).map(([k, v]) => sangria + '--' + k + ':' + v + ';').join('\n');
+  const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+
+  function vista(t, tema) {
+    const ui = el('div', 'ui'); Object.entries(t).forEach(([k, v]) => ui.style.setProperty('--' + k, v));
+    ui.setAttribute('aria-label', 'Vista previa tema ' + tema); ui.setAttribute('role', 'img');
+    const top = el('div', 'u-top'); top.append(el('span', 'u-logo', 'Marca'), el('span', 'u-tag', tema === 'claro' ? 'Claro' : 'Oscuro'));
+    const card = el('div', 'u-card'); card.append(el('span', 'u-t', 'Participación'), el('span', 'u-kpi', '82 %'), el('span', 'u-gris', '164 de 200 personas respondieron'), el('span', 'u-link', 'Ver detalle por área'));
+    const chips = el('div', 'u-chips'); chips.append(el('span', 'u-chip ok', '✓ Enviada'), el('span', 'u-chip av', '! Por vencer'), el('span', 'u-chip pe', '✕ Rechazada'));
+    const btns = el('div', 'u-btns'); btns.append(el('span', 'u-b u-p', 'Crear encuesta'), el('span', 'u-b u-s', 'Cancelar'), el('span', 'u-b u-suave', 'Filtrar'));
+    ui.append(top, card, el('div', 'u-in', 'nombre@empresa.cl'), chips, btns);
+    return ui;
+  }
+  function medidas(t, tema) {
+    const pares = [['Texto', t.tinta, t.fondo], ['Gris', t.gris, t.superficie], ['Botón', t['sobre-marca'], t.marca], ['Enlace', t.marca, t.fondo], ['Peligro', t.peligro, t.superficie]];
+    const c = el('div', 'contraste'); c.setAttribute('aria-label', 'Contraste tema ' + tema);
+    pares.forEach(([n, a, b]) => { const r = contraste(a, b); const ok = r >= 4.5; c.append(el('span', ok ? '' : 'falla', (tema === 'claro' ? 'Claro' : 'Oscuro') + ' · ' + n + ' ' + r.toFixed(1) + ':1 ' + (ok ? 'AA' : 'Falla'))); });
+    return c;
+  }
+
+  const cont = document.getElementById('paletas');
+  PALETAS.forEach(p => {
+    const tc = tokens(p.claro, 'claro'), to = tokens(p.oscuro, 'oscuro');
+    const art = el('article', 'pal'); art.dataset.id = p.id;
+    const cab = el('div', 'pal-cab'); const tx = el('div'); tx.append(el('h3', '', p.nombre), el('p', '', 'Ideal para: ' + p.para));
+    const mu = el('div', 'muestras'); mu.setAttribute('aria-hidden', 'true');
+    [tc.marca, tc['marca-l'], tc.fondo, tc.tinta, to.marca, to.fondo, to.superficie, to.tinta].forEach(c => { const s = el('span'); s.style.background = c; s.title = c; mu.append(s); });
+    cab.append(tx, mu);
+    const temas = el('div', 'temas'); temas.append(vista(tc, 'claro'), vista(to, 'oscuro'));
+    const m = el('div', 'contraste'); m.append(...medidas(tc, 'claro').children, ...medidas(to, 'oscuro').children);
+    const pie = el('div', 'pal-pie');
+    const copiar = el('button', 'btn btn-sm', 'Copiar CSS'); copiar.type = 'button';
+    copiar.addEventListener('click', async () => {
+      const txt = '/* Paleta ' + p.nombre + ' */\n:root{\n' + css(tc, '  ') + '\n}\n@media (prefers-color-scheme: dark){\n  :root:not([data-theme="light"]){\n' + css(to, '    ') + '\n  }\n}\n:root[data-theme="dark"]{\n' + css(to, '  ') + '\n}\n';
+      try { await navigator.clipboard.writeText(txt); UI.toast('CSS de ' + p.nombre + ' copiado', 'ok'); }
+      catch { UI.toast('No se pudo copiar. Revisa los permisos del navegador.', 'error'); }
+    });
+    pie.append(copiar);
+    art.append(cab, temas, m, pie); cont.append(art);
+  });
+
+  window.Paletas = { PALETAS, tokens, contraste };
+});
+</script>
+</body>
+</html>

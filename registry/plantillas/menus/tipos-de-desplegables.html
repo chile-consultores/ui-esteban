@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Tipos de desplegables · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: los 4 usos de un menú desplegable, funcionando: mando (estilos de un editor), navegación (mega menú con descripciones y menú anidado de categorías), acción (menú contextual con iconos, separadores y submenús estilo Drive) y preferencias (idioma, tema claro u oscuro y paleta).
+  Proyecto: material interno de Chile Consultores para elegir el desplegable correcto.
+  Cómo aplicarlo: menús de mando, acción y preferencias usan .dm-btn + .dm-menu (role=menu) con submenús anidados; la navegación usa el patrón disclosure (.nav-dd), que es el correcto para enlaces.
+  Conectar: reemplaza `hacer(accion)` por tus funciones y los href del mega menú por tus rutas.
+  Ganchos: .dm-btn[aria-controls], .dm-menu, .dm-sub, .nav-dd, [data-accion], window.Desplegables.
+  Accesibilidad: flechas recorren, flecha derecha abre submenú y flecha izquierda vuelve, Escape cierra un nivel y devuelve el foco, Enter y Espacio activan; mega menú con aria-expanded y Escape.
+-->
+<style>
+  .pagina{max-width:1100px;margin:0 auto;padding:24px 16px 80px;display:flex;flex-direction:column;gap:26px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .bloque{display:flex;flex-direction:column;gap:12px}
+  .bloque>h2{padding-top:14px;border-top:1px solid var(--borde)}
+  .guia{margin:0;padding-left:18px;display:grid;gap:4px;font-size:var(--fs-s);color:var(--texto-2)}
+  .escena{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:16px;position:relative;min-height:220px}
+  .rel{position:relative;display:inline-block}
+
+  /* === COMPONENTE: botón y menú desplegable === */
+  .dm-btn{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:8px 12px;border-radius:10px;border:1px solid var(--borde-2);background:var(--superficie-2);color:var(--texto);font-size:var(--fs-s);cursor:pointer}
+  .dm-btn:hover{border-color:var(--marca)}
+  .dm-btn[aria-expanded=true]{border-color:var(--marca);background:var(--marca-l)}
+  .dm-btn .flecha{width:14px;height:14px;transition:transform var(--dur) var(--ease-salida)}
+  .dm-btn[aria-expanded=true] .flecha{transform:rotate(180deg)}
+  .dm-menu{position:absolute;z-index:40;top:calc(100% + 6px);left:0;min-width:230px;margin:0;padding:6px;list-style:none;border-radius:12px;border:1px solid var(--borde-2);background:#161624;box-shadow:var(--sombra-f);transform-origin:top left;animation:dm-in var(--dur) var(--ease-salida)}
+  .dm-menu.der{left:auto;right:0;transform-origin:top right}
+  .dm-menu[hidden]{display:none}
+  .dm-menu li{position:relative}
+  @keyframes dm-in{from{opacity:0;transform:scale(.97) translateY(-4px)}to{opacity:1;transform:none}}
+  .dm-menu [role^=menuitem]{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:8px 10px;border:0;border-radius:8px;background:none;color:var(--texto);font-size:var(--fs-s);text-align:left;cursor:pointer;text-decoration:none}
+  .dm-menu [role^=menuitem]:hover,.dm-menu [role^=menuitem]:focus-visible,.dm-menu [role^=menuitem][aria-expanded=true]{background:var(--superficie-2);outline:none}
+  .dm-menu [role^=menuitem] svg{width:18px;height:18px;flex:none;color:var(--texto-2)}
+  .dm-menu .atajo{margin-left:auto;font-size:var(--fs-xs);color:var(--texto-3)}
+  .dm-menu .sub-flecha{margin-left:auto;color:var(--texto-3)}
+  .dm-menu .peligro{color:var(--rojo)}.dm-menu .peligro svg{color:var(--rojo)}
+  .dm-menu [aria-checked=true]::after{content:"✓";margin-left:auto;color:var(--verde)}
+  .dm-menu [role=separator]{height:1px;background:var(--borde);margin:4px 6px}
+  .dm-menu .grupo-t{padding:6px 10px 2px;font-size:var(--fs-xs);color:var(--texto-3);text-transform:uppercase;letter-spacing:.06em}
+  .dm-sub{top:-6px;left:calc(100% + 4px)}
+  .dm-sub.izq{left:auto;right:calc(100% + 4px)}
+  .dm-menu{max-width:calc(100vw - 32px)}
+  @media(max-width:640px){.dm-sub{position:static;box-shadow:none;border:0;padding:0 0 0 14px;animation:none;background:none;min-width:0}}
+
+  /* Mando: editor */
+  .editor{display:flex;flex-direction:column;gap:12px}
+  .barra-ed{display:flex;gap:6px;flex-wrap:wrap;padding:6px;border:1px solid var(--borde);border-radius:12px;background:var(--fondo-2)}
+  .hoja{background:#fff;color:#1d1d24;border-radius:10px;padding:18px;min-height:110px;transition:font-family var(--dur)}
+  .hoja .muestra{margin:0;transition:font-size var(--dur),font-weight var(--dur)}
+  .hoja .muestra[data-estilo=t1]{font-size:1.6rem;font-weight:700;line-height:1.2}
+  .hoja .muestra[data-estilo=t2]{font-size:1.25rem;font-weight:700}
+  .hoja .muestra[data-estilo=normal]{font-size:1rem}
+  .hoja .muestra[data-estilo=cita]{font-style:italic;border-left:3px solid #9a9aa6;padding-left:12px;color:#4a4a55}
+
+  /* Navegación: barra con mega menú y anidado */
+  .nav-demo{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:12px;background:#121212;color:#fff}
+  .nav-demo .logo-d{font-weight:700;letter-spacing:-.02em}
+  .nav-demo>ul{display:flex;gap:4px;margin:0;padding:0;list-style:none;align-items:center;flex-wrap:wrap}
+  .nav-demo li{position:relative}
+  .nav-dd>button,.nav-demo .lnk{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 12px;border:0;border-radius:8px;background:none;color:#e9e9ee;font-size:var(--fs-s);cursor:pointer;text-decoration:none}
+  .nav-dd>button:hover,.nav-dd>button[aria-expanded=true]{background:rgba(255,255,255,.08);color:#fff}
+  .nav-dd>button .flecha{width:14px;height:14px;transition:transform var(--dur) var(--ease-salida)}
+  .nav-dd>button[aria-expanded=true] .flecha{transform:rotate(180deg)}
+  .mega{position:absolute;z-index:40;top:calc(100% + 12px);right:-40px;width:min(560px,90vw);display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:12px;border-radius:16px;background:#fff;color:#1d1d24;box-shadow:0 24px 48px -16px rgba(0,0,0,.55);animation:dm-in var(--dur) var(--ease-salida);transform-origin:top center}
+  .mega::before{content:"";position:absolute;top:-7px;right:70px;width:14px;height:14px;background:#fff;transform:rotate(45deg);border-radius:2px}
+  .mega[hidden]{display:none}
+  .mega a{display:flex;flex-direction:column;gap:2px;padding:12px;border-radius:10px;color:#1d1d24;text-decoration:none}
+  .mega a:hover,.mega a:focus-visible{background:#f2f0fb;outline:none}
+  .mega a b{font-size:.95rem}
+  .mega a b:first-child{color:inherit}
+  .mega a:hover b,.mega a:focus-visible b{color:#6a57d6}
+  .mega a span{font-size:.82rem;color:#55555f}
+  @media(max-width:640px){.mega{position:static;width:100%;grid-template-columns:1fr;margin-top:6px}.mega::before{display:none}}
+  .btn-blanco{background:#fff;color:#121212;border-radius:99px;padding:8px 16px;font-weight:600;font-size:var(--fs-s);border:0;cursor:pointer;min-height:40px}
+  .migas-d{display:flex;align-items:center;gap:6px;font-size:var(--fs-s);color:var(--texto-2);margin-top:12px;min-height:24px}
+
+  /* Acción: archivos */
+  .archivos{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:12px}
+  .archivo{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 14px;border:1px solid var(--borde);border-radius:12px;background:var(--fondo-2);position:relative}
+  .archivo .ico-doc{width:28px;height:28px;border-radius:6px;background:#2f6fe4;flex:none}
+  .archivo .nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-s)}
+  .kebab{width:40px;height:40px;display:grid;place-items:center;border:0;border-radius:10px;background:none;color:var(--texto-2);cursor:pointer}
+  .kebab:hover,.kebab[aria-expanded=true]{background:var(--superficie-2);color:var(--texto)}
+  .kebab svg{width:20px;height:20px}
+
+  /* Preferencias */
+  .prefs{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  @media(max-width:760px){.prefs{grid-template-columns:1fr}}
+  .prefs-ctl{display:flex;flex-direction:column;gap:10px}
+  .prefs-ctl .fila{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .prev{border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;transition:background var(--dur),color var(--dur);border:1px solid var(--p-linea)}
+  .prev{--p-fondo:#ffffff;--p-sup:#f4f4f6;--p-tinta:#17171c;--p-gris:#5b5b66;--p-linea:#e3e3e8}
+  .prev[data-tema=oscuro]{--p-fondo:#15161b;--p-sup:#1f2027;--p-tinta:#ececf1;--p-gris:#a6a6b2;--p-linea:#2c2d36}
+  .prev{background:var(--p-fondo);color:var(--p-tinta)}
+  .prev .p-card{background:var(--p-sup);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:4px}
+  .prev .p-card span{color:var(--p-gris);font-size:.82rem}
+  .prev .p-btn{align-self:flex-start;background:var(--p-marca,#2457d6);color:#fff;border-radius:8px;padding:8px 14px;font-weight:600;font-size:.82rem}
+  .swatch{width:16px;height:16px;border-radius:50%;flex:none;border:2px solid rgba(255,255,255,.25)}
+  [hidden]{display:none!important}
+  @media(prefers-reduced-motion:reduce){.dm-menu,.mega{animation:none}.dm-btn .flecha,.nav-dd>button .flecha{transition:none}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header class="bloque">
+    <h1>Tipos de desplegables</h1>
+    <p class="small">Un desplegable esconde opciones hasta que se necesitan: la pantalla queda limpia sin perder funciones. Hay 4 usos y cada uno se arma distinto. Los iconos para abrirlos están en <a href="iconos-de-menu.html">iconos de menú</a>.</p>
+  </header>
+
+  <!-- 1. MANDO -->
+  <section class="bloque" aria-labelledby="t-mando">
+    <h2 id="t-mando">1. Menús de mando</h2>
+    <p class="small">Agrupan opciones de una misma herramienta y aparecen justo cuando las necesitas, como los estilos de un editor de texto. El botón muestra la opción actual.</p>
+    <div class="escena">
+      <div class="editor">
+        <div class="barra-ed" role="toolbar" aria-label="Formato">
+          <div class="rel">
+            <button class="dm-btn" type="button" id="b-estilo" aria-haspopup="menu" aria-expanded="false" aria-controls="m-estilo"><span data-actual>Normal</span><svg class="flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+            <ul class="dm-menu" id="m-estilo" role="menu" aria-label="Estilo de párrafo" hidden>
+              <li role="none"><button role="menuitemradio" aria-checked="false" data-estilo="t1" type="button" style="font-size:1.15rem;font-weight:700">Título 1<span class="atajo">Ctrl+Alt+1</span></button></li>
+              <li role="none"><button role="menuitemradio" aria-checked="false" data-estilo="t2" type="button" style="font-weight:700">Título 2<span class="atajo">Ctrl+Alt+2</span></button></li>
+              <li role="none"><button role="menuitemradio" aria-checked="true" data-estilo="normal" type="button">Normal<span class="atajo">Ctrl+Alt+0</span></button></li>
+              <li role="none"><button role="menuitemradio" aria-checked="false" data-estilo="cita" type="button" style="font-style:italic">Cita</button></li>
+            </ul>
+          </div>
+          <div class="rel">
+            <button class="dm-btn" type="button" id="b-fuente" aria-haspopup="menu" aria-expanded="false" aria-controls="m-fuente"><span data-actual>Sistema</span><svg class="flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+            <ul class="dm-menu" id="m-fuente" role="menu" aria-label="Fuente" hidden>
+              <li role="none"><button role="menuitemradio" aria-checked="true" data-fuente="system-ui,sans-serif" type="button" style="font-family:system-ui">Sistema</button></li>
+              <li role="none"><button role="menuitemradio" aria-checked="false" data-fuente="Georgia,serif" type="button" style="font-family:Georgia,serif">Georgia</button></li>
+              <li role="none"><button role="menuitemradio" aria-checked="false" data-fuente="ui-monospace,Menlo,monospace" type="button" style="font-family:ui-monospace,monospace">Monoespaciada</button></li>
+            </ul>
+          </div>
+        </div>
+        <div class="hoja" id="hoja"><p class="muestra" id="muestra" data-estilo="normal">Informe de clima laboral, noviembre</p></div>
+      </div>
+    </div>
+    <ul class="guia">
+      <li>El botón muestra la opción elegida, no un título genérico.</li>
+      <li>Cada opción se ve como quedará (vista previa en el mismo menú) y muestra su atajo.</li>
+      <li>Al elegir, el menú se cierra y el cambio se ve al tiro.</li>
+    </ul>
+  </section>
+
+  <!-- 2. NAVEGACIÓN -->
+  <section class="bloque" aria-labelledby="t-nav">
+    <h2 id="t-nav">2. Menús de navegación</h2>
+    <p class="small">Meten submenús bajo un elemento principal para que la barra quede compacta. Con mucho contenido, el mega menú muestra título y descripción, y el anidado arma la jerarquía categoría, subcategoría y detalle.</p>
+    <div class="escena" style="min-height:330px">
+      <nav class="nav-demo" aria-label="Ejemplo de navegación">
+        <span class="logo-d">Viajes Sorpresa</span>
+        <ul>
+          <li><a class="lnk" href="#t-nav" data-ir="Experiencias">Experiencias</a></li>
+          <li class="rel">
+            <button class="dm-btn" style="background:none;border:0;color:#e9e9ee" type="button" id="b-prod" aria-haspopup="menu" aria-expanded="false" aria-controls="m-prod">Destinos<svg class="flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+            <ul class="dm-menu" id="m-prod" role="menu" aria-label="Destinos" hidden>
+              <li role="none"><button role="menuitem" type="button" aria-haspopup="menu" aria-expanded="false">Sudamérica<span class="sub-flecha" aria-hidden="true">›</span></button>
+                <ul class="dm-menu dm-sub" role="menu" aria-label="Sudamérica" hidden>
+                  <li role="none"><button role="menuitem" type="button" aria-haspopup="menu" aria-expanded="false">Chile<span class="sub-flecha" aria-hidden="true">›</span></button>
+                    <ul class="dm-menu dm-sub" role="menu" aria-label="Chile" hidden>
+                      <li role="none"><button role="menuitem" type="button" data-ir="Sudamérica › Chile › Patagonia">Patagonia</button></li>
+                      <li role="none"><button role="menuitem" type="button" data-ir="Sudamérica › Chile › Atacama">Atacama</button></li>
+                      <li role="none"><button role="menuitem" type="button" data-ir="Sudamérica › Chile › Chiloé">Chiloé</button></li>
+                    </ul></li>
+                  <li role="none"><button role="menuitem" type="button" data-ir="Sudamérica › Perú">Perú</button></li>
+                  <li role="none"><button role="menuitem" type="button" data-ir="Sudamérica › Argentina">Argentina</button></li>
+                </ul></li>
+              <li role="none"><button role="menuitem" type="button" aria-haspopup="menu" aria-expanded="false">Europa<span class="sub-flecha" aria-hidden="true">›</span></button>
+                <ul class="dm-menu dm-sub" role="menu" aria-label="Europa" hidden>
+                  <li role="none"><button role="menuitem" type="button" data-ir="Europa › España">España</button></li>
+                  <li role="none"><button role="menuitem" type="button" data-ir="Europa › Italia">Italia</button></li>
+                </ul></li>
+              <li role="none"><button role="menuitem" type="button" data-ir="Todos los destinos">Ver todos los destinos</button></li>
+            </ul>
+          </li>
+          <li class="nav-dd rel">
+            <button type="button" aria-expanded="false" aria-controls="mega-1">Suscríbete<svg class="flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+            <div class="mega" id="mega-1" hidden>
+              <a href="#t-nav" data-ir="Blog"><b>Blog</b><span>Ideas de viaje y guías de cada destino.</span></a>
+              <a href="#t-nav" data-ir="Clientes"><b>Para empresas</b><span>Viajes sorpresa como premio para tu equipo.</span></a>
+              <a href="#t-nav" data-ir="Newsletter"><b>Newsletter</b><span>Un destino nuevo cada mes en tu correo.</span></a>
+              <a href="#t-nav" data-ir="Gift card"><b>Gift card</b><span>Regala un viaje sin revelar el destino.</span></a>
+            </div>
+          </li>
+          <li><button class="btn-blanco" type="button" data-ir="Ingresar">Ingresar</button></li>
+        </ul>
+      </nav>
+      <p class="migas-d" aria-live="polite" id="migas">Estás en: Inicio</p>
+    </div>
+    <ul class="guia">
+      <li>Para enlaces usa el patrón disclosure (botón con aria-expanded y un panel), no role="menu". El mega menú de la derecha está hecho así.</li>
+      <li>Mega menú: título más descripción corta, agrupado en columnas. Se abre con clic, no solo con hover.</li>
+      <li>Anidado: máximo 3 niveles. Si son más, usa una página de categoría con migas de pan.</li>
+      <li>En celular los submenús se despliegan hacia abajo dentro del mismo panel, no hacia el lado.</li>
+    </ul>
+  </section>
+
+  <!-- 3. ACCIÓN -->
+  <section class="bloque" aria-labelledby="t-accion">
+    <h2 id="t-accion">3. Menús de acción</h2>
+    <p class="small">Muestran solo las acciones del elemento, justo al lado de él: cambiar nombre, descargar, compartir, eliminar. Se agrupan con separadores y lo destructivo va al final.</p>
+    <div class="escena" style="min-height:440px">
+      <div class="rel">
+        <button class="dm-btn" type="button" id="b-carpeta" aria-haspopup="menu" aria-expanded="false" aria-controls="m-carpeta">Carpeta UX<svg class="flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <ul class="dm-menu" id="m-carpeta" role="menu" aria-label="Acciones de la carpeta UX" hidden data-plantilla-accion></ul>
+      </div>
+      <div class="archivos" id="archivos"></div>
+    </div>
+    <ul class="guia">
+      <li>Orden: crear, abrir, editar, compartir y organizar, y al final lo destructivo, separado y en rojo.</li>
+      <li>Icono a la izquierda de cada acción para escanear rápido; flecha › si abre un submenú.</li>
+      <li>Mover a la papelera ofrece Deshacer en vez de preguntar "¿seguro?".</li>
+      <li>El mismo menú se abre con el botón, con clic derecho o con Shift+F10 sobre el elemento.</li>
+    </ul>
+  </section>
+
+  <!-- 4. PREFERENCIAS -->
+  <section class="bloque" aria-labelledby="t-prefs">
+    <h2 id="t-prefs">4. Preferencias y ajustes</h2>
+    <p class="small">Idioma, tema y paleta: opciones que se eligen una vez y cambian todo. El cambio se ve de inmediato.</p>
+    <div class="escena">
+      <div class="prefs">
+        <div class="prefs-ctl">
+          <div class="fila"><span class="small">Idioma</span>
+            <div class="rel"><button class="dm-btn" type="button" id="b-idioma" aria-haspopup="menu" aria-expanded="false" aria-controls="m-idioma"><span data-actual>Español</span><svg class="flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+              <ul class="dm-menu der" id="m-idioma" role="menu" aria-label="Idioma" hidden>
+                <li role="none"><button role="menuitemradio" aria-checked="true" data-idioma="es" type="button" lang="es">Español</button></li>
+                <li role="none"><button role="menuitemradio" aria-checked="false" data-idioma="en" type="button" lang="en">English</button></li>
+                <li role="none"><button role="menuitemradio" aria-checked="false" data-idioma="pt" type="button" lang="pt">Português</button></li>
+              </ul></div></div>
+          <div class="fila"><span class="small">Tema</span>
+            <div class="rel"><button class="dm-btn" type="button" id="b-tema" aria-haspopup="menu" aria-expanded="false" aria-controls="m-tema"><span data-actual>Claro</span><svg class="flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+              <ul class="dm-menu der" id="m-tema" role="menu" aria-label="Tema" hidden>
+                <li role="none"><button role="menuitemradio" aria-checked="false" data-tema="sistema" type="button">Igual que el sistema</button></li>
+                <li role="none"><button role="menuitemradio" aria-checked="true" data-tema="claro" type="button">Claro</button></li>
+                <li role="none"><button role="menuitemradio" aria-checked="false" data-tema="oscuro" type="button">Oscuro</button></li>
+              </ul></div></div>
+          <div class="fila"><span class="small">Color de acento</span>
+            <div class="rel"><button class="dm-btn" type="button" id="b-paleta" aria-haspopup="menu" aria-expanded="false" aria-controls="m-paleta"><span class="swatch" data-sw style="background:#2457d6"></span><span data-actual>Azul</span><svg class="flecha" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+              <ul class="dm-menu der" id="m-paleta" role="menu" aria-label="Color de acento" hidden>
+                <li role="none"><button role="menuitemradio" aria-checked="true" data-color="#2457d6" type="button"><span class="swatch" style="background:#2457d6"></span>Azul</button></li>
+                <li role="none"><button role="menuitemradio" aria-checked="false" data-color="#1f6f5c" type="button"><span class="swatch" style="background:#1f6f5c"></span>Verde</button></li>
+                <li role="none"><button role="menuitemradio" aria-checked="false" data-color="#b4472a" type="button"><span class="swatch" style="background:#b4472a"></span>Terracota</button></li>
+                <li role="none"><button role="menuitemradio" aria-checked="false" data-color="#6a3fc4" type="button"><span class="swatch" style="background:#6a3fc4"></span>Violeta</button></li>
+              </ul></div></div>
+        </div>
+        <div class="prev" id="prev" data-tema="claro" aria-live="polite">
+          <b id="prev-tit">Tu panel</b>
+          <div class="p-card"><b id="prev-kpi">82 % de participación</b><span id="prev-sub">Encuesta de clima, noviembre</span></div>
+          <span class="p-btn" id="prev-btn">Ver informe</span>
+        </div>
+      </div>
+    </div>
+    <ul class="guia">
+      <li>Idioma: cada nombre escrito en su propio idioma (English, Português) y sin banderas, porque una bandera es un país, no un idioma.</li>
+      <li>Tema: tres opciones, con "Igual que el sistema" disponible.</li>
+      <li>Paleta: muestra el color en el menú, no solo el nombre.</li>
+      <li>Se guarda solo en el navegador o perfil del usuario y se recuerda en la próxima visita.</li>
+    </ul>
+  </section>
+
+  <section class="bloque" aria-labelledby="t-cuando">
+    <h2 id="t-cuando">Cuándo no usar un desplegable</h2>
+    <ul class="guia">
+      <li>2 a 4 opciones que se usan seguido: muéstralas como botones o un control segmentado.</li>
+      <li>Más de 8 opciones: agrega buscador arriba (ver <a href="dropdowns-y-contextuales.html">select con búsqueda</a>).</li>
+      <li>Navegación principal en escritorio con 5 secciones o menos: déjala visible.</li>
+      <li>Nunca abrir solo con hover: en celular y con teclado no existe.</li>
+    </ul>
+  </section>
+</main>
+
+<script src="../[base]/base.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const $ = s => document.querySelector(s);
+  // Conectar: reemplaza por tus funciones reales.
+  const hacer = (texto, tipo = 'ok', opts) => UI.toast(texto, tipo, opts);
+
+  /* ===== Motor de menús con submenús ===== */
+  let pila = []; // [{btn, menu}] del nivel raíz al más profundo
+  const items = m => [...m.children].map(li => li.querySelector(':scope > [role^=menuitem]')).filter(Boolean);
+  function cerrarDesde(i, foco) {
+    while (pila.length > i) { const { btn, menu } = pila.pop(); menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); if (foco && pila.length === i) btn.focus(); }
+  }
+  function abrirMenu(btn, menu, nivel, enfocar = true) {
+    cerrarDesde(nivel, false);
+    menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); pila.push({ btn, menu });
+    ajustar(menu, nivel);
+    if (enfocar) items(menu)[0]?.focus();
+  }
+  // Si el menú se sale de la pantalla: el raíz se corre, el submenú abre hacia la izquierda
+  function ajustar(menu, nivel) {
+    menu.style.marginLeft = ''; menu.classList.remove('izq');
+    const r = menu.getBoundingClientRect(); const sobra = r.right - (innerWidth - 8);
+    if (sobra <= 0) return;
+    if (nivel === 0 || getComputedStyle(menu).position === 'static') menu.style.marginLeft = -Math.min(sobra, Math.max(0, r.left - 8)) + 'px';
+    else menu.classList.add('izq');
+  }
+  function nivelDe(menu) { return pila.findIndex(p => p.menu === menu); }
+  function cerrarTodo(foco) { cerrarDesde(0, foco); }
+
+  document.querySelectorAll('.dm-btn[aria-controls]').forEach(btn => {
+    const menu = document.getElementById(btn.getAttribute('aria-controls'));
+    btn.addEventListener('click', () => (pila[0] && pila[0].menu === menu) ? cerrarTodo(true) : abrirMenu(btn, menu, 0));
+    btn.addEventListener('keydown', e => { if (e.key === 'ArrowDown') { e.preventDefault(); abrirMenu(btn, menu, 0); } });
+  });
+
+  document.addEventListener('click', e => {
+    const it = e.target.closest('.dm-menu [role^=menuitem]');
+    if (it) {
+      const menu = it.closest('.dm-menu');
+      if (it.getAttribute('aria-haspopup') === 'menu') { const sub = it.parentElement.querySelector(':scope > .dm-menu'); const n = nivelDe(menu) + 1; (pila[n] && pila[n].menu === sub) ? cerrarDesde(n, true) : abrirMenu(it, sub, n); return; }
+      return; // los ítems finales los maneja cada demo
+    }
+    if (pila.length && !e.target.closest('.dm-menu, .dm-btn, .kebab')) cerrarTodo(false);
+  });
+
+  // Hover abre submenús en escritorio (además de clic y teclado)
+  document.querySelectorAll('.dm-menu [aria-haspopup=menu]').forEach(it => {
+    it.addEventListener('mouseenter', () => { if (!matchMedia('(hover:hover)').matches) return; const menu = it.closest('.dm-menu'); const n = nivelDe(menu); if (n < 0) return; abrirMenu(it, it.parentElement.querySelector(':scope > .dm-menu'), n + 1, false); });
+  });
+
+  document.addEventListener('keydown', e => {
+    if (!pila.length) return;
+    const actual = document.activeElement.closest('.dm-menu');
+    if (!actual) { if (e.key === 'Escape') cerrarTodo(true); return; }
+    const lista = items(actual); const i = lista.indexOf(document.activeElement); const n = nivelDe(actual);
+    if (e.key === 'ArrowDown') { e.preventDefault(); lista[(i + 1) % lista.length].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); lista[(i - 1 + lista.length) % lista.length].focus(); }
+    else if (e.key === 'Home') { e.preventDefault(); lista[0].focus(); }
+    else if (e.key === 'End') { e.preventDefault(); lista[lista.length - 1].focus(); }
+    else if (e.key === 'ArrowRight' && document.activeElement.getAttribute('aria-haspopup') === 'menu') { e.preventDefault(); abrirMenu(document.activeElement, document.activeElement.parentElement.querySelector(':scope > .dm-menu'), n + 1); }
+    else if ((e.key === 'ArrowLeft' && n > 0) || e.key === 'Escape') { e.preventDefault(); cerrarDesde(n, true); }
+    else if (e.key === 'Tab') cerrarTodo(false);
+  });
+
+  // Radios dentro de un menú: marca uno y actualiza el botón
+  function radio(menu, it) {
+    menu.querySelectorAll('[role=menuitemradio]').forEach(x => x.setAttribute('aria-checked', String(x === it)));
+    const btn = document.querySelector('[aria-controls="' + menu.id + '"]');
+    const act = btn.querySelector('[data-actual]'); if (act) act.textContent = [...it.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim();
+    cerrarTodo(true);
+  }
+
+  /* ===== 1. Mando ===== */
+  $('#m-estilo').addEventListener('click', e => { const it = e.target.closest('[data-estilo]'); if (!it) return; $('#muestra').dataset.estilo = it.dataset.estilo; radio($('#m-estilo'), it); });
+  $('#m-fuente').addEventListener('click', e => { const it = e.target.closest('[data-fuente]'); if (!it) return; $('#hoja').style.fontFamily = it.dataset.fuente; radio($('#m-fuente'), it); });
+
+  /* ===== 2. Navegación ===== */
+  const migas = $('#migas');
+  document.querySelectorAll('[data-ir]').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault(); migas.textContent = 'Estás en: Inicio › ' + a.dataset.ir;
+    cerrarTodo(false); cerrarMega(false);
+  }));
+  const dd = document.querySelector('.nav-dd > button'); const mega = $('#mega-1');
+  function cerrarMega(foco) { if (mega.hidden) return; mega.hidden = true; dd.setAttribute('aria-expanded', 'false'); if (foco) dd.focus(); }
+  dd.addEventListener('click', () => { const on = mega.hidden; cerrarTodo(false); mega.hidden = !on; dd.setAttribute('aria-expanded', String(on)); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !mega.hidden) cerrarMega(true); });
+  document.addEventListener('click', e => { if (!mega.hidden && !e.target.closest('.nav-dd')) cerrarMega(false); });
+  document.querySelector('.nav-dd').addEventListener('focusout', e => { if (!e.currentTarget.contains(e.relatedTarget)) cerrarMega(false); });
+
+  /* ===== 3. Acción ===== */
+  const I = {
+    carpeta: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 11v5M9.5 13.5h5',
+    abrir: 'M14 4h6v6M20 4l-8 8M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4',
+    bajar: 'M12 4v11M7 10l5 5 5-5M5 20h14', lapiz: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
+    compartir: 'M16 11a4 4 0 1 0-8 0M12 7a3 3 0 1 0 0-6M3 21a6 6 0 0 1 12 0M19 8v6M16 11h6',
+    mover: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 8h.01',
+    papelera: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13'
+  };
+  const NS = 'http://www.w3.org/2000/svg';
+  const ico = d => { const s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '1.8'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round'); s.setAttribute('aria-hidden', 'true'); const p = document.createElementNS(NS, 'path'); p.setAttribute('d', d); s.append(p); return s; };
+  // [icono, texto, accion, submenu]
+  const ACCIONES = [
+    ['carpeta', 'Nueva carpeta', 'nueva'], '-',
+    ['abrir', 'Abrir con', null, ['Documentos', 'Hojas de cálculo', 'Otra app']], '-',
+    ['bajar', 'Descargar', 'descargar'], ['lapiz', 'Cambiar nombre', 'renombrar'], '-',
+    ['compartir', 'Compartir', null, ['Invitar personas', 'Copiar enlace']], ['mover', 'Organizar', null, ['Mover', 'Agregar a destacados']], ['info', 'Información', 'info'], '-',
+    ['papelera', 'Mover a la papelera', 'papelera']
+  ];
+  function llenarAcciones(ul, nombre, fila) {
+    ACCIONES.forEach(a => {
+      const li = document.createElement('li'); li.setAttribute('role', a === '-' ? 'separator' : 'none');
+      if (a !== '-') {
+        const [ic, t, acc, sub] = a; const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'menuitem');
+        b.append(ico(I[ic]), t); if (acc === 'papelera') b.className = 'peligro';
+        if (sub) {
+          b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', 'false');
+          const f = document.createElement('span'); f.className = 'sub-flecha'; f.setAttribute('aria-hidden', 'true'); f.textContent = '›'; b.append(f);
+          const su = document.createElement('ul'); su.className = 'dm-menu dm-sub'; su.setAttribute('role', 'menu'); su.setAttribute('aria-label', t); su.hidden = true;
+          sub.forEach(s => { const l2 = document.createElement('li'); l2.setAttribute('role', 'none'); const b2 = document.createElement('button'); b2.type = 'button'; b2.setAttribute('role', 'menuitem'); b2.textContent = s; b2.addEventListener('click', () => { cerrarTodo(true); hacer(t + ': ' + s + ' (' + nombre + ')'); }); l2.append(b2); su.append(l2); });
+          b.addEventListener('mouseenter', () => { if (!matchMedia('(hover:hover)').matches) return; const n = nivelDe(ul); if (n >= 0) abrirMenu(b, su, n + 1, false); });
+          li.append(b, su);
+        } else {
+          b.addEventListener('click', () => {
+            cerrarTodo(true);
+            if (acc === 'papelera' && fila) { fila.hidden = true; hacer('"' + nombre + '" se movió a la papelera', 'info', { deshacer: () => { fila.hidden = false; hacer('Restaurado'); } }); }
+            else if (acc === 'papelera') hacer('Carpeta UX movida a la papelera', 'info', { deshacer: () => hacer('Restaurada') });
+            else hacer(t + ': ' + nombre);
+          });
+          li.append(b);
+        }
+      }
+      ul.append(li);
+    });
+  }
+  llenarAcciones($('#m-carpeta'), 'Carpeta UX');
+  ['Informe clima Q4.pdf', 'Encuesta base.docx', 'Respuestas.xlsx'].forEach((nom, i) => {
+    const f = document.createElement('div'); f.className = 'archivo';
+    const k = document.createElement('button'); k.type = 'button'; k.className = 'kebab dm-btn'; k.style.cssText = 'border:0;background:none;padding:0;width:40px;justify-content:center';
+    k.setAttribute('aria-label', 'Acciones de ' + nom); k.setAttribute('aria-haspopup', 'menu'); k.setAttribute('aria-expanded', 'false'); k.setAttribute('aria-controls', 'm-arch-' + i);
+    k.append(ico('M12 5h.01M12 12h.01M12 19h.01'));
+    const ul = document.createElement('ul'); ul.className = 'dm-menu der'; ul.id = 'm-arch-' + i; ul.setAttribute('role', 'menu'); ul.setAttribute('aria-label', 'Acciones de ' + nom); ul.hidden = true; ul.style.top = '48px';
+    llenarAcciones(ul, nom, f);
+    const n = document.createElement('span'); n.className = 'nom'; n.textContent = nom;
+    const d = document.createElement('span'); d.className = 'ico-doc'; d.setAttribute('aria-hidden', 'true');
+    f.append(d, n, k, ul); f.tabIndex = 0;
+    k.addEventListener('click', () => (pila[0] && pila[0].menu === ul) ? cerrarTodo(true) : abrirMenu(k, ul, 0));
+    f.addEventListener('contextmenu', e => { e.preventDefault(); abrirMenu(k, ul, 0); });
+    f.addEventListener('keydown', e => { if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); abrirMenu(k, ul, 0); } });
+    $('#archivos').append(f);
+  });
+
+  /* ===== 4. Preferencias ===== */
+  const TXT = {
+    es: ['Tu panel', '82 % de participación', 'Encuesta de clima, noviembre', 'Ver informe'],
+    en: ['Your dashboard', '82% participation', 'Climate survey, November', 'View report'],
+    pt: ['Seu painel', '82% de participação', 'Pesquisa de clima, novembro', 'Ver relatório']
+  };
+  const prev = $('#prev');
+  $('#m-idioma').addEventListener('click', e => { const it = e.target.closest('[data-idioma]'); if (!it) return; const t = TXT[it.dataset.idioma]; ['#prev-tit', '#prev-kpi', '#prev-sub', '#prev-btn'].forEach((s, i) => $(s).textContent = t[i]); prev.lang = it.dataset.idioma; radio($('#m-idioma'), it); hacer('Idioma: ' + it.textContent); });
+  $('#m-tema').addEventListener('click', e => { const it = e.target.closest('[data-tema]'); if (!it) return; const k = it.dataset.tema; prev.dataset.tema = k === 'sistema' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'oscuro' : 'claro') : k; radio($('#m-tema'), it); hacer('Tema: ' + it.textContent); });
+  $('#m-paleta').addEventListener('click', e => { const it = e.target.closest('[data-color]'); if (!it) return; prev.style.setProperty('--p-marca', it.dataset.color); $('#b-paleta [data-sw]').style.background = it.dataset.color; radio($('#m-paleta'), it); hacer('Acento: ' + it.textContent.trim()); });
+
+  window.Desplegables = { abrirMenu, cerrarTodo, ACCIONES };
+});
+</script>
+</body>
+</html>

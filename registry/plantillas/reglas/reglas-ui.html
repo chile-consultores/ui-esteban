@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Reglas de UI · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: reglas de UI de Chile Consultores (color y marca, temas, tipografía, espaciado, jerarquía, botones, navegación, landings, tono, movimiento) con ejemplo bien y mal lado a lado, buscador, filtro por tema y checklist antes de publicar.
+  Proyecto: guía interna para todas las plataformas. Fuente: skills ux-sistema-visual y accesibilidad-web, NN/g, Laws of UX, Refactoring UI, W3C.
+  Cómo aplicarlo: cada regla es un <article class="rg" data-sec>. Agrega reglas copiando uno. El checklist sale de CHECKLIST (editable).
+  Conectar: nada; el checklist se recuerda en este navegador (localStorage con try/catch).
+  Ganchos: .rg[data-sec], #buscar, #filtros, #checklist, window.ReglasUI.
+  Accesibilidad: bien y mal se marcan con icono y texto, no solo color; buscador con atajo "/"; checklist con casillas reales.
+-->
+<style>
+  .pagina{max-width:1100px;margin:0 auto;padding:24px 16px 80px;display:flex;flex-direction:column;gap:20px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .barra{position:sticky;top:0;z-index:10;display:flex;flex-direction:column;gap:10px;padding:12px 0;background:var(--fondo)}
+  .barra .input{max-width:420px}
+  .filtros{display:flex;gap:6px;flex-wrap:wrap}
+  .filtros .chip[aria-pressed=true]{border-color:var(--marca);background:var(--marca-l);color:var(--texto)}
+  .sec-t{margin-top:12px;padding-top:12px;border-top:1px solid var(--borde)}
+  .rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+  .rg{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:18px;display:flex;flex-direction:column;gap:10px}
+  .rg[hidden]{display:none}
+  .rg h3{font-size:1rem}
+  .rg .regla{color:var(--texto)}
+  .rg .porque{font-size:var(--fs-s);color:var(--texto-2)}
+  .rg .fuente{font-size:var(--fs-xs);color:var(--texto-3);margin-top:auto}
+  .bm{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .bm>div{border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+  .bm .etq{font-size:var(--fs-xs);font-weight:600;display:flex;gap:6px;align-items:center}
+  .bien{border:1px solid rgba(34,197,94,.35);background:var(--verde-l)}
+  .bien .etq{color:var(--verde)}
+  .mal{border:1px solid rgba(239,68,68,.35);background:var(--rojo-l)}
+  .mal .etq{color:var(--rojo)}
+  .lienzo{background:#fff;color:#1a1a1a;border-radius:8px;padding:10px;font-size:.8125rem;display:flex;flex-direction:column;gap:6px;min-height:72px}
+  .lienzo.os{background:#16161d;color:#e8e8ee}
+  .mini-btn{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:6px;font-size:.75rem;font-weight:600;border:1px solid transparent;cursor:default}
+  .mb-p{background:#2457d6;color:#fff}.mb-s{background:#fff;color:#1a1a1a;border-color:#c9c9d1}.mb-r{background:#c62828;color:#fff}
+  .fila{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .linea-g{height:6px;border-radius:3px;background:#d4d4dc}
+  #checklist{display:grid;gap:6px}
+  #checklist label{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--borde);border-radius:10px;background:var(--superficie);font-size:var(--fs-s);cursor:pointer}
+  #checklist input{width:18px;height:18px;margin-top:2px;flex:none;accent-color:var(--marca)}
+  .prog{display:flex;align-items:center;gap:10px}
+  .prog .barra-p{flex:1;height:8px;border-radius:4px;background:var(--superficie-2);overflow:hidden}
+  .prog .barra-p i{display:block;height:100%;background:var(--verde);width:0;transition:width var(--dur) var(--ease-salida)}
+  .fuentes{margin:0;padding-left:18px;display:grid;gap:4px;font-size:var(--fs-s)}
+  .vacio{padding:24px;text-align:center;border:1px dashed var(--borde-2);border-radius:var(--r)}
+  @media(max-width:420px){.bm{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header>
+    <h1>Reglas de UI</h1>
+    <p class="small">Cómo se ve una plataforma de Chile Consultores. Cada regla trae el porqué y un ejemplo bien y mal. Las de comportamiento están en <a href="reglas-ux.html">Reglas de UX</a>.</p>
+  </header>
+
+  <div class="barra">
+    <label class="sr-only" for="buscar">Buscar regla</label>
+    <input class="input" id="buscar" type="search" placeholder="Buscar regla (atajo /)" autocomplete="off">
+    <div class="filtros" id="filtros" role="group" aria-label="Filtrar por tema"></div>
+  </div>
+  <p class="vacio small" id="sin-res" hidden>Ninguna regla coincide con tu búsqueda. <button class="btn btn-sm btn-sec" type="button" id="limpiar">Limpiar búsqueda</button></p>
+
+  <section data-sec-t="color"><h2 class="sec-t">Color y marca</h2></section>
+  <div class="rejilla">
+    <article class="rg" data-sec="color"><h3>El color sale del manual de marca</h3>
+      <p class="regla">Busca el manual o los colores que ya usa el proyecto. Si no existen, pregunta. Nunca inventes una paleta ni copies la de otro cliente.</p>
+      <p class="porque">Un cliente reconoce su marca. Una paleta inventada se ve genérica.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="color"><h3>Mismos nombres de token, distintos valores</h3>
+      <p class="regla">Toda página usa <span class="mono">--marca, --marca-d, --marca-l, --sobre-marca, --fondo, --superficie, --linea, --tinta, --gris, --exito, --aviso, --peligro</span>.</p>
+      <p class="porque">Así un componente funciona en cualquier marca cambiando solo los valores.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="color"><h3>Contraste AA</h3>
+      <p class="regla">Texto normal 4.5:1, texto grande y bordes de controles 3:1. Mídelo con una herramienta, no a ojo.</p>
+      <div class="bm"><div class="bien"><span class="etq">✓ Bien</span><div class="lienzo"><b>Informe listo</b><span style="color:#4a4a55">Actualizado hoy, 10:40</span></div></div>
+        <div class="mal"><span class="etq">✕ Mal</span><div class="lienzo"><b style="color:#b8b8c0">Informe listo</b><span style="color:#cfcfd6">Actualizado hoy, 10:40</span></div></div></div>
+      <p class="fuente">Fuente: WCAG 2.2, criterios 1.4.3 y 1.4.11</p></article>
+    <article class="rg" data-sec="color"><h3>El estado nunca va solo con color</h3>
+      <p class="regla">Error, éxito o seleccionado llevan además icono o texto.</p>
+      <div class="bm"><div class="bien"><span class="etq">✓ Bien</span><div class="lienzo"><span style="color:#1b7f3a">✓ Pagado</span><span style="color:#c62828">✕ Vencido</span></div></div>
+        <div class="mal"><span class="etq">✕ Mal</span><div class="lienzo"><span class="fila"><i style="width:10px;height:10px;border-radius:50%;background:#2e9e4f"></i>Factura 102</span><span class="fila"><i style="width:10px;height:10px;border-radius:50%;background:#c62828"></i>Factura 103</span></div></div></div>
+      <p class="fuente">Fuente: WCAG 2.2, criterio 1.4.1</p></article>
+  </div>
+
+  <section data-sec-t="temas"><h2 class="sec-t">Temas claro y oscuro</h2></section>
+  <div class="rejilla">
+    <article class="rg" data-sec="temas"><h3>Solo dos temas, desde la misma marca</h3>
+      <p class="regla">Respeta <span class="mono">prefers-color-scheme</span> y permite forzar con <span class="mono">data-theme</span>. No existen temas extra.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="temas"><h3>Oscuro bien hecho</h3>
+      <p class="regla">Fondo gris muy oscuro con un tinte de marca (no negro puro), superficies que suben de luminosidad por nivel y texto sin blanco puro.</p>
+      <div class="bm"><div class="bien"><span class="etq">✓ Bien</span><div class="lienzo os" style="background:#14151c"><span style="background:#1f2029;padding:8px;border-radius:6px;color:#e6e6ec">Tarjeta un nivel arriba</span></div></div>
+        <div class="mal"><span class="etq">✕ Mal</span><div class="lienzo os" style="background:#000"><span style="background:#000;padding:8px;border-radius:6px;color:#fff;box-shadow:0 0 0 1px #fff">Todo negro y blanco</span></div></div></div>
+      <p class="fuente">Fuente: skill ux-sistema-visual, Material Design (dark theme)</p></article>
+    <article class="rg" data-sec="temas"><h3>Sin look de IA</h3>
+      <p class="regla">Nada de auroras moradas, brillos detrás de títulos, vidrio esmerilado como estilo, estrellas o texto con gradiente, salvo que la marca lo pida.</p>
+      <p class="porque">Se ve igual que mil plantillas y le quita identidad al cliente. Usa color plano, foto o ilustración real.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="temas"><h3>Lo publicado no se toca</h3>
+      <p class="regla">En plataformas ya publicadas con estética aprobada, no cambies el look salvo que se pida.</p>
+      <p class="fuente">Fuente: decisiones de diseño 2026-11</p></article>
+  </div>
+
+  <section data-sec-t="tipo"><h2 class="sec-t">Tipografía</h2></section>
+  <div class="rejilla">
+    <article class="rg" data-sec="tipo"><h3>Tamaños fluidos con piso y techo</h3>
+      <p class="regla">Todo tamaño con <span class="mono">clamp()</span> en rem. Nunca px fijos: el zoom del navegador debe funcionar.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual, WCAG 1.4.4</p></article>
+    <article class="rg" data-sec="tipo"><h3>Mínimos que no se rompen</h3>
+      <p class="regla">Lectura 16 px. Secundario y tablas densas 13 px. Nada bajo 12 px. Inputs 16 px en celular (bajo eso iPhone hace zoom).</p>
+      <div class="bm"><div class="bien"><span class="etq">✓ Bien</span><div class="lienzo"><span style="font-size:16px">Texto de lectura</span><span style="font-size:13px;color:#555">Etiqueta 13 px</span></div></div>
+        <div class="mal"><span class="etq">✕ Mal</span><div class="lienzo"><span style="font-size:11px">Texto de lectura</span><span style="font-size:9px;color:#888">Etiqueta 9 px</span></div></div></div>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="tipo"><h3>Máximo 2 familias</h3>
+      <p class="regla">Una para títulos y una para cuerpo, las de la marca. Si no hay, <span class="mono">system-ui</span>.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="tipo"><h3>Líneas cómodas de leer</h3>
+      <p class="regla">Texto corrido entre 60 y 75 caracteres por línea. Interlineado 1.5 a 1.6 en cuerpo y 1.1 a 1.25 en títulos.</p>
+      <p class="fuente">Fuente: Baymard, Refactoring UI</p></article>
+    <article class="rg" data-sec="tipo"><h3>Escala según contexto</h3>
+      <p class="regla">Apps y dashboards: títulos de 20 a 32 px. Landings: hasta 64 px. Mismo sistema, distinto techo.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+  </div>
+
+  <section data-sec-t="espacio"><h2 class="sec-t">Espaciado, radios y sombras</h2></section>
+  <div class="rejilla">
+    <article class="rg" data-sec="espacio"><h3>Grilla de 4 y 8</h3>
+      <p class="regla">Todo margin, padding y gap sale de 4, 8, 12, 16, 24, 32, 48, 64. Nada de 6, 9 o 14 sueltos.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual, Material Design</p></article>
+    <article class="rg" data-sec="espacio"><h3>Proximidad agrupa</h3>
+      <p class="regla">Etiqueta a su contenido 4 a 8 px, mismo grupo 12 a 16 px, entre grupos 24 a 32 px. Antes de poner un borde, prueba con espacio.</p>
+      <div class="bm"><div class="bien"><span class="etq">✓ Bien</span><div class="lienzo" style="gap:0"><b>Nombre</b><span style="margin:4px 0 18px">Ana Rojas</span><b>Correo</b><span style="margin-top:4px">ana@empresa.cl</span></div></div>
+        <div class="mal"><span class="etq">✕ Mal</span><div class="lienzo" style="gap:12px"><b>Nombre</b><span>Ana Rojas</span><b>Correo</b><span>ana@empresa.cl</span></div></div></div>
+      <p class="fuente">Fuente: Gestalt (proximidad), Laws of UX</p></article>
+    <article class="rg" data-sec="espacio"><h3>Radios y sombras en escala</h3>
+      <p class="regla">Solo <span class="mono">--r-xs, --r-s, --r, --r-pill</span>. Sombras sutiles en claro; en oscuro se eleva con superficie más clara.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="espacio"><h3>Ancho máximo de contenido</h3>
+      <p class="regla">Textos y formularios no se estiran a todo el ancho en pantallas grandes.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+  </div>
+
+  <section data-sec-t="jerarquia"><h2 class="sec-t">Jerarquía</h2></section>
+  <div class="rejilla">
+    <article class="rg" data-sec="jerarquia"><h3>Si todo destaca, nada destaca</h3>
+      <p class="regla">Combina tamaño, peso y tono: tinta para lo principal, gris para lo secundario, gris claro para apoyo.</p>
+      <div class="bm"><div class="bien"><span class="etq">✓ Bien</span><div class="lienzo"><b style="font-size:15px">$1.240.000</b><span style="color:#666">Ventas del mes</span></div></div>
+        <div class="mal"><span class="etq">✕ Mal</span><div class="lienzo"><b style="font-size:15px;color:#c62828">$1.240.000</b><b style="font-size:15px;color:#2457d6">VENTAS DEL MES</b></div></div></div>
+      <p class="fuente">Fuente: efecto Von Restorff, Refactoring UI</p></article>
+    <article class="rg" data-sec="jerarquia"><h3>Un solo botón primario por bloque</h3>
+      <p class="regla">Las demás acciones van como secundario o texto.</p>
+      <div class="bm"><div class="bien"><span class="etq">✓ Bien</span><div class="lienzo"><div class="fila"><span class="mini-btn mb-s">Cancelar</span><span class="mini-btn mb-p">Guardar cambios</span></div></div></div>
+        <div class="mal"><span class="etq">✕ Mal</span><div class="lienzo"><div class="fila"><span class="mini-btn mb-p">Cancelar</span><span class="mini-btn mb-p">Vista previa</span><span class="mini-btn mb-p">Guardar</span></div></div></div></div>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="jerarquia"><h3>Patrón F en apps, Z en portadas</h3>
+      <p class="regla">En apps: título e indicadores arriba a la izquierda, acción principal arriba a la derecha.</p>
+      <p class="fuente">Fuente: NN/g, F-shaped pattern</p></article>
+    <article class="rg" data-sec="jerarquia"><h3>Lenguaje del mundo real</h3>
+      <p class="regla">Nunca muestres nombres de columnas (<span class="mono">created_at</span>) ni códigos internos.</p>
+      <div class="bm"><div class="bien"><span class="etq">✓ Bien</span><div class="lienzo"><span>Creado el 12 nov</span><span>En revisión</span></div></div>
+        <div class="mal"><span class="etq">✕ Mal</span><div class="lienzo"><span class="mono">created_at: 2026-11-12T13:02Z</span><span class="mono">status: 2</span></div></div></div>
+      <p class="fuente">Fuente: heurística 2 de Nielsen</p></article>
+  </div>
+
+  <section data-sec-t="botones"><h2 class="sec-t">Botones</h2></section>
+  <div class="rejilla">
+    <article class="rg" data-sec="botones"><h3>Cuatro variantes, nada más</h3>
+      <p class="regla">Primario, secundario, peligro y fantasma. Peligro con su clase, nunca con estilo inline.</p>
+      <div class="bm"><div class="bien" style="grid-column:1/-1"><span class="etq">✓ Bien</span><div class="lienzo"><div class="fila"><span class="mini-btn mb-p">Primario</span><span class="mini-btn mb-s">Secundario</span><span class="mini-btn mb-r">Eliminar</span><span class="mini-btn" style="color:#2457d6">Fantasma</span></div></div></div></div>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="botones"><h3>Verbo y objeto</h3>
+      <p class="regla">"Guardar cambios", "Crear empresa". Nunca "Aceptar", "OK" o "Enviar" solos.</p>
+      <div class="bm"><div class="bien"><span class="etq">✓ Bien</span><div class="lienzo"><span class="mini-btn mb-p">Descargar informe</span></div></div>
+        <div class="mal"><span class="etq">✕ Mal</span><div class="lienzo"><span class="mini-btn mb-p">OK</span></div></div></div>
+      <p class="fuente">Fuente: skill ux-sistema-visual, NN/g</p></article>
+    <article class="rg" data-sec="botones"><h3>44 x 44 px para tocar</h3>
+      <p class="regla">Área táctil mínima de 44 px (WCAG exige 24 como piso). Acciones principales al alcance del pulgar.</p>
+      <p class="fuente">Fuente: Ley de Fitts, Apple HIG, WCAG 2.5.8</p></article>
+    <article class="rg" data-sec="botones"><h3>Responde en menos de 100 ms</h3>
+      <p class="regla">Si tarda más de 1 s, el botón se deshabilita y dice "Guardando...". Nunca un spinner que tape el botón.</p>
+      <p class="fuente">Fuente: umbral de Doherty</p></article>
+    <article class="rg" data-sec="botones"><h3>Botón solo icono con nombre</h3>
+      <p class="regla"><span class="mono">aria-label</span> obligatorio. Si el icono es poco conocido, agrega texto visible.</p>
+      <p class="fuente">Fuente: WCAG 4.1.2, NN/g (icon usability)</p></article>
+  </div>
+
+  <section data-sec-t="nav"><h2 class="sec-t">Navegación</h2></section>
+  <div class="rejilla">
+    <article class="rg" data-sec="nav"><h3>Más de 5 secciones: menú lateral</h3>
+      <p class="regla">En escritorio, lateral fijo colapsable a iconos con tooltip. Con 5 o menos, barra superior.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="nav"><h3>Celular: nunca sin botón visible</h3>
+      <p class="regla">Bajo 768 px el lateral pasa a un botón de menú arriba. Si son 3 a 5 secciones de uso diario, barra inferior con icono y texto. Ver <a href="../[menus]/iconos-de-menu.html">iconos de menú</a>.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual, NN/g (hamburger menus)</p></article>
+    <article class="rg" data-sec="nav"><h3>Ubicación clara</h3>
+      <p class="regla">La sección activa se marca con algo más que color (peso, indicador o fondo) y con <span class="mono">aria-current="page"</span>.</p>
+      <p class="fuente">Fuente: heurística 1 de Nielsen</p></article>
+    <article class="rg" data-sec="nav"><h3>Puntos de quiebre fijos</h3>
+      <p class="regla">640, 768, 1024 y 1280 px. Diseña primero para 375 px de ancho.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+  </div>
+
+  <section data-sec-t="landing"><h2 class="sec-t">Landings públicas</h2></section>
+  <div class="rejilla">
+    <article class="rg" data-sec="landing"><h3>Una página, un objetivo</h3>
+      <p class="regla">Un solo llamado a la acción principal, repetido arriba y al final.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="landing"><h3>Arriba del pliegue: qué, para quién y qué hago</h3>
+      <p class="regla">Sin frases vacías tipo "Transformamos tu futuro".</p>
+      <div class="bm"><div class="bien"><span class="etq">✓ Bien</span><div class="lienzo"><b>Estudios de clima laboral para empresas de 50 a 2.000 personas</b><span class="mini-btn mb-p" style="align-self:flex-start">Cotizar estudio</span></div></div>
+        <div class="mal"><span class="etq">✕ Mal</span><div class="lienzo"><b>Transformamos tu futuro con soluciones innovadoras</b><span class="mini-btn mb-p" style="align-self:flex-start">Saber más</span></div></div></div>
+      <p class="fuente">Fuente: NN/g, skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="landing"><h3>Prueba antes que adjetivos</h3>
+      <p class="regla">Clientes, cifras y capturas reales. Nunca inventes testimonios ni logos: deja [marcador] y pregunta.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="landing"><h3>Indexable y liviana</h3>
+      <p class="regla">Title y description propios, un solo h1, imagen principal sin lazy y con fetchpriority high.</p>
+      <p class="fuente">Fuente: skill performance-frontend, web.dev</p></article>
+  </div>
+
+  <section data-sec-t="tono"><h2 class="sec-t">Tono de los textos</h2></section>
+  <div class="rejilla">
+    <article class="rg" data-sec="tono"><h3>Español chileno con tú</h3>
+      <p class="regla">Salvo que la marca del cliente pida usted (banca, salud).</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+    <article class="rg" data-sec="tono"><h3>Errores sin culpa y con salida</h3>
+      <p class="regla">Qué pasó y qué hacer.</p>
+      <div class="bm"><div class="bien"><span class="etq">✓ Bien</span><div class="lienzo"><span>No pudimos guardar. Revisa tu conexión y vuelve a intentar.</span></div></div>
+        <div class="mal"><span class="etq">✕ Mal</span><div class="lienzo"><span class="mono">Error 400: Bad Request</span></div></div></div>
+      <p class="fuente">Fuente: heurística 9 de Nielsen</p></article>
+    <article class="rg" data-sec="tono"><h3>Una palabra para cada cosa</h3>
+      <p class="regla">Si en un lado dice "Eliminar", no digas "Borrar" en otro para lo mismo.</p>
+      <p class="fuente">Fuente: heurística 4 de Nielsen</p></article>
+    <article class="rg" data-sec="tono"><h3>Un dato vale más que una frase</h3>
+      <p class="regla">Número, fecha o estado real. Nada de subtítulos que repiten el título.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual</p></article>
+  </div>
+
+  <section data-sec-t="mov"><h2 class="sec-t">Movimiento y foco</h2></section>
+  <div class="rejilla">
+    <article class="rg" data-sec="mov"><h3>Anima solo para confirmar un cambio</h3>
+      <p class="regla">Si quitas la animación y no se pierde información, sobra.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual, NN/g (animation)</p></article>
+    <article class="rg" data-sec="mov"><h3>150 a 250 ms, ease-out, solo transform y opacity</h3>
+      <p class="regla">Salidas 150 ms, pantalla completa hasta 300 ms. Sin rebote en menús ni modales. Respeta <span class="mono">prefers-reduced-motion</span>.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual, WCAG 2.3.3</p></article>
+    <article class="rg" data-sec="mov"><h3>El foco siempre se ve</h3>
+      <p class="regla">Un <span class="mono">:focus-visible</span> global de 2 px con el color de marca. Nunca <span class="mono">outline:none</span> sin reemplazo.</p>
+      <p class="fuente">Fuente: WCAG 2.4.7 y 2.4.11</p></article>
+    <article class="rg" data-sec="mov"><h3>Código limpio de interfaz</h3>
+      <p class="regla">Sin <span class="mono">onclick</span> inline. Texto dinámico con <span class="mono">textContent</span>, nunca <span class="mono">innerHTML</span>.</p>
+      <p class="fuente">Fuente: skill ux-sistema-visual, OWASP (XSS)</p></article>
+  </div>
+
+  <section aria-labelledby="t-check">
+    <h2 class="sec-t" id="t-check">Checklist antes de publicar</h2>
+    <div class="prog"><span class="small" id="check-txt">0 de 0</span><div class="barra-p" role="progressbar" aria-label="Checklist" aria-valuemin="0" id="check-bar"><i></i></div><button class="btn btn-sm btn-ghost" type="button" id="check-reset">Desmarcar todo</button></div>
+    <div id="checklist" style="margin-top:10px"></div>
+  </section>
+
+  <section aria-labelledby="t-fuentes">
+    <h2 class="sec-t" id="t-fuentes">Fuentes</h2>
+    <ul class="fuentes">
+      <li><a href="https://www.nngroup.com/articles/ten-usability-heuristics/" rel="noopener">NN/g: 10 heurísticas de usabilidad</a></li>
+      <li><a href="https://lawsofux.com/" rel="noopener">Laws of UX</a></li>
+      <li><a href="https://www.w3.org/TR/WCAG22/" rel="noopener">W3C: WCAG 2.2</a></li>
+      <li><a href="https://m3.material.io/" rel="noopener">Material Design 3</a></li>
+      <li><a href="https://developer.apple.com/design/human-interface-guidelines/" rel="noopener">Apple Human Interface Guidelines</a></li>
+      <li>Refactoring UI (Wathan y Schoger)</li>
+    </ul>
+  </section>
+</main>
+
+<script src="../[base]/base.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const SECCIONES = { color: 'Color', temas: 'Temas', tipo: 'Tipografía', espacio: 'Espaciado', jerarquia: 'Jerarquía', botones: 'Botones', nav: 'Navegación', landing: 'Landings', tono: 'Tono', mov: 'Movimiento' };
+  const CHECKLIST = [
+    'Colores desde el manual de marca, con los nombres de token estándar',
+    'Contraste AA revisado con herramienta en claro y oscuro',
+    'Ningún estado depende solo del color',
+    'Textos de lectura 16 px, nada bajo 12 px, inputs 16 px en celular',
+    'Espaciados de la escala 4 y 8, sin valores sueltos',
+    'Un solo botón primario por bloque, con verbo y objeto',
+    'Targets de 44 px y foco visible en todo',
+    'Navegación visible en celular y sección activa con aria-current',
+    'Sin nombres de columnas ni códigos internos en pantalla',
+    'Animaciones de 150 a 250 ms con prefers-reduced-motion',
+    'Probado a 375 px de ancho y en tema oscuro'
+  ];
+  const KEY = 'reglas-ui-check';
+  const $ = s => document.querySelector(s);
+  const reglas = [...document.querySelectorAll('.rg')];
+  let sec = 'todas';
+
+  // Filtros
+  const filtros = $('#filtros');
+  [['todas', 'Todas'], ...Object.entries(SECCIONES)].forEach(([k, t]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = t; b.dataset.k = k; b.setAttribute('aria-pressed', String(k === 'todas'));
+    b.addEventListener('click', () => { sec = k; filtros.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c === b))); aplicar(); });
+    filtros.append(b);
+  });
+  const buscar = $('#buscar');
+  const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  function aplicar() {
+    const q = norm(buscar.value.trim()); let n = 0;
+    reglas.forEach(r => { const ok = (sec === 'todas' || r.dataset.sec === sec) && (!q || norm(r.textContent).includes(q)); r.hidden = !ok; if (ok) n++; });
+    document.querySelectorAll('[data-sec-t]').forEach(h => { h.hidden = !reglas.some(r => r.dataset.sec === h.dataset.secT && !r.hidden); });
+    $('#sin-res').hidden = n > 0;
+  }
+  buscar.addEventListener('input', aplicar);
+  $('#limpiar').addEventListener('click', () => { buscar.value = ''; aplicar(); buscar.focus(); });
+  document.addEventListener('keydown', e => { if (e.key === '/' && document.activeElement !== buscar && !/input|textarea/i.test(document.activeElement.tagName)) { e.preventDefault(); buscar.focus(); } });
+
+  // Checklist
+  let marcados = [];
+  try { marcados = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { marcados = []; }
+  const lista = $('#checklist');
+  CHECKLIST.forEach((t, i) => {
+    const c = document.createElement('input'); c.type = 'checkbox'; c.checked = marcados.includes(i);
+    const l = document.createElement('label'); l.append(c, t); lista.append(l);
+    c.addEventListener('change', () => progreso(true));
+  });
+  function progreso(avisar) {
+    const cs = [...lista.querySelectorAll('input')]; const ok = cs.filter(c => c.checked).length;
+    $('#check-txt').textContent = ok + ' de ' + cs.length;
+    const bar = $('#check-bar'); bar.setAttribute('aria-valuemax', cs.length); bar.setAttribute('aria-valuenow', ok);
+    bar.firstElementChild.style.width = (ok / cs.length * 100) + '%';
+    try { localStorage.setItem(KEY, JSON.stringify(cs.map((c, i) => c.checked ? i : -1).filter(i => i >= 0))); } catch {}
+    if (avisar && ok === cs.length) UI.toast('Checklist completo. Lista para publicar.', 'ok');
+  }
+  $('#check-reset').addEventListener('click', () => { lista.querySelectorAll('input').forEach(c => c.checked = false); progreso(false); UI.toast('Checklist desmarcado', 'info'); });
+  progreso();
+
+  window.ReglasUI = { SECCIONES, CHECKLIST };
+});
+</script>
+</body>
+</html>

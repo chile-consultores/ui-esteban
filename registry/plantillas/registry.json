@@ -905,6 +905,132 @@
           "target": "public/plantillas/[publico]/formulario-contacto.html"
         }
       ]
+    },
+    {
+      "name": "iconos-de-menu",
+      "type": "registry:file",
+      "title": "Iconos de menú",
+      "description": "los 12 iconos de menú (hamburguesa, döner, hotdog, fries, escalera, torta, kebab, albóndigas, bento, chocolate, oreo, vegetariana) funcionando con su menú, cuándo usar cada uno y 4 animaciones de hamburguesa a X.",
+      "categories": [
+        "plantillas",
+        "menus"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "menus/iconos-de-menu.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[menus]/iconos-de-menu.html"
+        }
+      ]
+    },
+    {
+      "name": "tipos-de-desplegables",
+      "type": "registry:file",
+      "title": "Tipos de desplegables",
+      "description": "los 4 usos de un desplegable: mando (estilos de editor), navegación (mega menú y anidado de 3 niveles), acción (menú con iconos y submenús estilo Drive) y preferencias (idioma, tema y color).",
+      "categories": [
+        "plantillas",
+        "menus"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "menus/tipos-de-desplegables.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[menus]/tipos-de-desplegables.html"
+        }
+      ]
+    },
+    {
+      "name": "reglas-ui",
+      "type": "registry:file",
+      "title": "Reglas de UI",
+      "description": "reglas visuales (color, temas, tipografía, espaciado, jerarquía, botones, navegación, landings, tono, movimiento) con ejemplo bien y mal, buscador, filtros y checklist antes de publicar.",
+      "categories": [
+        "plantillas",
+        "reglas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "reglas/reglas-ui.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[reglas]/reglas-ui.html"
+        }
+      ]
+    },
+    {
+      "name": "reglas-ux",
+      "type": "registry:file",
+      "title": "Reglas de UX",
+      "description": "10 heurísticas de Nielsen, leyes de UX, estados, errores, formularios, archivos, modales, tablas, WCAG 2.2 y Core Web Vitals, con enlace a la plantilla que aplica cada regla, demo del botón positivo/negativo y checklist.",
+      "categories": [
+        "plantillas",
+        "reglas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "reglas/reglas-ux.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[reglas]/reglas-ux.html"
+        }
+      ]
+    },
+    {
+      "name": "proceso-de-diseno",
+      "type": "registry:file",
+      "title": "Proceso de diseño",
+      "description": "card sorting interactivo (abierto, cerrado, híbrido), herramientas de Optimal Workshop, wireframe con sus 4 pilares y 3 fidelidades sobre la misma pantalla, y wireflow navegable donde cada acción tiene resultado.",
+      "categories": [
+        "plantillas",
+        "reglas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "reglas/proceso-de-diseno.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[reglas]/proceso-de-diseno.html"
+        }
+      ]
+    },
+    {
+      "name": "paletas-de-color",
+      "type": "registry:file",
+      "title": "Paletas de color",
+      "description": "7 paletas probadas en claro y oscuro con vista previa de interfaz, contraste WCAG calculado en vivo y botón para copiar los tokens CSS.",
+      "categories": [
+        "plantillas",
+        "reglas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "reglas/paletas-de-color.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[reglas]/paletas-de-color.html"
+        }
+      ]
     }
   ]
 }

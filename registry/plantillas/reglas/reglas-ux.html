@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Reglas de UX · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: reglas de UX de Chile Consultores: 10 heurísticas de Nielsen, leyes de UX, estados y carga, errores y avisos, formularios, archivos, modales y confirmaciones, tablas y listas, accesibilidad (WCAG 2.2) y rendimiento (Core Web Vitals). Cada regla con su fuente y enlace a la plantilla que la aplica.
+  Proyecto: guía interna para todas las plataformas. Fuente: skills ux-estados-feedback, ux-formularios-archivos, ux-modales-confirmaciones, ux-tablas-listas, accesibilidad-web, performance-frontend, más NN/g, Laws of UX, W3C y web.dev.
+  Cómo aplicarlo: las reglas viven en el arreglo REGLAS (editable). Cada una: s (sección), t (título), r (regla), f (fuente), p (plantilla opcional).
+  Conectar: nada; el checklist se recuerda en este navegador (localStorage con try/catch).
+  Ganchos: REGLAS, CHECKLIST, #buscar, #filtros, window.ReglasUX.
+  Accesibilidad: buscador con atajo "/", filtros con aria-pressed, tablas con encabezados reales, checklist con casillas reales.
+-->
+<style>
+  .pagina{max-width:1100px;margin:0 auto;padding:24px 16px 80px;display:flex;flex-direction:column;gap:20px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .barra{position:sticky;top:0;z-index:10;display:flex;flex-direction:column;gap:10px;padding:12px 0;background:var(--fondo)}
+  .barra .input{max-width:420px}
+  .filtros{display:flex;gap:6px;flex-wrap:wrap}
+  .filtros .chip[aria-pressed=true]{border-color:var(--marca);background:var(--marca-l);color:var(--texto)}
+  .sec-t{margin-top:12px;padding-top:12px;border-top:1px solid var(--borde)}
+  .sec-t+.small{margin-top:4px}
+  .rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:12px}
+  .rg{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:16px;display:flex;flex-direction:column;gap:8px}
+  .rg h3{font-size:.98rem}
+  .rg .num{display:inline-grid;place-items:center;min-width:24px;height:24px;margin-right:8px;border-radius:6px;background:var(--marca-l);color:var(--texto);font-size:var(--fs-xs)}
+  .rg p{font-size:var(--fs-s);color:var(--texto-2)}
+  .rg .pie{margin-top:auto;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:var(--fs-xs);color:var(--texto-3)}
+  .tabla-r{width:100%;border-collapse:collapse;font-size:var(--fs-s);margin-top:12px}
+  .tabla-r th,.tabla-r td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--borde);vertical-align:top}
+  .tabla-r th{color:var(--texto-2);font-weight:600}
+  .tabla-r td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .scroll-x{overflow-x:auto}
+  #checklist{display:grid;gap:6px;margin-top:10px}
+  #checklist label{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--borde);border-radius:10px;background:var(--superficie);font-size:var(--fs-s);cursor:pointer}
+  #checklist input{width:18px;height:18px;margin-top:2px;flex:none;accent-color:var(--marca)}
+  .prog{display:flex;align-items:center;gap:10px}
+  .prog .barra-p{flex:1;height:8px;border-radius:4px;background:var(--superficie-2);overflow:hidden}
+  .prog .barra-p i{display:block;height:100%;background:var(--verde);width:0;transition:width var(--dur) var(--ease-salida)}
+  .fuentes{margin:0;padding-left:18px;display:grid;gap:4px;font-size:var(--fs-s)}
+  .vacio{padding:24px;text-align:center;border:1px dashed var(--borde-2);border-radius:var(--r)}
+  [hidden]{display:none!important}
+  /* === COMPONENTE: botón positivo / negativo === */
+  .pn{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px;align-items:start}
+  @media(max-width:820px){.pn{grid-template-columns:1fr}}
+  .pn-form{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:18px;display:flex;flex-direction:column;gap:4px}
+  .pn-campo{display:flex;flex-direction:column;gap:6px}
+  .pn-campo label{font-size:var(--fs-s);font-weight:600}
+  .pn-campo .input{font-size:1rem}
+  .pn-campo .input[aria-invalid=true]{border-color:var(--rojo)}
+  .pn-campo .input.valido{border-color:var(--verde)}
+  .pn-msg{min-height:22px;font-size:var(--fs-s);display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap}
+  .pn-msg.error{color:var(--rojo)}
+  .pn-msg.ok{color:var(--verde)}
+  .pn-msg button{border:0;background:none;color:var(--acento);text-decoration:underline;cursor:pointer;padding:0;font:inherit}
+  .pn-pie{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px}
+  .pn-pie .btn[aria-disabled=true]{background:#2A2A3A;color:var(--texto-3);cursor:not-allowed}
+  .pn-reglas{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:18px}
+  .pn-reglas h3{font-size:1rem;margin-bottom:8px}
+  .pn-reglas ul{margin:0;padding-left:18px;display:grid;gap:8px;font-size:var(--fs-s);color:var(--texto-2)}
+  .pn-reglas b{color:var(--texto)}
+  .pn-ojo{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--ambar-l);color:var(--texto);font-size:var(--fs-s)}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header>
+    <h1>Reglas de UX</h1>
+    <p class="small">Cómo se comporta una plataforma de Chile Consultores. Lo visual está en <a href="reglas-ui.html">Reglas de UI</a> y el método (card sorting, wireframes, wireflow) en <a href="proceso-de-diseno.html">Proceso de diseño</a>.</p>
+  </header>
+
+  <div class="barra">
+    <label class="sr-only" for="buscar">Buscar regla</label>
+    <input class="input" id="buscar" type="search" placeholder="Buscar regla (atajo /)" autocomplete="off">
+    <div class="filtros" id="filtros" role="group" aria-label="Filtrar por tema"></div>
+  </div>
+  <p class="vacio small" id="sin-res" hidden>Ninguna regla coincide con tu búsqueda. <button class="btn btn-sm btn-sec" type="button" id="limpiar">Limpiar búsqueda</button></p>
+
+  <div id="secciones"></div>
+
+  <section data-bloque="forms" class="fija" aria-labelledby="t-pn">
+    <h2 class="sec-t" id="t-pn">Botón positivo / negativo</h2>
+    <p class="small">El botón queda en gris (negativo) hasta que todo está bien, y se activa (positivo) cuando no falta nada. El error aparece recién cuando la persona escribe algo y sale del campo, se queda hasta que esté correcto y siempre dice cómo arreglarlo.</p>
+    <div class="pn">
+      <form class="pn-form" id="pn" novalidate>
+        <div class="pn-campo"><label for="pn-nombre">Nombre</label><input class="input" id="pn-nombre" name="nombre" autocomplete="name" required>
+          <p class="pn-msg" id="pn-nombre-msg" aria-live="polite"></p></div>
+        <div class="pn-campo"><label for="pn-correo">Correo de trabajo</label><input class="input" id="pn-correo" name="correo" type="email" autocomplete="email" inputmode="email" placeholder="nombre@empresa.cl" required>
+          <p class="pn-msg" id="pn-correo-msg" aria-live="polite"></p></div>
+        <div class="pn-campo"><label for="pn-rut">RUT</label><input class="input" id="pn-rut" name="rut" inputmode="text" autocomplete="off" placeholder="12.345.678-5" required>
+          <p class="pn-msg" id="pn-rut-msg" aria-live="polite"></p></div>
+        <div class="pn-campo"><label for="pn-tel">Celular</label><input class="input" id="pn-tel" name="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="+56 9 1234 5678" required>
+          <p class="pn-msg" id="pn-tel-msg" aria-live="polite"></p></div>
+        <div class="pn-pie"><button class="btn" type="submit" id="pn-btn" aria-disabled="true" aria-describedby="pn-falta">Crear cuenta</button>
+          <span class="small" id="pn-falta" aria-live="polite"></span></div>
+      </form>
+      <div class="pn-reglas">
+        <h3>Cómo funciona</h3>
+        <ul>
+          <li><b>Gris hasta completar:</b> el botón usa aria-disabled (no disabled) para seguir siendo enfocable. Al lado dice qué falta.</li>
+          <li><b>Error al salir, no al escribir:</b> si escribiste algo y sales del campo, recién ahí aparece el error.</li>
+          <li><b>El error se queda hasta que esté bien:</b> desde ese momento se revisa con cada tecla y cambia a ✓ apenas está correcto.</li>
+          <li><b>Siempre con recomendación:</b> qué falta y un ejemplo, o una corrección de un clic ("¿Quisiste decir gmail.com?").</li>
+          <li><b>Flexible al recibir:</b> el RUT y el celular se aceptan con o sin puntos, guiones o espacios y se ordenan al salir.</li>
+          <li><b>Si igual aprietan el gris:</b> no falla en silencio: lleva el foco al primer campo pendiente y lo explica.</li>
+        </ul>
+        <p class="pn-ojo">Ojo: tu skill ux-formularios-archivos hoy dice que al crear el botón queda activo con resumen de pendientes. Este patrón lo reemplazaría.</p>
+      </div>
+    </div>
+  </section>
+
+  <section data-bloque="a11y" aria-labelledby="t-wcag">
+    <h2 class="sec-t" id="t-wcag">WCAG 2.2: los 9 criterios nuevos</h2>
+    <p class="small">Objetivo realista: nivel AA. Los AAA son deseables.</p>
+    <div class="scroll-x"><table class="tabla-r">
+      <thead><tr><th scope="col">Criterio</th><th scope="col">Nivel</th><th scope="col">Qué exige</th></tr></thead>
+      <tbody>
+        <tr><td class="num">2.4.11 Foco no tapado (mínimo)</td><td>AA</td><td>El elemento con foco no queda totalmente tapado por un header fijo, footer o banner de cookies.</td></tr>
+        <tr><td class="num">2.4.12 Foco no tapado (mejorado)</td><td>AAA</td><td>Ninguna parte del elemento con foco queda tapada.</td></tr>
+        <tr><td class="num">2.4.13 Apariencia del foco</td><td>AAA</td><td>Indicador de foco grande y con contraste suficiente.</td></tr>
+        <tr><td class="num">2.5.7 Movimientos de arrastre</td><td>AA</td><td>Todo lo que se arrastra tiene alternativa de un solo clic o toque.</td></tr>
+        <tr><td class="num">2.5.8 Tamaño del objetivo (mínimo)</td><td>AA</td><td>Objetivos de al menos 24 x 24 px. Nosotros usamos 44.</td></tr>
+        <tr><td class="num">3.2.6 Ayuda consistente</td><td>A</td><td>La ayuda (chat, contacto, FAQ) aparece en el mismo lugar en todas las páginas.</td></tr>
+        <tr><td class="num">3.3.7 Entrada redundante</td><td>A</td><td>No se vuelve a pedir un dato ya ingresado en el mismo proceso.</td></tr>
+        <tr><td class="num">3.3.8 Autenticación accesible (mínimo)</td><td>AA</td><td>El login no exige memorizar o transcribir sin alternativa. No bloquear pegar la clave.</td></tr>
+        <tr><td class="num">3.3.9 Autenticación accesible (mejorado)</td><td>AAA</td><td>Igual que 3.3.8, sin excepciones de reconocer objetos.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section data-bloque="perf" aria-labelledby="t-cwv">
+    <h2 class="sec-t" id="t-cwv">Core Web Vitals</h2>
+    <p class="small">Google mide al percentil 75 de visitas reales. INP reemplazó a FID en marzo de 2024.</p>
+    <div class="scroll-x"><table class="tabla-r">
+      <thead><tr><th scope="col">Métrica</th><th scope="col">Qué mide</th><th scope="col">Bueno</th><th scope="col">Malo</th></tr></thead>
+      <tbody>
+        <tr><td>LCP</td><td>Cuánto tarda en pintarse lo más grande visible</td><td class="num">≤ 2,5 s</td><td class="num">&gt; 4 s</td></tr>
+        <tr><td>INP</td><td>Cuánto tarda la interfaz en responder a un clic o tecla</td><td class="num">≤ 200 ms</td><td class="num">&gt; 500 ms</td></tr>
+        <tr><td>CLS</td><td>Cuánto salta el diseño mientras carga</td><td class="num">≤ 0,1</td><td class="num">&gt; 0,25</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section aria-labelledby="t-check">
+    <h2 class="sec-t" id="t-check">Checklist antes de publicar</h2>
+    <div class="prog" style="margin-top:10px"><span class="small" id="check-txt">0 de 0</span><div class="barra-p" role="progressbar" aria-label="Checklist" aria-valuemin="0" id="check-bar"><i></i></div><button class="btn btn-sm btn-ghost" type="button" id="check-reset">Desmarcar todo</button></div>
+    <div id="checklist"></div>
+  </section>
+
+  <section aria-labelledby="t-fuentes">
+    <h2 class="sec-t" id="t-fuentes">Fuentes</h2>
+    <ul class="fuentes" style="margin-top:10px">
+      <li><a href="https://www.nngroup.com/articles/ten-usability-heuristics/" rel="noopener">NN/g: 10 heurísticas de usabilidad</a></li>
+      <li><a href="https://lawsofux.com/" rel="noopener">Laws of UX (Jon Yablonski)</a></li>
+      <li><a href="https://www.w3.org/TR/WCAG22/" rel="noopener">W3C: WCAG 2.2</a> y <a href="https://www.w3.org/WAI/ARIA/apg/" rel="noopener">ARIA Authoring Practices Guide</a></li>
+      <li><a href="https://web.dev/articles/vitals" rel="noopener">web.dev: Core Web Vitals</a></li>
+      <li><a href="https://design-system.service.gov.uk/" rel="noopener">GOV.UK Design System</a> y <a href="https://baymard.com/" rel="noopener">Baymard Institute</a></li>
+    </ul>
+  </section>
+</main>
+
+<script src="../[base]/base.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const SECCIONES = {
+    heur: ['10 heurísticas de Nielsen', 'La base de cualquier revisión de usabilidad.'],
+    leyes: ['Leyes de UX', 'Psicología aplicada. Pruébalas en vivo en leyes-ux-interactivas.'],
+    estados: ['Estados y carga', 'Toda vista que trae datos tiene 4 estados.'],
+    errores: ['Errores y avisos', 'La severidad decide el patrón.'],
+    forms: ['Formularios', 'Retar tarde, aprobar temprano, nunca perder lo escrito.'],
+    archivos: ['Subida de archivos', '5 reglas.'],
+    modales: ['Modales y confirmaciones', 'Todo se guarda con el botón Guardar.'],
+    tablas: ['Tablas y listas', 'Escanear y comparar rápido.'],
+    a11y: ['Accesibilidad', 'Teclado, lector de pantalla y contraste.'],
+    perf: ['Rendimiento', 'Lo que se siente al cargar e interactuar.']
+  };
+  const P = '../';
+  const REGLAS = [
+    { s: 'heur', n: 1, t: 'Visibilidad del estado del sistema', r: 'Muestra siempre dónde está la persona y qué está pasando: sección activa, "Guardando...", hora de última actualización.', f: 'Nielsen' },
+    { s: 'heur', n: 2, t: 'Coincidencia con el mundo real', r: 'Palabras del usuario, no del sistema. Estados en el orden real del flujo: Borrador, En revisión, Aprobado.', f: 'Nielsen' },
+    { s: 'heur', n: 3, t: 'Control y libertad', r: 'Salida clara en todo: Cancelar, Escape, Deshacer. Mejor deshacer que preguntar "¿seguro?".', f: 'Nielsen', p: '[ux]/modales-y-confirmaciones.html' },
+    { s: 'heur', n: 4, t: 'Consistencia y estándares', r: 'Lo mismo se llama igual y se ve igual en toda la plataforma. Sigue lo que la gente ya conoce de otras apps.', f: 'Nielsen' },
+    { s: 'heur', n: 5, t: 'Prevención de errores', r: 'Bloquea lo imposible antes de validar: fechas con min y max encadenados, opciones incompatibles deshabilitadas con el porqué.', f: 'Nielsen', p: '[ux]/formularios-ux.html' },
+    { s: 'heur', n: 6, t: 'Reconocer antes que recordar', r: 'Filtros activos visibles como chips, recientes a mano, opciones a la vista.', f: 'Nielsen', p: '[ux]/busqueda-y-filtros.html' },
+    { s: 'heur', n: 7, t: 'Flexibilidad y eficiencia', r: 'Atajos para expertos: Ctrl+K, Enter elige el primero, pegar varios valores de una.', f: 'Nielsen', p: '[menus]/paleta-de-comandos.html' },
+    { s: 'heur', n: 8, t: 'Diseño estético y minimalista', r: 'Cada elemento extra compite con lo importante. Lo secundario va plegado.', f: 'Nielsen' },
+    { s: 'heur', n: 9, t: 'Ayudar a reconocer y salir de errores', r: 'Qué pasó y qué hacer, sin códigos ni culpa, con botón para resolver.', f: 'Nielsen', p: '[carga]/estados-vacio-error-offline.html' },
+    { s: 'heur', n: 10, t: 'Ayuda y documentación', r: 'Ayuda en contexto, en el mismo lugar en todas las páginas (WCAG 3.2.6).', f: 'Nielsen', p: '[plataformas]/base-de-conocimiento.html' },
+
+    { s: 'leyes', t: 'Ley de Jakob', r: 'La gente pasa la mayor parte del tiempo en otros sitios: espera que el tuyo funcione igual. No reinventes patrones conocidos.', f: 'Laws of UX' },
+    { s: 'leyes', t: 'Ley de Fitts', r: 'Objetivos grandes y cerca se alcanzan más rápido. 44 px y acciones al alcance del pulgar.', f: 'Laws of UX', p: '[ux]/leyes-ux-interactivas.html' },
+    { s: 'leyes', t: 'Ley de Hick', r: 'Más opciones, más tiempo para decidir. Máximo 2 acciones por fila, el resto en un menú.', f: 'Laws of UX', p: '[ux]/leyes-ux-interactivas.html' },
+    { s: 'leyes', t: 'Ley de Miller', r: 'Agrupa en bloques: teléfonos, RUT y pasos de un formulario en grupos cortos.', f: 'Laws of UX', p: '[ux]/leyes-ux-interactivas.html' },
+    { s: 'leyes', t: 'Ley de Tesler', r: 'La complejidad no desaparece, alguien la absorbe. Que la absorba el sistema: buenos valores por defecto (Chile, CLP).', f: 'Laws of UX' },
+    { s: 'leyes', t: 'Ley de Postel', r: 'Flexible al recibir, estricto al entregar. Acepta el RUT con o sin puntos y dale formato al salir.', f: 'Laws of UX', p: '[ux]/leyes-ux-interactivas.html' },
+    { s: 'leyes', t: 'Umbral de Doherty', r: 'Respuesta en menos de 400 ms se siente instantánea. Si no se puede, UI optimista o progreso visible.', f: 'Laws of UX', p: '[ux]/leyes-ux-interactivas.html' },
+    { s: 'leyes', t: 'Efecto Von Restorff', r: 'Lo distinto se recuerda. Reserva el color fuerte para una sola cosa por pantalla.', f: 'Laws of UX' },
+    { s: 'leyes', t: 'Gradiente de meta', r: 'Mientras más cerca de terminar, más ganas. Muestra el avance en pasos y regala el primero.', f: 'Laws of UX' },
+    { s: 'leyes', t: 'Regla pico y final', r: 'Se recuerda el peor momento y el final. Cuida el error más frecuente y la pantalla de éxito.', f: 'Laws of UX' },
+    { s: 'leyes', t: 'Efecto de posición serial', r: 'Se recuerdan el primero y el último de una lista. Ahí van las acciones clave de la navegación.', f: 'Laws of UX' },
+    { s: 'leyes', t: 'Efecto Zeigarnik', r: 'Lo incompleto se recuerda. Checklists de activación y "te faltan 2 pasos" funcionan.', f: 'Laws of UX', p: '[ux]/onboarding-y-tour.html' },
+    { s: 'leyes', t: 'Región común', r: 'Lo que comparte un borde o fondo se lee como grupo. Úsalo antes de agregar títulos.', f: 'Gestalt' },
+
+    { s: 'estados', t: 'Orden fijo: cargando, error, vacío, contenido', r: 'Toda vista que trae datos resuelve los 4 estados en ese orden, con componentes compartidos.', f: 'skill ux-estados-feedback', p: '[carga]/estados-vacio-error-offline.html' },
+    { s: 'estados', t: 'Vacío no es "No hay datos"', r: 'Icono, título, qué significa ese vacío y acción para crear el primero. Distinto del vacío por filtros.', f: 'skill ux-estados-feedback' },
+    { s: 'estados', t: 'Skeleton solo en la primera carga', r: 'Después de guardar, parche local y relectura en segundo plano. Volver al skeleton cierra modales y pierde el scroll.', f: 'skill ux-estados-feedback', p: '[carga]/skeletons-lab.html' },
+    { s: 'estados', t: 'Caché primero', r: 'Si hay caché, muéstrala al tiro con un "Actualizando..." discreto. Si tarda más de 3 s, ofrece Reintentar.', f: 'skill ux-estados-feedback' },
+    { s: 'estados', t: 'Progreso honesto', r: 'Porcentaje real si conoces los bytes. Si no, curva que frena en 90 % hasta confirmar. Nunca 100 % antes de terminar.', f: 'skill ux-estados-feedback', p: '[carga]/barras-progreso.html' },
+    { s: 'estados', t: 'Optimista solo en acciones rápidas', r: 'Marcar como leído, sí, con rollback visible. En configuraciones, nunca.', f: 'skill ux-estados-feedback', p: '[carga]/carga-optimista-subidas.html' },
+
+    { s: 'errores', t: 'La severidad decide el patrón', r: 'Crítico: modal con acción específica. De campo: inline junto al campo. Transitorio: toast que se va solo.', f: 'skill ux-estados-feedback' },
+    { s: 'errores', t: 'Cero errores crudos', r: 'Todo error pasa por un traductor central. Prohibido mostrar "Error 400" o trazas.', f: 'skill ux-estados-feedback' },
+    { s: 'errores', t: 'Toda acción muestra resultado', r: 'Cada clic termina en un cambio visible, un toast de éxito o un error con Reintentar. Ver wireflow en Proceso de diseño.', f: 'skill ux-estados-feedback' },
+    { s: 'errores', t: 'Reglas de toast', r: 'Abajo a la derecha en escritorio, arriba al centro en celular. 3 a 5 s (7 a 9 s si es error). Máximo 3. role="status".', f: 'skill ux-estados-feedback' },
+    { s: 'errores', t: 'Nunca alert() ni confirm()', r: 'Los toasts y modales propios reemplazan a los del navegador.', f: 'skill ux-modales-confirmaciones' },
+
+    { s: 'forms', t: 'Pregunta la estructura primero', r: 'Compacto en una vista, o por bloques y pasos. Se decide cada vez.', f: 'skill ux-formularios-archivos', p: '[ux]/formularios-ux.html' },
+    { s: 'forms', t: 'Crear: botón activo con resumen de pendientes', r: 'Si faltan campos, alerta arriba con enlaces que llevan al campo. Editar: Guardar deshabilitado sin cambios.', f: 'skill ux-formularios-archivos' },
+    { s: 'forms', t: 'Nunca borres lo escrito', r: 'Si falla la validación o el servidor, todo lo que se llenó se queda.', f: 'GOV.UK' },
+    { s: 'forms', t: 'El placeholder no es etiqueta', r: 'Label visible siempre. El placeholder solo muestra un ejemplo de formato.', f: 'NN/g, WCAG 3.3.2' },
+    { s: 'forms', t: 'Valida al salir del campo', r: 'Error recién en blur, nunca en la primera tecla. Después del primer error, revalida en vivo para borrarlo apenas esté bien.', f: 'Baymard' },
+    { s: 'forms', t: 'El botón no salta', r: 'Reserva el alto de una línea de error bajo cada input.', f: 'skill ux-formularios-archivos' },
+    { s: 'forms', t: 'Un código no es un número', r: 'RUT, teléfono, OTP y tarjetas con type="text" e inputmode. type="number" solo para cantidades.', f: 'GOV.UK' },
+    { s: 'forms', t: 'autocomplete en cada campo', r: 'name, email, tel, new-password, one-time-code, organization. Y estiliza :autofill para el tema oscuro.', f: 'WCAG 1.3.5' },
+    { s: 'forms', t: 'Autofoco solo al crear', r: 'Primer campo con foco al crear un registro, nunca al editar.', f: 'skill ux-formularios-archivos' },
+
+    { s: 'archivos', t: 'Zona que reacciona al arrastrar', r: 'Resalta borde y fondo en dragover, no recién al soltar. Siempre con botón para elegir archivo (WCAG 2.5.7).', f: 'skill ux-formularios-archivos', p: '[carga]/carga-optimista-subidas.html' },
+    { s: 'archivos', t: 'Progreso real y reintento por archivo', r: 'Porcentaje transferido real. Si uno falla, Reintentar solo ese, los demás siguen (máximo 3 o 4 a la vez).', f: 'skill ux-formularios-archivos' },
+    { s: 'archivos', t: 'Vista previa real', r: 'Miniatura en imágenes o icono por extensión, con peso en KB o MB.', f: 'skill ux-formularios-archivos' },
+
+    { s: 'modales', t: 'Todo se guarda con Guardar', r: 'En modales y configuraciones, tocar casillas solo cambia el estado local. Un solo guardado al final.', f: 'skill ux-modales-confirmaciones', p: '[admin]/configuracion-de-empresa.html' },
+    { s: 'modales', t: 'Tres zonas: cabecera, cuerpo, pie', r: 'Pie fijo con Cancelar y Guardar siempre visibles (90dvh). En celular, hoja inferior.', f: 'skill ux-modales-confirmaciones', p: '[ux]/modales-y-confirmaciones.html' },
+    { s: 'modales', t: 'Una sola salida: pedirCierre()', r: 'Clic afuera, Escape, X y Cancelar. Con cambios pregunta: Seguir editando, Guardar y salir, Salir sin guardar.', f: 'skill ux-modales-confirmaciones' },
+    { s: 'modales', t: 'Foco en el botón seguro', r: 'En confirmaciones destructivas el foco inicial va a Cancelar, nunca al botón rojo.', f: 'skill ux-modales-confirmaciones' },
+    { s: 'modales', t: 'Borrar según gravedad', r: 'Modal explicativo con el nombre; Papelera con palabra ELIMINAR para lo definitivo; o Deshacer de 7 s para acciones rápidas.', f: 'skill ux-modales-confirmaciones' },
+    { s: 'modales', t: 'Panel lateral para editar mirando la tabla', r: 'La tabla de atrás se puede scrollear pero no clickear.', f: 'skill ux-modales-confirmaciones' },
+
+    { s: 'tablas', t: '2 nombres y "+N"', r: 'Una celda muestra máximo 2 ítems y un botón +N con popover real (hover, foco y toque).', f: 'skill ux-tablas-listas', p: '[ux]/tabla-de-datos-pro.html' },
+    { s: 'tablas', t: 'Primera columna humana', r: 'Nombre legible, nunca un ID. Cabecera y primera columna fijas en tablas grandes.', f: 'NN/g' },
+    { s: 'tablas', t: 'Números a la derecha', r: 'Montos y porcentajes alineados a la derecha con tabular-nums. Textos a la izquierda.', f: 'Refactoring UI' },
+    { s: 'tablas', t: 'Máximo 2 acciones por fila', r: 'El resto en "Más acciones" (kebab). Selección múltiple con barra de acciones en lote.', f: 'Ley de Hick', p: '[menus]/iconos-de-menu.html' },
+    { s: 'tablas', t: 'Buscador desde 9 opciones', r: 'Todo selector con más de 8 opciones lleva buscador; Enter elige el primero.', f: 'Nielsen 7' },
+    { s: 'tablas', t: 'Rango y total', r: '"Mostrando 1-20 de 148", con alto estable al cambiar de página.', f: 'skill ux-tablas-listas', p: '[carga]/scroll-infinito-paginacion.html' },
+    { s: 'tablas', t: 'Acordeón: dato clave en la cabecera', r: 'Solo lo principal abierto. Pregunta si los bloques son independientes o exclusivos.', f: 'NN/g (divulgación progresiva)' },
+
+    { s: 'a11y', t: 'Modal accesible', r: 'Foco entra al abrir, Tab en ciclo cerrado, Escape cierra, foco vuelve al botón que lo abrió, fondo inert.', f: 'ARIA APG' },
+    { s: 'a11y', t: 'Nada solo con hover', r: 'Acciones que aparecen con hover también con :focus-within y siempre visibles en táctil. opacity, no display:none.', f: 'skill accesibilidad-web' },
+    { s: 'a11y', t: 'Todo usable con teclado', r: 'Tab, Shift+Tab, Enter, Espacio, Escape y flechas en menús. Prueba sin mouse.', f: 'WCAG 2.1.1' },
+    { s: 'a11y', t: 'alt con sentido', r: 'Describe lo que aporta la imagen. Decorativa: alt vacío.', f: 'WCAG 1.1.1' },
+    { s: 'a11y', t: 'Error de campo bien conectado', r: 'aria-invalid y aria-describedby al mensaje. El borde rojo solo no basta.', f: 'WCAG 3.3.1' },
+    { s: 'a11y', t: 'Los checkers no bastan', r: 'axe o Lighthouse detectan una parte. Prueba con teclado y, en lo crítico, con VoiceOver o NVDA.', f: 'skill accesibilidad-web' },
+
+    { s: 'perf', t: 'La imagen principal no es lazy', r: 'Hero con fetchpriority="high" y sin loading="lazy". Todo lo de abajo, lazy.', f: 'web.dev', p: '[carga]/carga-imagenes.html' },
+    { s: 'perf', t: 'Reserva espacio', r: 'width y height o aspect-ratio en imágenes y video. Banners con alto reservado.', f: 'web.dev (CLS)' },
+    { s: 'perf', t: 'Fuentes con swap', r: 'font-display swap, woff2, precarga solo la fuente crítica.', f: 'web.dev' },
+    { s: 'perf', t: 'Scripts que no bloquean', r: 'defer o async en lo no crítico. Tareas largas (más de 50 ms) se dividen.', f: 'web.dev (INP)' }
+  ];
+  const CHECKLIST = [
+    'Cada vista resuelve cargando, error, vacío y contenido',
+    'Después de guardar no vuelve al skeleton',
+    'Cada acción muestra resultado (cambio visible, toast o error con Reintentar)',
+    'Ningún error crudo ni alert() en pantalla',
+    'Formularios: label visible, validación al salir, nada se borra si falla',
+    'Modales: Guardar al final, pedirCierre con 3 opciones, foco en botón seguro',
+    'Tablas: primera columna humana, números a la derecha, máximo 2 acciones por fila',
+    'Todo se puede usar solo con teclado',
+    'Nada depende solo de hover',
+    'Lo que se arrastra tiene alternativa con clic',
+    'Imagen principal sin lazy y con espacio reservado',
+    'Probado a 375 px y con conexión lenta'
+  ];
+
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+
+  // Pintar secciones
+  const cont = $('#secciones');
+  Object.entries(SECCIONES).forEach(([k, [titulo, bajada]]) => {
+    const reglas = REGLAS.filter(r => r.s === k);
+    if (!reglas.length) return;
+    const sec = el('section'); sec.dataset.bloque = k;
+    sec.append(el('h2', 'sec-t', titulo), el('p', 'small', bajada));
+    const rej = el('div', 'rejilla');
+    reglas.forEach(r => {
+      const a = el('article', 'rg'); a.dataset.sec = k;
+      const h = el('h3'); if (r.n) h.append(el('span', 'num', String(r.n))); h.append(r.t);
+      const pie = el('div', 'pie'); pie.append(el('span', '', 'Fuente: ' + r.f));
+      if (r.p) { const l = el('a', '', 'Ver en plantilla'); l.href = P + r.p; pie.append(l); }
+      a.append(h, el('p', '', r.r), pie); rej.append(a);
+    });
+    sec.append(rej); cont.append(sec);
+  });
+  // Las tablas fijas van después de su sección
+  ['a11y', 'perf'].forEach(k => { const fija = document.querySelector('section[data-bloque="' + k + '"]:not(#secciones *)'); const dyn = cont.querySelector('[data-bloque="' + k + '"]'); if (fija && dyn) { fija.querySelector('h2').remove(); dyn.append(...fija.childNodes); fija.remove(); } });
+  const pnSec = document.querySelector('section.fija'); cont.querySelector('[data-bloque="forms"]').append(pnSec);
+
+  // Filtros y búsqueda
+  let sec = 'todas';
+  const filtros = $('#filtros');
+  [['todas', 'Todas'], ...Object.entries(SECCIONES).map(([k, v]) => [k, v[0]])].forEach(([k, t]) => {
+    const b = el('button', 'chip', t); b.type = 'button'; b.setAttribute('aria-pressed', String(k === 'todas'));
+    b.addEventListener('click', () => { sec = k; filtros.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c === b))); aplicar(); });
+    filtros.append(b);
+  });
+  const buscar = $('#buscar');
+  const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  function aplicar() {
+    const q = norm(buscar.value.trim()); let n = 0;
+    cont.querySelectorAll('section').forEach(s => {
+      const enSec = sec === 'todas' || s.dataset.bloque === sec; let vis = 0;
+      s.querySelectorAll('.rg').forEach(r => { const ok = enSec && (!q || norm(r.textContent).includes(q)); r.hidden = !ok; if (ok) vis++; });
+      const tablaOk = enSec && !q && s.querySelector('table');
+      s.hidden = !vis && !tablaOk; n += vis;
+    });
+    document.querySelectorAll('section.fija').forEach(s => { s.hidden = !!q || (sec !== 'todas' && sec !== s.dataset.bloque); });
+    $('#sin-res').hidden = n > 0 || (!q && sec !== 'todas');
+  }
+  buscar.addEventListener('input', aplicar);
+  $('#limpiar').addEventListener('click', () => { buscar.value = ''; aplicar(); buscar.focus(); });
+  document.addEventListener('keydown', e => { if (e.key === '/' && !/input|textarea/i.test(document.activeElement.tagName)) { e.preventDefault(); buscar.focus(); } });
+
+  // Checklist
+  const KEY = 'reglas-ux-check';
+  let marcados = [];
+  try { marcados = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { marcados = []; }
+  const lista = $('#checklist');
+  CHECKLIST.forEach((t, i) => { const c = el('input'); c.type = 'checkbox'; c.checked = marcados.includes(i); const l = el('label'); l.append(c, t); lista.append(l); c.addEventListener('change', () => progreso(true)); });
+  function progreso(avisar) {
+    const cs = [...lista.querySelectorAll('input')]; const ok = cs.filter(c => c.checked).length;
+    $('#check-txt').textContent = ok + ' de ' + cs.length;
+    const bar = $('#check-bar'); bar.setAttribute('aria-valuemax', cs.length); bar.setAttribute('aria-valuenow', ok);
+    bar.firstElementChild.style.width = (ok / cs.length * 100) + '%';
+    try { localStorage.setItem(KEY, JSON.stringify(cs.map((c, i) => c.checked ? i : -1).filter(i => i >= 0))); } catch {}
+    if (avisar && ok === cs.length) UI.toast('Checklist completo. Lista para publicar.', 'ok');
+  }
+  $('#check-reset').addEventListener('click', () => { lista.querySelectorAll('input').forEach(c => c.checked = false); progreso(false); UI.toast('Checklist desmarcado', 'info'); });
+  progreso(false);
+
+  /* ===== Botón positivo / negativo ===== */
+  const DOMINIOS = { 'gmial.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gmail.co': 'gmail.com', 'gmail.cl': 'gmail.com', 'hotmial.com': 'hotmail.com', 'hotmai.com': 'hotmail.com', 'outlok.com': 'outlook.com', 'yaho.com': 'yahoo.com' };
+  const limpiarRut = v => v.replace(/[^0-9kK]/g, '').toUpperCase();
+  function dvRut(cuerpo) { let s = 0, m = 2; for (let i = cuerpo.length - 1; i >= 0; i--) { s += +cuerpo[i] * m; m = m === 7 ? 2 : m + 1; } const r = 11 - (s % 11); return r === 11 ? '0' : r === 10 ? 'K' : String(r); }
+  const CAMPOS = {
+    nombre: { etq: 'Nombre', val: v => v.trim().length >= 2 ? null : { msg: 'Escribe tu nombre (mínimo 2 letras). Ej: Ana Rojas.' } },
+    correo: { etq: 'Correo', val: v => {
+      const s = v.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s)) return { msg: s.includes('@') ? 'Al correo le falta el dominio. Ej: ana@empresa.cl.' : 'Al correo le falta la @. Ej: ana@empresa.cl.' };
+      const [u, d] = s.split('@'); const fix = DOMINIOS[d.toLowerCase()] || (d.toLowerCase().endsWith('.con') ? d.slice(0, -4) + '.com' : null);
+      return fix ? { msg: '¿Quisiste decir ' + u + '@' + fix + '?', sugerencia: u + '@' + fix } : null;
+    } },
+    rut: { etq: 'RUT', val: v => {
+      const c = limpiarRut(v); if (c.length < 8) return { msg: 'Al RUT le faltan números. Escríbelo con dígito verificador. Ej: 12.345.678-5.' };
+      return dvRut(c.slice(0, -1)) === c.slice(-1) ? null : { msg: 'El dígito verificador no calza. Revisa el último número o la K.' };
+    }, formato: v => { const c = limpiarRut(v); if (c.length < 2) return v; const cu = c.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); return cu + '-' + c.slice(-1); } },
+    tel: { etq: 'Celular', val: v => { const d = v.replace(/\D/g, '').replace(/^56/, ''); return /^9\d{8}$/.test(d) ? null : { msg: 'El celular tiene 9 dígitos y parte con 9. Ej: +56 9 1234 5678.' }; },
+      formato: v => { const d = v.replace(/\D/g, '').replace(/^56/, ''); return /^9\d{8}$/.test(d) ? '+56 ' + d[0] + ' ' + d.slice(1, 5) + ' ' + d.slice(5) : v; } }
+  };
+  const tocado = {};
+  const inp = k => $('#pn-' + k); const msg = k => $('#pn-' + k + '-msg');
+  function mostrar(k) {
+    const i = inp(k), m = msg(k), r = CAMPOS[k].val(i.value); m.replaceChildren();
+    i.classList.toggle('valido', !r); i.setAttribute('aria-invalid', String(!!r));
+    if (r) { i.setAttribute('aria-describedby', m.id); m.className = 'pn-msg error'; m.append('✕ ' + r.msg);
+      if (r.sugerencia) { const b = el('button', '', 'Usar sugerencia'); b.type = 'button'; b.addEventListener('click', () => { i.value = r.sugerencia; mostrar(k); estado(); i.focus(); }); m.append(b); } }
+    else { i.removeAttribute('aria-describedby'); m.className = 'pn-msg ok'; m.textContent = '✓ Listo'; }
+  }
+  function estado() {
+    const faltan = Object.keys(CAMPOS).filter(k => CAMPOS[k].val(inp(k).value));
+    const b = $('#pn-btn'); b.setAttribute('aria-disabled', String(faltan.length > 0));
+    $('#pn-falta').textContent = faltan.length ? 'Falta: ' + faltan.map(k => CAMPOS[k].etq).join(', ') : 'Todo listo';
+    return faltan;
+  }
+  Object.keys(CAMPOS).forEach(k => {
+    const i = inp(k);
+    i.addEventListener('input', () => { if (tocado[k]) mostrar(k); estado(); });
+    i.addEventListener('blur', () => {
+      if (!i.value.trim()) { if (tocado[k]) mostrar(k); return; }
+      if (CAMPOS[k].formato && !CAMPOS[k].val(i.value)) i.value = CAMPOS[k].formato(i.value);
+      tocado[k] = true; mostrar(k); estado();
+    });
+  });
+  $('#pn').addEventListener('submit', e => {
+    e.preventDefault(); const faltan = estado();
+    if (faltan.length) { faltan.forEach(k => { tocado[k] = true; mostrar(k); }); inp(faltan[0]).focus(); UI.toast('Revisa ' + CAMPOS[faltan[0]].etq.toLowerCase() + ' antes de crear la cuenta', 'warn'); return; }
+    const b = $('#pn-btn'); b.textContent = 'Creando...'; b.setAttribute('aria-disabled', 'true');
+    setTimeout(() => { b.textContent = 'Crear cuenta'; UI.toast('Cuenta creada', 'ok'); estado(); }, 900);
+  });
+  estado();
+
+  window.ReglasUX = { REGLAS, CHECKLIST, SECCIONES, CAMPOS };
+});
+</script>
+</body>
+</html>

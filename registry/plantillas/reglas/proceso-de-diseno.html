@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Proceso de diseño · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: proceso de diseño de una plataforma, de la estructura al prototipo: card sorting interactivo (abierto, cerrado, híbrido), herramientas de Optimal Workshop, wireframe con sus 4 pilares y las 3 fidelidades sobre la misma pantalla, y wireflow navegable donde cada acción tiene resultado.
+  Proyecto: método interno de Chile Consultores antes de construir.
+  Cómo aplicarlo: cada sección es independiente. Las tarjetas del card sorting están en TARJETAS y GRUPOS; el wireflow en PANTALLAS y ACCIONES (editables).
+  Conectar: nada; todo corre en el navegador.
+  Ganchos: #cs, #fid, .wf[data-fid], #wflow, window.Proceso.
+  Accesibilidad: el card sorting se usa arrastrando o con clic (seleccionas tarjeta y luego grupo, WCAG 2.5.7); el selector de fidelidad es un radiogroup; los hotspots del wireflow son botones.
+-->
+<style>
+  .pagina{max-width:1100px;margin:0 auto;padding:24px 16px 80px;display:flex;flex-direction:column;gap:28px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .bloque{display:flex;flex-direction:column;gap:14px;scroll-margin-top:12px}
+  .bloque>h2{padding-top:14px;border-top:1px solid var(--borde)}
+  .caja{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:18px}
+  .dos{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+  .dos h3{font-size:.98rem;margin-bottom:6px}
+  .dos p,.dos li{font-size:var(--fs-s);color:var(--texto-2)}
+  .dos ul{margin:0;padding-left:18px;display:grid;gap:4px}
+  .nota{padding:12px 14px;border-radius:10px;background:var(--marca-l);border:1px solid rgba(124,109,242,.35);font-size:var(--fs-s)}
+
+  /* Pasos del proceso */
+  .pasos{display:flex;gap:6px;flex-wrap:wrap;counter-reset:p;margin:0;padding:0;list-style:none}
+  .pasos a{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--borde);border-radius:99px;color:var(--texto-2);font-size:var(--fs-s);text-decoration:none}
+  .pasos a::before{counter-increment:p;content:counter(p);display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--superficie-2);font-size:.7rem;color:var(--texto)}
+  .pasos a:hover{border-color:var(--marca);color:var(--texto)}
+
+  /* === Card sorting === */
+  .cs-modo{display:flex;gap:6px;flex-wrap:wrap}
+  .cs-modo .chip[aria-pressed=true]{border-color:var(--marca);background:var(--marca-l);color:var(--texto)}
+  .cs-area{display:grid;grid-template-columns:240px 1fr;gap:14px}
+  @media(max-width:760px){.cs-area{grid-template-columns:1fr}}
+  .cs-area>*{min-width:0}
+  .cs-mazo,.cs-grupo{border:1px dashed var(--borde-2);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;min-height:80px;transition:border-color var(--dur-s),background var(--dur-s)}
+  .cs-grupos{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;align-content:start}
+  .cs-grupo.sobre,.cs-mazo.sobre{border-color:var(--marca);background:var(--marca-l)}
+  .cs-grupo-cab{display:flex;justify-content:space-between;align-items:center;gap:6px}
+  .cs-grupo-cab button.dest{flex:1;text-align:left;border:0;background:none;color:var(--texto);font-weight:600;font-size:var(--fs-s);cursor:pointer;padding:6px 4px;border-radius:6px;min-height:36px}
+  .cs-grupo-cab .cnt{font-size:var(--fs-xs);color:var(--texto-3)}
+  .tarjeta{padding:9px 12px;border-radius:8px;border:1px solid var(--borde-2);background:var(--fondo-2);font-size:var(--fs-s);cursor:grab;text-align:left;color:var(--texto);min-height:40px;touch-action:none}
+  .tarjeta[aria-pressed=true]{border-color:var(--acento);box-shadow:0 0 0 2px var(--acento-l)}
+  .tarjeta.arrastrando{opacity:.4}
+  .cs-acciones{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .cs-nuevo{display:flex;gap:6px}
+  .cs-nuevo .input{width:auto;flex:1;min-width:0}
+  .cs-res{font-size:var(--fs-s);display:grid;gap:6px}
+  .cs-res b{color:var(--texto)}
+
+  /* === Herramientas Optimal === */
+  .herr{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+  .herr article{border:1px solid var(--borde);border-radius:12px;padding:14px;background:var(--superficie);display:flex;flex-direction:column;gap:6px}
+  .herr h3{font-size:.95rem}
+  .herr .que{font-size:var(--fs-xs);color:var(--acento);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .herr p{font-size:var(--fs-s);color:var(--texto-2)}
+
+  /* === Wireframe y fidelidad === */
+  .pilares{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+  .pilares article{border:1px solid var(--borde);border-radius:12px;padding:14px;background:var(--superficie)}
+  .pilares h3{font-size:.95rem;margin-bottom:4px}
+  .pilares p{font-size:var(--fs-s);color:var(--texto-2)}
+  .fid-sel{display:flex;gap:6px;flex-wrap:wrap}
+  .fid-sel [role=radio]{padding:9px 16px;border-radius:99px;border:1px solid var(--borde-2);background:var(--superficie);color:var(--texto-2);font-size:var(--fs-s);cursor:pointer;min-height:40px}
+  .fid-sel [role=radio][aria-checked=true]{border-color:var(--marca);background:var(--marca-l);color:var(--texto)}
+  .fid-zona{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;align-items:start}
+  @media(max-width:860px){.fid-zona{grid-template-columns:1fr}}
+  .fid-info h3{font-size:1rem;margin-bottom:6px}
+  .fid-info dl{margin:0;display:grid;gap:8px;font-size:var(--fs-s)}
+  .fid-info dt{font-weight:600}
+  .fid-info dd{margin:0;color:var(--texto-2)}
+
+  /* Lienzo del wireframe: la misma pantalla en 3 fidelidades */
+  .wf{background:#fff;color:#1d1d24;border-radius:12px;overflow:hidden;font-family:system-ui,sans-serif;transition:background var(--dur)}
+  .wf .w-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid #ddd}
+  .wf .w-logo{font-weight:700}
+  .wf .w-links{display:flex;gap:12px;font-size:.8rem}
+  .wf .w-hero{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;padding:18px 16px}
+  .wf .w-h1{font-size:1.25rem;font-weight:700;line-height:1.2;margin:0 0 6px}
+  .wf .w-p{font-size:.85rem;color:#555;margin:0 0 12px}
+  .wf .w-img{border-radius:8px;min-height:120px;display:grid;place-items:center;font-size:.75rem;color:#777}
+  .wf .w-form{display:flex;flex-direction:column;gap:8px}
+  .wf .w-in{padding:8px 10px;border:1px solid #bbb;border-radius:6px;font-size:.8rem;color:#888}
+  .wf .w-btn{padding:9px 14px;border-radius:6px;font-size:.8rem;font-weight:600;text-align:center;align-self:flex-start}
+  .wf .w-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 16px 18px}
+  .wf .w-card{border:1px solid #ddd;border-radius:8px;padding:10px;font-size:.78rem;display:flex;flex-direction:column;gap:4px}
+  .wf .w-card b{font-size:.85rem}
+  @media(max-width:520px){.wf .w-hero{grid-template-columns:1fr}.wf .w-cards{grid-template-columns:1fr}.wf .w-links{display:none}}
+  /* Baja: cajas, líneas y X. Sin color ni texto real */
+  .wf[data-fid=baja]{font-family:ui-monospace,Menlo,monospace}
+  .wf[data-fid=baja] .t{color:transparent;background:repeating-linear-gradient(#c9c9cf 0 6px,transparent 6px 11px);border-radius:3px;user-select:none}
+  .wf[data-fid=baja] .w-h1.t{background:repeating-linear-gradient(#9d9da5 0 10px,transparent 10px 16px)}
+  .wf[data-fid=baja] .w-img{border:2px solid #9d9da5;color:transparent;background:linear-gradient(to top right,transparent calc(50% - 1px),#9d9da5,transparent calc(50% + 1px)),linear-gradient(to top left,transparent calc(50% - 1px),#9d9da5,transparent calc(50% + 1px))}
+  .wf[data-fid=baja] .w-btn{border:2px solid #555;background:none;color:#555}
+  .wf[data-fid=baja] .w-in,.wf[data-fid=baja] .w-card,.wf[data-fid=baja] .w-nav{border-style:dashed;border-color:#9d9da5}
+  .wf[data-fid=baja] .w-logo{border:2px solid #555;padding:2px 8px;color:#555}
+  /* Media: texto real, escala de grises, componentes */
+  .wf[data-fid=media] .w-img{background:#e6e6ea;color:#666}
+  .wf[data-fid=media] .w-btn{background:#3a3a42;color:#fff}
+  .wf[data-fid=media] .w-card{background:#f6f6f8}
+  /* Alta: marca, tipografía final, imagen y detalle */
+  .wf[data-fid=alta]{background:#fbfaf7;font-family:'Outfit',system-ui,sans-serif}
+  .wf[data-fid=alta] .w-nav{border-color:#ece8df;background:#fff}
+  .wf[data-fid=alta] .w-logo{color:#1f6f5c}
+  .wf[data-fid=alta] .w-links span:first-child{color:#1f6f5c;font-weight:600}
+  .wf[data-fid=alta] .w-h1{font-size:1.45rem;letter-spacing:-.02em;color:#14211d}
+  .wf[data-fid=alta] .w-p{color:#4b5752}
+  .wf[data-fid=alta] .w-img{color:#fff;font-weight:600;background:linear-gradient(160deg,#1f6f5c,#2f9c7f 55%,#f2c46d);box-shadow:0 10px 24px -14px rgba(31,111,92,.6)}
+  .wf[data-fid=alta] .w-in{border-color:#d9d3c7;background:#fff;color:#7a827e;border-radius:8px}
+  .wf[data-fid=alta] .w-btn{background:#1f6f5c;color:#fff;border-radius:99px;padding:10px 18px}
+  .wf[data-fid=alta] .w-card{background:#fff;border-color:#ece8df;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .wf[data-fid=alta] .w-card b{color:#1f6f5c}
+  .tabla-r{width:100%;border-collapse:collapse;font-size:var(--fs-s)}
+  .tabla-r th,.tabla-r td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--borde);vertical-align:top}
+  .tabla-r th{color:var(--texto-2);font-weight:600}
+  .scroll-x{overflow-x:auto}
+
+  /* === Wireflow === */
+  .wfl{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+  .pant{background:#fff;color:#1d1d24;border-radius:12px;border:2px solid transparent;padding:12px;display:flex;flex-direction:column;gap:8px;font-family:system-ui,sans-serif;font-size:.8rem;position:relative;transition:border-color var(--dur),box-shadow var(--dur)}
+  .pant.destino{border-color:var(--acento);box-shadow:0 0 0 4px var(--acento-l)}
+  .pant .p-id{position:absolute;top:-10px;left:10px;background:var(--fondo);color:var(--texto);border:1px solid var(--borde-2);border-radius:99px;padding:1px 9px;font-size:.7rem;font-weight:600}
+  .pant .p-tit{font-weight:700;font-size:.9rem;margin-top:4px}
+  .pant .p-linea{height:7px;border-radius:3px;background:#dcdce2}
+  .pant .p-fila{display:flex;justify-content:space-between;gap:6px;padding:7px 8px;border:1px dashed #b9b9c2;border-radius:6px}
+  .pant .p-modal{border:1.5px solid #555;border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:6px;background:#f7f7f9}
+  .hs{display:inline-flex;align-items:center;gap:6px;border:1.5px solid #555;border-radius:6px;background:#fff;color:#1d1d24;font:inherit;font-weight:600;padding:6px 9px;cursor:pointer;min-height:34px;text-align:left}
+  .hs .n{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#2457d6;color:#fff;font-size:.65rem;flex:none}
+  .hs.malo .n{background:#c62828}
+  .hs[aria-pressed=true]{outline:3px solid var(--acento);outline-offset:1px}
+  .hs.fila-hs{width:100%;justify-content:space-between;border-style:dashed;font-weight:500}
+  .pant .p-btns{display:flex;gap:6px;flex-wrap:wrap}
+  .wfl-res{min-height:48px;padding:12px 14px;border-radius:10px;border:1px solid var(--borde);background:var(--superficie);font-size:var(--fs-s)}
+  .wfl-res.mal{border-color:rgba(239,68,68,.5);background:var(--rojo-l)}
+  .wfl-res.bien{border-color:rgba(34,197,94,.45);background:var(--verde-l)}
+  .tabla-r tr.sin td{color:var(--rojo)}
+  .fuentes{margin:0;padding-left:18px;display:grid;gap:4px;font-size:var(--fs-s)}
+  [hidden]{display:none!important}
+  @media(prefers-reduced-motion:reduce){.wf,.pant,.cs-grupo,.cs-mazo{transition:none}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header class="bloque" style="gap:10px">
+    <h1>Proceso de diseño</h1>
+    <p class="small">De qué va en la plataforma a cómo se ve. Primero se ordena el contenido, después la estructura, después el detalle. Reglas en <a href="reglas-ui.html">UI</a> y <a href="reglas-ux.html">UX</a>.</p>
+    <ol class="pasos" aria-label="Pasos del proceso">
+      <li><a href="#card-sorting">Ordenar el contenido</a></li>
+      <li><a href="#optimal">Validar con usuarios</a></li>
+      <li><a href="#wireframe">Wireframe</a></li>
+      <li><a href="#fidelidades">Subir la fidelidad</a></li>
+      <li><a href="#wireflow">Wireflow</a></li>
+    </ol>
+  </header>
+
+  <!-- ====== CARD SORTING ====== -->
+  <section class="bloque" id="card-sorting" aria-labelledby="t-cs">
+    <h2 id="t-cs">Card sorting: que los usuarios ordenen las fichas</h2>
+    <p class="small">Cada ficha es una opción o contenido de la plataforma. Personas reales las agrupan como les hace sentido, y eso define el menú. Así el menú sigue la cabeza del usuario, no el organigrama del cliente.</p>
+    <div class="dos">
+      <div class="caja"><h3>Abierto</h3><p>La persona crea y nombra sus grupos. Úsalo al partir, para descubrir cómo piensan.</p></div>
+      <div class="caja"><h3>Cerrado</h3><p>Los grupos ya existen y solo se reparten las fichas. Úsalo para probar un menú que ya tienes.</p></div>
+      <div class="caja"><h3>Híbrido</h3><p>Grupos dados, pero puede crear nuevos. Útil cuando el menú está casi listo.</p></div>
+    </div>
+    <div class="dos">
+      <div class="caja"><h3>Cómo hacerlo</h3><ul>
+        <li>Entre 30 y 60 fichas, con nombres claros y sin repetir palabras que guíen.</li>
+        <li>Unas 15 personas del público real para un card sorting abierto.</li>
+        <li>No moderado y en línea para llegar a más gente; moderado para entender el porqué.</li>
+        <li>Analiza con la matriz de similitud: qué fichas aparecen juntas más seguido.</li>
+      </ul></div>
+      <div class="caja"><h3>Después</h3><ul>
+        <li>Arma el árbol de navegación con los grupos más repetidos.</li>
+        <li>Valídalo con un tree testing: "¿dónde buscarías tu factura?".</li>
+        <li>Si menos del 70 % encuentra algo, ese nombre o lugar falla.</li>
+      </ul></div>
+    </div>
+
+    <div class="caja" id="cs" style="display:flex;flex-direction:column;gap:12px">
+      <div class="cs-acciones" style="justify-content:space-between">
+        <div class="cs-modo" role="group" aria-label="Tipo de card sorting">
+          <button class="chip" type="button" data-modo="abierto" aria-pressed="true">Abierto</button>
+          <button class="chip" type="button" data-modo="cerrado" aria-pressed="false">Cerrado</button>
+          <button class="chip" type="button" data-modo="hibrido" aria-pressed="false">Híbrido</button>
+        </div>
+        <span class="small" id="cs-ayuda" aria-live="polite">Arrastra una ficha a un grupo, o tócala y después toca el grupo.</span>
+      </div>
+      <div class="cs-area">
+        <div>
+          <p class="small" style="margin-bottom:6px"><b>Fichas sin ordenar</b> (<span id="cs-quedan">0</span>)</p>
+          <div class="cs-mazo" id="cs-mazo" data-grupo=""></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <form class="cs-nuevo" id="cs-nuevo">
+            <label class="sr-only" for="cs-nombre">Nombre del grupo nuevo</label>
+            <input class="input" id="cs-nombre" placeholder="Ej: Mi cuenta" maxlength="30" autocomplete="off">
+            <button class="btn btn-sm btn-sec" type="submit">Crear grupo</button>
+          </form>
+          <div class="cs-grupos" id="cs-grupos"></div>
+        </div>
+      </div>
+      <div class="cs-acciones">
+        <button class="btn btn-sm" type="button" id="cs-ver">Ver resultado</button>
+        <button class="btn btn-sm btn-ghost" type="button" id="cs-reiniciar">Reiniciar</button>
+      </div>
+      <div class="cs-res" id="cs-res" hidden></div>
+    </div>
+  </section>
+
+  <!-- ====== OPTIMAL WORKSHOP ====== -->
+  <section class="bloque" id="optimal" aria-labelledby="t-ow">
+    <h2 id="t-ow">Optimal Workshop: testear productos digitales</h2>
+    <p class="small">Plataforma para hacer estas pruebas en línea con usuarios reales y obtener los gráficos de análisis hechos. Hoy se presenta como Optimal. Cada herramienta responde una pregunta distinta.</p>
+    <div class="herr">
+      <article><span class="que">Card sorting</span><h3>OptimalSort</h3><p>¿Cómo agrupa la gente el contenido? Abierto, cerrado o híbrido, con matriz de similitud y dendrograma.</p></article>
+      <article><span class="que">Tree testing</span><h3>Treejack</h3><p>¿Encuentran las cosas en el menú? Prueba solo el árbol de navegación, sin diseño.</p></article>
+      <article><span class="que">Primer clic</span><h3>Chalkmark</h3><p>¿Dónde hacen el primer clic para una tarea? Se prueba sobre un wireframe o una captura.</p></article>
+      <article><span class="que">Prototipo</span><h3>Prototype testing</h3><p>¿Pueden completar la tarea en el prototipo? Rutas, tiempos y abandonos.</p></article>
+      <article><span class="que">Encuestas</span><h3>Surveys</h3><p>Preguntas antes o después de la prueba para filtrar y entender a los participantes.</p></article>
+      <article><span class="que">Análisis</span><h3>Reframer</h3><p>Ordena notas de entrevistas y sesiones para encontrar patrones.</p></article>
+    </div>
+    <div class="scroll-x"><table class="tabla-r">
+      <thead><tr><th scope="col">Momento</th><th scope="col">Prueba</th><th scope="col">Qué decides</th></tr></thead>
+      <tbody>
+        <tr><td>Antes de diseñar</td><td>Card sorting abierto</td><td>Grupos y nombres del menú</td></tr>
+        <tr><td>Con el árbol armado</td><td>Tree testing</td><td>Si el menú funciona antes de dibujar pantallas</td></tr>
+        <tr><td>Con wireframes</td><td>Primer clic</td><td>Si la acción principal se encuentra</td></tr>
+        <tr><td>Con media o alta fidelidad</td><td>Prototype testing</td><td>Si el flujo completo se entiende</td></tr>
+      </tbody>
+    </table></div>
+    <p class="nota">Lo más barato para empezar: el card sorting en papel o con la demo de arriba con 5 personas del cliente ya muestra los problemas grandes. La plataforma conviene cuando necesitas muchos participantes o el análisis automático.</p>
+  </section>
+
+  <!-- ====== WIREFRAME ====== -->
+  <section class="bloque" id="wireframe" aria-labelledby="t-wf">
+    <h2 id="t-wf">Wireframe: el esqueleto de la pantalla</h2>
+    <p class="small">Esquema de la estructura de una pantalla, sin detalles estéticos. Sirve para acordar qué va y dónde antes de discutir colores.</p>
+    <div class="pilares">
+      <article><h3>Navegación</h3><p>Menús y enlaces: cómo se mueve la persona entre pantallas.</p></article>
+      <article><h3>Estructura y contenido</h3><p>Encabezados, párrafos, imágenes y botones, con su jerarquía.</p></article>
+      <article><h3>Simplicidad</h3><p>Líneas, cuadros y texto simple. Sin color ni tipografía final.</p></article>
+      <article><h3>Funcionalidad</h3><p>Formularios, campos y botones de llamada a la acción.</p></article>
+    </div>
+  </section>
+
+  <section class="bloque" id="fidelidades" aria-labelledby="t-fid">
+    <h2 id="t-fid">Las 3 fidelidades: mientras más sube, más detalle</h2>
+    <p class="small">Es la misma pantalla. Cambia la fidelidad y mira qué aparece.</p>
+    <div class="fid-sel" role="radiogroup" aria-label="Fidelidad" id="fid">
+      <button type="button" role="radio" data-fid="baja" aria-checked="true">Baja</button>
+      <button type="button" role="radio" data-fid="media" aria-checked="false" tabindex="-1">Media</button>
+      <button type="button" role="radio" data-fid="alta" aria-checked="false" tabindex="-1">Alta</button>
+    </div>
+    <div class="fid-zona">
+      <div class="wf" data-fid="baja" id="wf" aria-label="Ejemplo de pantalla en la fidelidad elegida" role="img">
+        <div class="w-nav"><span class="w-logo">Clima</span><span class="w-links"><span class="t">Estudios</span><span class="t">Precios</span><span class="t">Contacto</span></span></div>
+        <div class="w-hero">
+          <div><p class="w-h1 t">Mide el clima de tu empresa en 2 semanas</p><p class="w-p t">Encuesta anónima, informe por área y plan de acción.</p>
+            <div class="w-form"><span class="w-in t">Correo de trabajo</span><span class="w-in t">Número de personas</span><span class="w-btn">Cotizar estudio</span></div></div>
+          <div class="w-img">Imagen</div>
+        </div>
+        <div class="w-cards">
+          <div class="w-card"><b class="t">Anónima</b><span class="t">Nadie ve respuestas individuales.</span></div>
+          <div class="w-card"><b class="t">Por área</b><span class="t">Resultados por equipo.</span></div>
+          <div class="w-card"><b class="t">Con plan</b><span class="t">Acciones concretas.</span></div>
+        </div>
+      </div>
+      <div class="caja fid-info" aria-live="polite">
+        <h3 id="fid-tit"></h3>
+        <dl>
+          <dt>Qué tiene</dt><dd id="fid-que"></dd>
+          <dt>Cuándo</dt><dd id="fid-cuando"></dd>
+          <dt>Con qué</dt><dd id="fid-con"></dd>
+          <dt>Se testea con</dt><dd id="fid-test"></dd>
+        </dl>
+      </div>
+    </div>
+    <div class="scroll-x"><table class="tabla-r">
+      <thead><tr><th scope="col"></th><th scope="col">Baja</th><th scope="col">Media</th><th scope="col">Alta</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Contenido</th><td>Cajas y líneas</td><td>Texto real</td><td>Texto final</td></tr>
+        <tr><th scope="row">Color</th><td>No</td><td>Grises</td><td>Marca del cliente</td></tr>
+        <tr><th scope="row">Tipografía</th><td>No</td><td>Del sistema</td><td>Final</td></tr>
+        <tr><th scope="row">Imágenes</th><td>Caja con X</td><td>Caja gris</td><td>Reales</td></tr>
+        <tr><th scope="row">Interacción</th><td>No</td><td>Clics entre pantallas</td><td>Estados, animación, prototipo</td></tr>
+        <tr><th scope="row">Cambiar cuesta</th><td>Minutos</td><td>Horas</td><td>Días</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ====== WIREFLOW ====== -->
+  <section class="bloque" id="wireflow" aria-labelledby="t-wfl">
+    <h2 id="t-wfl">Wireflow: con todas las acciones debe ocurrir algo</h2>
+    <p class="small">Wireframes unidos por flechas: cada botón dice a qué pantalla lleva o qué cambia. Así se ve el flujo completo y salta al tiro la acción que no hace nada. Toca los botones numerados.</p>
+    <div class="wfl" id="wflow"></div>
+    <div class="wfl-res" id="wfl-res" aria-live="polite">Toca un botón numerado para ver qué ocurre.</div>
+    <div class="dos">
+      <div class="caja"><h3>Toda acción termina en una de estas 4</h3><ul>
+        <li><b>Navega:</b> lleva a otra pantalla.</li>
+        <li><b>Cambia la vista:</b> filtra, ordena, abre un panel.</li>
+        <li><b>Abre algo:</b> modal, menú, confirmación.</li>
+        <li><b>Avisa:</b> toast de éxito o error con Reintentar.</li>
+      </ul></div>
+      <div class="caja"><h3>Y si no se puede</h3><ul>
+        <li>El botón deshabilitado dice por qué (tooltip o texto al lado).</li>
+        <li>Si tarda, cambia a "Guardando..." al instante.</li>
+        <li>Nunca un clic sin respuesta: la persona vuelve a apretar y duplica.</li>
+      </ul></div>
+    </div>
+    <h3 style="font-size:1rem">Mapa de acciones</h3>
+    <div class="scroll-x"><table class="tabla-r">
+      <thead><tr><th scope="col">#</th><th scope="col">Pantalla</th><th scope="col">Acción</th><th scope="col">Qué ocurre</th></tr></thead>
+      <tbody id="wfl-tabla"></tbody>
+    </table></div>
+  </section>
+
+  <section class="bloque" aria-labelledby="t-fuentes">
+    <h2 id="t-fuentes">Fuentes</h2>
+    <ul class="fuentes">
+      <li><a href="https://www.nngroup.com/articles/card-sorting-definition/" rel="noopener">NN/g: Card sorting</a> y <a href="https://www.nngroup.com/articles/card-sorting-how-many-users-to-test/" rel="noopener">cuántos usuarios</a></li>
+      <li><a href="https://www.nngroup.com/articles/tree-testing/" rel="noopener">NN/g: Tree testing</a></li>
+      <li><a href="https://www.nngroup.com/articles/wireflows/" rel="noopener">NN/g: Wireflows</a></li>
+      <li><a href="https://www.optimalworkshop.com/" rel="noopener">Optimal Workshop</a></li>
+      <li><a href="https://balsamiq.com/blog/wireframe-vs-mockup-vs-prototype/" rel="noopener">Balsamiq: wireframe, mockup y prototipo</a></li>
+    </ul>
+  </section>
+</main>
+
+<script src="../[base]/base.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+
+  /* ================= Card sorting ================= */
+  const TARJETAS = ['Encuestas activas', 'Crear encuesta', 'Plantillas de preguntas', 'Respuestas por área', 'Informe en PDF', 'Exportar a Excel', 'Usuarios', 'Roles y permisos', 'Facturas', 'Cambiar plan', 'Logo y colores', 'Mi perfil'];
+  const GRUPOS = ['Estudios', 'Resultados', 'Administración', 'Cuenta'];
+  let modo = 'abierto', ubic = {}, grupos = [], sel = null;
+
+  function reiniciar() {
+    ubic = {}; TARJETAS.forEach(t => ubic[t] = '');
+    grupos = modo === 'abierto' ? [] : [...GRUPOS]; sel = null;
+    $('#cs-nuevo').hidden = modo === 'cerrado'; $('#cs-res').hidden = true;
+    pintar();
+  }
+  function tarjetaEl(t) {
+    const b = el('button', 'tarjeta', t); b.type = 'button'; b.draggable = true; b.setAttribute('aria-pressed', String(sel === t));
+    b.addEventListener('click', () => { sel = sel === t ? null : t; $('#cs-ayuda').textContent = sel ? 'Elegiste "' + t + '". Ahora toca el grupo.' : 'Arrastra una ficha a un grupo, o tócala y después toca el grupo.'; pintar(); });
+    b.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', t); b.classList.add('arrastrando'); });
+    b.addEventListener('dragend', () => b.classList.remove('arrastrando'));
+    return b;
+  }
+  function zona(n, g) {
+    n.addEventListener('dragover', e => { e.preventDefault(); n.classList.add('sobre'); });
+    n.addEventListener('dragleave', () => n.classList.remove('sobre'));
+    n.addEventListener('drop', e => { e.preventDefault(); n.classList.remove('sobre'); mover(e.dataTransfer.getData('text/plain'), g); });
+  }
+  function mover(t, g) {
+    if (!(t in ubic)) return;
+    ubic[t] = g; sel = null;
+    $('#cs-ayuda').textContent = g ? '"' + t + '" quedó en ' + g + '.' : '"' + t + '" volvió al mazo.';
+    pintar();
+  }
+  function pintar() {
+    const mazo = $('#cs-mazo'); mazo.replaceChildren();
+    const sueltas = TARJETAS.filter(t => !ubic[t]);
+    sueltas.forEach(t => mazo.append(tarjetaEl(t)));
+    if (!sueltas.length) mazo.append(el('p', 'small', 'Ordenaste todas las fichas.'));
+    $('#cs-quedan').textContent = sueltas.length;
+    const cont = $('#cs-grupos'); cont.replaceChildren();
+    if (!grupos.length) cont.append(el('p', 'small', 'Crea tu primer grupo con el nombre que tú le darías.'));
+    grupos.forEach(g => {
+      const caja = el('div', 'cs-grupo'); const cab = el('div', 'cs-grupo-cab');
+      const dest = el('button', 'dest', g); dest.type = 'button'; dest.setAttribute('aria-label', 'Poner ficha en ' + g);
+      dest.addEventListener('click', () => { if (sel) mover(sel, g); else UI.toast('Primero toca una ficha', 'info'); });
+      const dentro = TARJETAS.filter(t => ubic[t] === g);
+      cab.append(dest, el('span', 'cnt', String(dentro.length)));
+      if (modo !== 'cerrado' && !GRUPOS.includes(g)) {
+        const x = el('button', 'btn btn-icon btn-sm btn-ghost', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Eliminar grupo ' + g);
+        x.addEventListener('click', () => { TARJETAS.forEach(t => { if (ubic[t] === g) ubic[t] = ''; }); grupos = grupos.filter(y => y !== g); UI.toast('Grupo "' + g + '" eliminado. Sus fichas volvieron al mazo.', 'info'); pintar(); });
+        cab.append(x);
+      }
+      caja.append(cab); dentro.forEach(t => caja.append(tarjetaEl(t)));
+      zona(caja, g); cont.append(caja);
+    });
+  }
+  zona($('#cs-mazo'), '');
+  $('#cs-nuevo').addEventListener('submit', e => {
+    e.preventDefault(); const inp = $('#cs-nombre'); const n = inp.value.trim();
+    if (!n) { UI.toast('Escribe un nombre para el grupo', 'warn'); inp.focus(); return; }
+    if (grupos.some(g => g.toLowerCase() === n.toLowerCase())) { UI.toast('Ya existe un grupo con ese nombre', 'warn'); return; }
+    grupos.push(n); inp.value = ''; pintar(); UI.toast('Grupo "' + n + '" creado', 'ok');
+  });
+  document.querySelectorAll('[data-modo]').forEach(b => b.addEventListener('click', () => {
+    modo = b.dataset.modo; document.querySelectorAll('[data-modo]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    reiniciar(); UI.toast('Modo ' + b.textContent.toLowerCase(), 'info');
+  }));
+  $('#cs-reiniciar').addEventListener('click', () => { reiniciar(); UI.toast('Card sorting reiniciado', 'info'); });
+  $('#cs-ver').addEventListener('click', () => {
+    const res = $('#cs-res'); res.replaceChildren();
+    const sueltas = TARJETAS.filter(t => !ubic[t]).length;
+    if (sueltas) res.append(el('p', 'small', 'Te faltan ' + sueltas + ' fichas. En un estudio real se pueden dejar fuera, pero se anota.'));
+    grupos.forEach(g => { const d = TARJETAS.filter(t => ubic[t] === g); const p = el('p'); p.append(el('b', '', g + ': '), d.length ? d.join(', ') : 'vacío'); res.append(p); });
+    res.append(el('p', 'small', 'Con 15 personas haciendo esto, sumas cuántas veces cada par de fichas quedó junto (matriz de similitud). Los pares que más se repiten forman los grupos del menú.'));
+    res.hidden = false; res.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+  reiniciar();
+
+  /* ================= Fidelidades ================= */
+  const FID = {
+    baja: { t: 'Baja fidelidad', que: 'Cajas, líneas y una X donde va la imagen. Solo estructura y jerarquía.', cuando: 'Al partir. Para probar varias ideas rápido y acordar qué va en cada pantalla.', con: 'Papel, pizarra, Excalidraw o Balsamiq.', test: 'Primer clic (Chalkmark) y conversación con el cliente.' },
+    media: { t: 'Media fidelidad', que: 'Texto real, componentes reconocibles y escala de grises. Sin marca.', cuando: 'Cuando la estructura está aprobada. Define contenido, tamaños y flujos.', con: 'Figma con componentes en gris.', test: 'Wireflow y prototipo de clics.' },
+    alta: { t: 'Alta fidelidad', que: 'Marca, tipografía final, imágenes reales, estados y detalle. Se ve como el producto.', cuando: 'Antes de construir y para presentar o vender.', con: 'Figma con el sistema de la marca, o HTML directo.', test: 'Prototype testing con usuarios reales.' }
+  };
+  const radios = [...document.querySelectorAll('#fid [role=radio]')];
+  function fid(k, foco) {
+    $('#wf').dataset.fid = k;
+    radios.forEach(r => { const on = r.dataset.fid === k; r.setAttribute('aria-checked', String(on)); r.tabIndex = on ? 0 : -1; if (on && foco) r.focus(); });
+    const f = FID[k]; $('#fid-tit').textContent = f.t; $('#fid-que').textContent = f.que; $('#fid-cuando').textContent = f.cuando; $('#fid-con').textContent = f.con; $('#fid-test').textContent = f.test;
+  }
+  radios.forEach((r, i) => {
+    r.addEventListener('click', () => fid(r.dataset.fid));
+    r.addEventListener('keydown', e => {
+      const d = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1 : (e.key === 'ArrowLeft' || e.key === 'ArrowUp') ? -1 : 0;
+      if (d) { e.preventDefault(); fid(radios[(i + d + radios.length) % radios.length].dataset.fid, true); }
+    });
+  });
+  fid('baja');
+
+  /* ================= Wireflow ================= */
+  const PANTALLAS = { A: 'Lista de encuestas', B: 'Detalle: Clima Q4', C: 'Crear encuesta', D: 'Confirmar cierre' };
+  // n, pantalla, texto, destino (pantalla o null), resultado, tipo de botón
+  const ACCIONES = [
+    { n: 1, p: 'A', t: 'Clima Q4 · 82 %', a: 'B', r: 'Navega al detalle de la encuesta.', fila: true },
+    { n: 2, p: 'A', t: 'Nueva encuesta', a: 'C', r: 'Abre el modal para crear.' },
+    { n: 3, p: 'A', t: 'Exportar', a: null, r: 'No pasa nada. Falta definir: ¿descarga un Excel? ¿avisa "Preparando archivo..."? Esto es lo que el wireflow detecta.' },
+    { n: 4, p: 'B', t: 'Cerrar encuesta', a: 'D', r: 'Abre la confirmación antes de cerrar.' },
+    { n: 5, p: 'B', t: 'Volver', a: 'A', r: 'Navega a la lista.' },
+    { n: 6, p: 'C', t: 'Crear', a: 'B', r: 'Crea la encuesta, navega a su detalle y avisa "Encuesta creada".', toast: 'Encuesta creada' },
+    { n: 7, p: 'C', t: 'Cancelar', a: 'A', r: 'Cierra el modal y vuelve a la lista (si escribió algo, pregunta antes).' },
+    { n: 8, p: 'D', t: 'Cerrar encuesta', a: 'B', r: 'Cierra la encuesta, vuelve al detalle y avisa "Encuesta cerrada".', toast: 'Encuesta cerrada' },
+    { n: 9, p: 'D', t: 'Cancelar', a: 'B', r: 'Vuelve al detalle sin cambios. El foco queda en este botón al abrir.' }
+  ];
+  const flow = $('#wflow'); const pants = {};
+  Object.entries(PANTALLAS).forEach(([id, tit]) => {
+    const p = el('article', 'pant'); p.setAttribute('aria-label', 'Pantalla ' + id + ': ' + tit);
+    p.append(el('span', 'p-id', id), el('div', 'p-tit', tit));
+    const lin = n => { for (let i = 0; i < n; i++) { const l = el('div', 'p-linea'); l.style.width = (90 - i * 20) + '%'; p.append(l); } };
+    const hsDe = a => {
+      const b = el('button', 'hs' + (a.a ? '' : ' malo') + (a.fila ? ' fila-hs' : '')); b.type = 'button'; b.setAttribute('aria-pressed', 'false');
+      b.append(el('span', 'n', String(a.n)), a.t); b.dataset.n = a.n;
+      b.addEventListener('click', () => elegir(a, b)); return b;
+    };
+    const mias = ACCIONES.filter(a => a.p === id);
+    if (id === 'A') { lin(1); const filas = el('div'); filas.style.cssText = 'display:flex;flex-direction:column;gap:6px'; filas.append(hsDe(mias[0])); const f2 = el('div', 'p-fila'); f2.append(el('span', '', 'Mystery octubre'), el('span', '', '40 %')); filas.append(f2); p.append(filas); const bs = el('div', 'p-btns'); bs.append(hsDe(mias[1]), hsDe(mias[2])); p.append(bs); }
+    else if (id === 'B') { lin(3); const bs = el('div', 'p-btns'); bs.append(hsDe(mias[1]), hsDe(mias[0])); p.append(bs); }
+    else { const m = el('div', 'p-modal'); if (id === 'C') { m.append(el('div', 'p-linea'), el('div', 'p-fila', 'Nombre de la encuesta')); } else { m.append(el('div', '', '¿Cerrar Clima Q4? Ya no se podrán enviar respuestas.')); } const bs = el('div', 'p-btns'); bs.append(...mias.slice().reverse().map(hsDe)); m.append(bs); p.append(m); }
+    pants[id] = p; flow.append(p);
+  });
+  function elegir(a, b) {
+    flow.querySelectorAll('.hs').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    Object.values(pants).forEach(p => p.classList.remove('destino'));
+    const res = $('#wfl-res'); res.className = 'wfl-res ' + (a.a ? 'bien' : 'mal');
+    if (a.a) { pants[a.a].classList.add('destino'); res.textContent = a.n + '. ' + a.t + ' → ' + a.a + ' (' + PANTALLAS[a.a] + '): ' + a.r; if (a.toast) UI.toast(a.toast, 'ok'); }
+    else res.textContent = a.n + '. ' + a.t + ' → ✕ ' + a.r;
+  }
+  const tb = $('#wfl-tabla');
+  ACCIONES.forEach(a => {
+    const tr = el('tr', a.a ? '' : 'sin');
+    tr.append(el('td', '', String(a.n)), el('td', '', a.p + ' · ' + PANTALLAS[a.p]), el('td', '', a.t), el('td', '', a.a ? '→ ' + a.a + '. ' + a.r : '✕ Sin resultado definido'));
+    tb.append(tr);
+  });
+
+  window.Proceso = { TARJETAS, GRUPOS, FID, PANTALLAS, ACCIONES };
+});
+</script>
+</body>
+</html>

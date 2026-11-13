@@ -23,6 +23,8 @@ HTML autocontenido por plantilla. Cada una enlaza `../[base]/base.css` y `../[ba
 | `navegacion-secundaria` | migas de pan (con colapso), pestañas con indicador deslizante, pestañas con scroll horizontal, stepper de pasos, paginación con elipsis, índice lateral con scrollspy y volver arriba. | .migas, [role=tablist], .stepper, .pag, .toc, .arriba. |
 | `paleta-de-comandos` | paleta de comandos estilo Ctrl+K (búsqueda difusa con resaltado, grupos, recientes, atajos, acciones con parámetro y navegación por teclado). | Ctrl/Cmd+K abre, "/" abre, Escape cierra, ↑ ↓ navegan, Enter ejecuta, Tab sugiere, window.Paleta. |
 | `sidebars-laterales` | 4 sidebars (colapsable a iconos con tooltip, acordeón con submenús, rail con flyout, drawer móvil con overlay) y selector de variante. | .sb, [data-sb], .sb-item[aria-current], .sb[data-colapsado], window.SB.activar(id). |
+| `iconos-de-menu` | los 12 iconos de menú (hamburguesa, döner, hotdog, fries, escalera, torta, kebab, albóndigas, bento, chocolate, oreo, vegetariana) funcionando, cuándo usar cada uno y 4 animaciones de hamburguesa a X. | .im-btn[data-pop], .im-pop, .hx[data-anim], window.IconosMenu. |
+| `tipos-de-desplegables` | 4 usos de un desplegable: mando, navegación (mega menú y anidado), acción (estilo Drive con submenús) y preferencias (idioma, tema, color). | .dm-btn[aria-controls], .dm-menu, .dm-sub, .nav-dd, window.Desplegables. |
 
 ## Notas de uso
 

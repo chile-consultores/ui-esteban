@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Iconos de menú · Chile Consultores</title>
+<link rel="stylesheet" href="../[base]/base.css">
+<!--
+  Plantilla: los 12 iconos de menú (hamburguesa, döner, hotdog, fries, escalera, torta, kebab, albóndigas, bento, chocolate, oreo, hamburguesa vegetariana), cada uno funcionando con su menú real, cuándo usarlo y cuándo no, más 4 animaciones de hamburguesa a X.
+  Proyecto: material interno de Chile Consultores para elegir el icono correcto en cada plataforma.
+  Cómo aplicarlo: copia el SVG del icono (botón "Copiar SVG") y el patrón .im-btn + .im-pop. El popover funciona con cualquier contenido.
+  Conectar: reemplaza `accion(nombre)` por tus funciones reales.
+  Ganchos: .im-btn[data-pop], .im-pop, .hx[data-anim], window.IconosMenu.
+  Accesibilidad: botones de 44 px con aria-label, aria-expanded y aria-controls; flechas recorren el menú, Escape cierra y devuelve el foco; prefers-reduced-motion respetado.
+-->
+<style>
+  .pagina{max-width:1100px;margin:0 auto;padding:24px 16px 80px;display:flex;flex-direction:column;gap:24px}
+  .small{font-size:var(--fs-s);color:var(--texto-2)}
+  .bloque{display:flex;flex-direction:column;gap:12px}
+  .rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .ic{border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);padding:16px;display:flex;flex-direction:column;gap:10px;position:relative}
+  .ic-cab{display:flex;align-items:center;gap:12px}
+  .ic-cab h3{font-size:1rem}
+  .ic-cab .alias{font-size:var(--fs-xs);color:var(--texto-3)}
+  .ic dl{margin:0;display:grid;gap:6px;font-size:var(--fs-s)}
+  .ic dt{font-weight:600;color:var(--texto)}
+  .ic dd{margin:0;color:var(--texto-2)}
+  .ic .pie{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+  /* === COMPONENTE: botón de icono === */
+  .im-btn{width:44px;height:44px;flex:none;display:inline-grid;place-items:center;border-radius:12px;border:1px solid var(--borde-2);background:var(--superficie-2);color:var(--texto);cursor:pointer;transition:background var(--dur-s) var(--ease-salida),border-color var(--dur-s)}
+  .im-btn:hover{border-color:var(--marca)}
+  .im-btn[aria-expanded=true],.im-btn[aria-pressed=true]{background:var(--marca-l);border-color:var(--marca)}
+  .im-btn svg{width:24px;height:24px}
+
+  /* === COMPONENTE: popover de menú === */
+  .im-pop{position:absolute;z-index:30;top:68px;left:16px;min-width:210px;max-width:calc(100% - 32px);padding:6px;border-radius:12px;border:1px solid var(--borde-2);background:#151522;box-shadow:var(--sombra-f);transform-origin:top left;animation:im-in var(--dur) var(--ease-salida)}
+  .im-pop[hidden]{display:none}
+  @keyframes im-in{from{opacity:0;transform:scale(.96) translateY(-4px)}to{opacity:1;transform:none}}
+  .im-pop .tit{padding:6px 10px 4px;font-size:var(--fs-xs);color:var(--texto-3);text-transform:uppercase;letter-spacing:.06em}
+  .im-pop [role=menuitem],.im-pop [role=menuitemcheckbox],.im-pop [role=menuitemradio]{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:8px 10px;border:0;border-radius:8px;background:none;color:var(--texto);font-size:var(--fs-s);text-align:left;cursor:pointer}
+  .im-pop [role^=menuitem]:hover,.im-pop [role^=menuitem]:focus-visible{background:var(--superficie-2);outline:none}
+  .im-pop [role^=menuitem].peligro{color:var(--rojo)}
+  .im-pop [aria-checked=true]::after{content:"✓";margin-left:auto;color:var(--verde)}
+  .im-pop .sep{height:1px;background:var(--borde);margin:4px 6px}
+  .im-pop .nivel-1{padding-left:24px}.im-pop .nivel-2{padding-left:38px}
+  .im-pop.apps{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;min-width:250px}
+  .im-pop.apps[hidden]{display:none}
+  .im-pop.apps [role=menuitem]{flex-direction:column;justify-content:center;min-height:72px;font-size:var(--fs-xs);text-align:center}
+  .im-pop.apps .tit{grid-column:1/-1}
+  .app-ico{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:.75rem;color:#fff}
+
+  /* vista bento: lista vs cuadrícula */
+  .vista{display:grid;gap:6px;grid-template-columns:1fr}
+  .vista.cuad{grid-template-columns:1fr 1fr}
+  .vista span{padding:8px 10px;border-radius:8px;background:var(--superficie-2);font-size:var(--fs-xs);color:var(--texto-2)}
+
+  /* === COMPONENTE: hamburguesa a X (4 variantes) === */
+  .hx{width:44px;height:44px;border-radius:12px;border:1px solid var(--borde-2);background:var(--superficie-2);cursor:pointer;position:relative;color:var(--texto)}
+  .hx span{position:absolute;left:12px;right:12px;height:2px;border-radius:2px;background:currentColor;transition:transform 220ms var(--ease-salida),opacity 150ms,top 150ms 150ms}
+  .hx span:nth-child(1){top:15px}.hx span:nth-child(2){top:21px}.hx span:nth-child(3){top:27px}
+  .hx[data-anim=cruz][aria-expanded=true] span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+  .hx[data-anim=cruz][aria-expanded=true] span:nth-child(2){opacity:0}
+  .hx[data-anim=cruz][aria-expanded=true] span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+  .hx[data-anim=giro]{transition:transform 300ms var(--ease-salida)}
+  .hx[data-anim=giro][aria-expanded=true]{transform:rotate(180deg)}
+  .hx[data-anim=giro][aria-expanded=true] span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+  .hx[data-anim=giro][aria-expanded=true] span:nth-child(2){transform:scaleX(0)}
+  .hx[data-anim=giro][aria-expanded=true] span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+  .hx[data-anim=flecha][aria-expanded=true] span:nth-child(1){transform:translate(-3px,3px) rotate(-40deg) scaleX(.6)}
+  .hx[data-anim=flecha][aria-expanded=true] span:nth-child(3){transform:translate(-3px,-3px) rotate(40deg) scaleX(.6)}
+  /* colapso: primero se juntan al centro, después giran */
+  .hx[data-anim=colapso] span{transition:top 150ms 150ms var(--ease-salida),transform 150ms var(--ease-salida),opacity 0ms 150ms}
+  .hx[data-anim=colapso][aria-expanded=true] span{transition:top 150ms var(--ease-salida),transform 150ms 150ms var(--ease-salida),opacity 0ms 150ms}
+  .hx[data-anim=colapso][aria-expanded=true] span:nth-child(1),.hx[data-anim=colapso][aria-expanded=true] span:nth-child(3){top:21px}
+  .hx[data-anim=colapso][aria-expanded=true] span:nth-child(1){transform:rotate(45deg)}
+  .hx[data-anim=colapso][aria-expanded=true] span:nth-child(2){opacity:0}
+  .hx[data-anim=colapso][aria-expanded=true] span:nth-child(3){transform:rotate(-45deg)}
+  .hx-fila{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+  .hx-item{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie)}
+  .hx-item b{display:block;font-size:var(--fs-s)}
+  .con-texto{display:inline-flex;align-items:center;gap:8px;padding:0 14px 0 4px;width:auto}
+  .con-texto .hx{border:0;background:none}
+
+  .tabla-elegir{width:100%;border-collapse:collapse;font-size:var(--fs-s)}
+  .tabla-elegir th,.tabla-elegir td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--borde);vertical-align:top}
+  .tabla-elegir th{color:var(--texto-2);font-weight:600}
+  .reglas{margin:0;padding-left:20px;display:grid;gap:8px;color:var(--texto-2);font-size:var(--fs-s)}
+  .reglas b{color:var(--texto)}
+  @media(prefers-reduced-motion:reduce){.im-pop{animation:none}.hx,.hx span{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="pagina">
+  <header class="bloque">
+    <h1>Iconos de menú</h1>
+    <p class="small">Los 12 iconos con nombre de comida, funcionando. Toca cada uno: abre lo que promete. Abajo, cuál elegir y 4 animaciones de hamburguesa a X.</p>
+  </header>
+
+  <section class="bloque" aria-labelledby="t-iconos">
+    <h2 id="t-iconos">Los 12 iconos</h2>
+    <div class="rejilla" id="rejilla"></div>
+  </section>
+
+  <section class="bloque" aria-labelledby="t-hx">
+    <h2 id="t-hx">Hamburguesa a X</h2>
+    <p class="small">Cuando el menú está abierto, el icono cambia a X para mostrar cómo se cierra. Solo transform y opacity, entre 150 y 300 ms.</p>
+    <div class="hx-fila">
+      <div class="hx-item"><button class="hx" type="button" data-anim="cruz" aria-expanded="false" aria-label="Abrir menú"><span></span><span></span><span></span></button><div><b>Cruz</b><span class="small">La clásica. Úsala por defecto.</span></div></div>
+      <div class="hx-item"><button class="hx" type="button" data-anim="giro" aria-expanded="false" aria-label="Abrir menú"><span></span><span></span><span></span></button><div><b>Giro</b><span class="small">Gira media vuelta. Para landings.</span></div></div>
+      <div class="hx-item"><button class="hx" type="button" data-anim="flecha" aria-expanded="false" aria-label="Abrir menú"><span></span><span></span><span></span></button><div><b>Flecha</b><span class="small">Indica volver. Para menús que empujan la vista.</span></div></div>
+      <div class="hx-item"><button class="hx" type="button" data-anim="colapso" aria-expanded="false" aria-label="Abrir menú"><span></span><span></span><span></span></button><div><b>Colapso</b><span class="small">Se juntan y después giran. Más suave.</span></div></div>
+      <div class="hx-item"><button class="im-btn con-texto" type="button" id="hx-texto" aria-expanded="false"><span class="hx" data-anim="cruz" aria-expanded="false" aria-hidden="true"><span></span><span></span><span></span></span>Menú</button><div><b>Con texto</b><span class="small">El icono con la palabra "Menú" se encuentra más.</span></div></div>
+    </div>
+  </section>
+
+  <section class="bloque" aria-labelledby="t-elegir">
+    <h2 id="t-elegir">Cuál uso</h2>
+    <div class="tabla-wrap" style="overflow-x:auto">
+      <table class="tabla-elegir">
+        <thead><tr><th scope="col">Necesitas</th><th scope="col">Icono</th><th scope="col">Ojo</th></tr></thead>
+        <tbody>
+          <tr><td>Navegación principal en celular</td><td>Hamburguesa</td><td>En escritorio la navegación va visible, no escondida.</td></tr>
+          <tr><td>Filtrar una lista o tabla</td><td>Döner</td><td>Muestra los filtros activos como chips afuera del menú.</td></tr>
+          <tr><td>Acciones de una fila de tabla</td><td>Kebab</td><td>Máximo 2 acciones directas, el resto aquí.</td></tr>
+          <tr><td>Acciones de una tarjeta o encabezado</td><td>Albóndigas</td><td>Elige kebab o albóndigas para cada contexto y no los mezcles.</td></tr>
+          <tr><td>Cambiar a vista en cuadrícula</td><td>Bento</td><td>Es un interruptor: usa aria-pressed, no un menú.</td></tr>
+          <tr><td>Saltar entre apps o módulos</td><td>Chocolate</td><td>Arriba a la derecha, como Google o Microsoft.</td></tr>
+          <tr><td>Niveles o jerarquía</td><td>Escalera</td><td>Si son más de 3 niveles, mejor migas de pan.</td></tr>
+          <tr><td>Capas o niveles apilados</td><td>Torta, Oreo</td><td>Poco conocidos: siempre con texto o tooltip.</td></tr>
+          <tr><td>Lista vertical de acciones</td><td>Fries</td><td>Poco conocido: siempre con texto o tooltip.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="reglas">
+      <li><b>Solo 4 son universales:</b> hamburguesa, kebab, albóndigas y bento. El resto casi nadie los reconoce: acompáñalos con texto.</li>
+      <li><b>Esconder es olvidar:</b> lo que va detrás de un icono se usa menos. Con 5 o menos secciones, muéstralas.</li>
+      <li><b>Un icono, un significado:</b> si en un lado los 3 puntos verticales abren acciones, no los uses para otra cosa en el mismo producto.</li>
+      <li><b>Accesible:</b> botón real de 44 x 44 px, aria-label, aria-expanded, Escape cierra y el foco vuelve al botón.</li>
+      <li><b>Toda acción hace algo:</b> cada opción del menú termina en un cambio visible o un aviso.</li>
+    </ul>
+  </section>
+</main>
+
+<script src="../[base]/base.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const NS = 'http://www.w3.org/2000/svg';
+  // Formas: [tipo, ...args]. l=línea(x1,y1,x2,y2,grosor) c=círculo(cx,cy,r) r=rect(x,y,w,h,radio)
+  const ICONOS = [
+    { id: 'hamburguesa', nombre: 'Hamburguesa', alias: 'Hamburger', formas: [['l',4,6,20,6,2],['l',4,12,20,12,2],['l',4,18,20,18,2]],
+      uso: 'Menú de navegación principal en celular.', evita: 'Esconder la navegación en escritorio.',
+      menu: { tit: 'Navegación', items: ['Inicio', 'Proyectos', 'Clientes', 'Ajustes'] } },
+    { id: 'doner', nombre: 'Döner', alias: 'Doner', formas: [['l',4,6,20,6,2],['l',7,12,17,12,2],['l',10,18,14,18,2]],
+      uso: 'Filtro global de una lista o tabla.', evita: 'Usarlo para ordenar: eso es otro control.',
+      menu: { tit: 'Filtrar por estado', check: ['Activo', 'Pausado', 'Cerrado'] } },
+    { id: 'hotdog', nombre: 'Hotdog', alias: 'Hotdog', formas: [['l',7,6,17,6,2],['r',4,10,16,4,2],['l',7,18,17,18,2]],
+      uso: 'Menú compacto o filtro rápido de una sola elección.', evita: 'Muchas opciones: pasa a döner.',
+      menu: { tit: 'Mostrar', radio: ['Todos', 'Míos', 'Favoritos'] } },
+    { id: 'fries', nombre: 'Fries', alias: 'Papas fritas', formas: [['l',4,6,20,6,2],['l',4,12,14,12,2],['l',4,18,17,18,2]],
+      uso: 'Lista vertical de acciones u opciones.', evita: 'Usarlo sin texto: casi nadie lo reconoce.',
+      menu: { tit: 'Acciones', items: ['Duplicar', 'Mover a carpeta', 'Exportar'] } },
+    { id: 'escalera', nombre: 'Escalera', alias: 'Stairs', formas: [['l',12,6,20,6,2],['l',8,12,16,12,2],['l',4,18,12,18,2]],
+      uso: 'Niveles de navegación o progreso.', evita: 'Más de 3 niveles: usa migas de pan.',
+      menu: { tit: 'Ir a nivel', niveles: [['Empresa', 0], ['Área Comercial', 1], ['Equipo Norte', 2]] } },
+    { id: 'torta', nombre: 'Torta', alias: 'Cake', formas: [['c',12,4,1.6],['l',6,10,18,10,2],['l',4,15,20,15,2],['l',4,20,20,20,2]],
+      uso: 'Opciones por capas o niveles apilados.', evita: 'Usarlo como navegación principal.',
+      menu: { tit: 'Capas visibles', check: ['Anotaciones', 'Contenido', 'Fondo'] } },
+    { id: 'kebab', nombre: 'Kebab', alias: 'Kebab', formas: [['c',12,5,2],['c',12,12,2],['c',12,19,2]],
+      uso: 'Acciones de un ítem puntual, como una fila.', evita: 'Poner ahí la acción principal.',
+      menu: { tit: 'Fila: Juan Pérez', items: ['Editar', 'Duplicar', '-', '!Eliminar'] } },
+    { id: 'albondigas', nombre: 'Albóndigas', alias: 'Meatballs', formas: [['c',5,12,2],['c',12,12,2],['c',19,12,2]],
+      uso: 'Más opciones de una tarjeta o encabezado.', evita: 'Mezclarlo con kebab para lo mismo.',
+      menu: { tit: 'Tarjeta', items: ['Compartir', 'Copiar enlace', 'Fijar arriba'] } },
+    { id: 'bento', nombre: 'Bento', alias: 'Bento', formas: [['r',4,4,7,7,1.5],['r',13,4,7,7,1.5],['r',4,13,7,7,1.5],['r',13,13,7,7,1.5]],
+      uso: 'Cambiar a vista en cuadrícula o dashboard.', evita: 'Abrir un menú: es un interruptor.',
+      vista: true },
+    { id: 'chocolate', nombre: 'Chocolate', alias: 'Chocolate', formas: [[4,4],[10,4],[16,4],[4,10],[10,10],[16,10],[4,16],[10,16],[16,16]].map(([x,y]) => ['r',x,y,4,4,1]),
+      uso: 'Selector de apps, módulos o categorías.', evita: 'Más de 9 apps sin buscador.',
+      apps: [['Clima','#22C55E'],['Mystery','#7C6DF2'],['CRM','#38BDF8'],['Encuestas','#F59E0B'],['trama','#EF4444'],['Foco','#60A5FA']] },
+    { id: 'oreo', nombre: 'Oreo', alias: 'Oreos', formas: [['r',4,3,16,5,2.5],['r',5,9.5,14,5,2.5],['r',4,16,16,5,2.5]],
+      uso: 'Un ítem con varias capas, como un plan con módulos.', evita: 'Usarlo sin texto.',
+      menu: { tit: 'Plan Pro', check: ['Base', 'Módulo reservas', 'Módulo caja'] } },
+    { id: 'vegetariana', nombre: 'Hamburguesa vegetariana', alias: 'Dos líneas', formas: [['r',4,7,16,3,1.5],['r',4,14,16,3,1.5]],
+      uso: 'Navegación minimalista con pocas secciones.', evita: 'Confundirlo con un control de arrastre.',
+      menu: { tit: 'Menú', items: ['Inicio', 'Servicios', 'Contacto'] } }
+  ];
+
+  const el = (tag, props = {}, hijos = []) => { const n = document.createElement(tag); Object.assign(n, props); hijos.forEach(h => n.append(h)); return n; };
+
+  function svg(formas) {
+    const s = document.createElementNS(NS, 'svg');
+    s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true');
+    formas.forEach(([t, ...a]) => {
+      let n;
+      if (t === 'l') { n = document.createElementNS(NS, 'line'); ['x1','y1','x2','y2'].forEach((k, i) => n.setAttribute(k, a[i])); n.setAttribute('stroke', 'currentColor'); n.setAttribute('stroke-width', a[4]); n.setAttribute('stroke-linecap', 'round'); }
+      if (t === 'c') { n = document.createElementNS(NS, 'circle'); n.setAttribute('cx', a[0]); n.setAttribute('cy', a[1]); n.setAttribute('r', a[2]); n.setAttribute('fill', 'currentColor'); }
+      if (t === 'r') { n = document.createElementNS(NS, 'rect'); ['x','y','width','height'].forEach((k, i) => n.setAttribute(k, a[i])); n.setAttribute('rx', a[4]); n.setAttribute('fill', 'currentColor'); }
+      s.append(n);
+    });
+    return s;
+  }
+
+  // Conectar: reemplaza por tus funciones reales.
+  function accion(nombre) { UI.toast(nombre, 'ok'); }
+
+  let abierto = null;
+  function cerrar(volverFoco = true) {
+    if (!abierto) return;
+    abierto.pop.hidden = true; abierto.btn.setAttribute('aria-expanded', 'false');
+    if (volverFoco) abierto.btn.focus();
+    abierto = null;
+  }
+  function abrir(btn, pop) {
+    cerrar(false);
+    pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); abierto = { btn, pop };
+    const primero = pop.querySelector('[role^=menuitem]'); if (primero) primero.focus();
+  }
+
+  function itemsDe(def, pop, nombre) {
+    const m = def.menu;
+    if (m.tit) pop.append(el('div', { className: 'tit', textContent: m.tit }));
+    (m.items || []).forEach(t => {
+      if (t === '-') { pop.append(el('div', { className: 'sep', role: 'separator' })); return; }
+      const peligro = t.startsWith('!'); const txt = peligro ? t.slice(1) : t;
+      const b = el('button', { type: 'button', textContent: txt, className: peligro ? 'peligro' : '' }); b.setAttribute('role', 'menuitem');
+      b.addEventListener('click', async () => {
+        cerrar();
+        if (peligro) { const ok = await UI.confirmar({ titulo: 'Eliminar a Juan Pérez', texto: 'Se borra el registro y no se puede deshacer.', confirmar: 'Eliminar registro', peligro: true }); if (ok) accion('Registro eliminado'); return; }
+        accion(nombre + ': ' + txt);
+      });
+      pop.append(b);
+    });
+    (m.check || []).forEach((t, i) => {
+      const b = el('button', { type: 'button', textContent: t }); b.setAttribute('role', 'menuitemcheckbox'); b.setAttribute('aria-checked', String(i === 0));
+      b.addEventListener('click', () => { const v = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', String(v)); accion(t + (v ? ' activado' : ' desactivado')); });
+      pop.append(b);
+    });
+    (m.radio || []).forEach((t, i) => {
+      const b = el('button', { type: 'button', textContent: t }); b.setAttribute('role', 'menuitemradio'); b.setAttribute('aria-checked', String(i === 0));
+      b.addEventListener('click', () => { pop.querySelectorAll('[role=menuitemradio]').forEach(x => x.setAttribute('aria-checked', String(x === b))); cerrar(); accion('Mostrando: ' + t); });
+      pop.append(b);
+    });
+    (m.niveles || []).forEach(([t, n]) => {
+      const b = el('button', { type: 'button', textContent: t, className: 'nivel-' + n }); b.setAttribute('role', 'menuitem');
+      b.addEventListener('click', () => { cerrar(); accion('Nivel: ' + t); });
+      pop.append(b);
+    });
+  }
+
+  const rejilla = document.getElementById('rejilla');
+  ICONOS.forEach(def => {
+    const btn = el('button', { type: 'button', className: 'im-btn' }, [svg(def.formas)]);
+    btn.dataset.pop = def.id;
+    const card = el('article', { className: 'ic' });
+    const cab = el('div', { className: 'ic-cab' }, [btn, el('div', {}, [el('h3', { textContent: def.nombre }), el('span', { className: 'alias', textContent: def.alias })])]);
+    card.append(cab);
+
+    if (def.vista) {
+      btn.setAttribute('aria-label', 'Vista en cuadrícula'); btn.setAttribute('aria-pressed', 'false');
+      const v = el('div', { className: 'vista' }, ['Encuesta A', 'Encuesta B', 'Encuesta C', 'Encuesta D'].map(t => el('span', { textContent: t })));
+      btn.addEventListener('click', () => { const on = btn.getAttribute('aria-pressed') !== 'true'; btn.setAttribute('aria-pressed', String(on)); v.classList.toggle('cuad', on); accion(on ? 'Vista en cuadrícula' : 'Vista en lista'); });
+      card.append(v);
+    } else {
+      const pop = el('div', { id: 'pop-' + def.id, className: 'im-pop' + (def.apps ? ' apps' : ''), hidden: true }); pop.setAttribute('role', 'menu');
+      pop.setAttribute('aria-label', def.nombre);
+      btn.setAttribute('aria-label', 'Abrir menú ' + def.nombre); btn.setAttribute('aria-haspopup', 'menu'); btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-controls', pop.id);
+      if (def.apps) {
+        pop.append(el('div', { className: 'tit', textContent: 'Tus apps' }));
+        def.apps.forEach(([t, c]) => {
+          const ico = el('span', { className: 'app-ico', textContent: t.slice(0, 2) }); ico.style.background = c;
+          const b = el('button', { type: 'button' }, [ico, t]); b.setAttribute('role', 'menuitem');
+          b.addEventListener('click', () => { cerrar(); accion('Abriendo ' + t); });
+          pop.append(b);
+        });
+      } else itemsDe(def, pop, def.nombre);
+      btn.addEventListener('click', () => (abierto && abierto.pop === pop) ? cerrar() : abrir(btn, pop));
+      card.append(pop);
+    }
+
+    const copiar = el('button', { type: 'button', className: 'btn btn-sm btn-ghost', textContent: 'Copiar SVG' });
+    copiar.addEventListener('click', async () => {
+      const s = btn.querySelector('svg').cloneNode(true); s.setAttribute('xmlns', NS); s.setAttribute('width', '24'); s.setAttribute('height', '24');
+      try { await navigator.clipboard.writeText(s.outerHTML); UI.toast('SVG de ' + def.nombre + ' copiado', 'ok'); }
+      catch { UI.toast('No se pudo copiar. Revisa los permisos del navegador.', 'error'); }
+    });
+    card.append(el('dl', {}, [el('dt', { textContent: 'Úsalo para' }), el('dd', { textContent: def.uso }), el('dt', { textContent: 'Evita' }), el('dd', { textContent: def.evita })]), el('div', { className: 'pie' }, [copiar]));
+    rejilla.append(card);
+  });
+
+  // Teclado dentro del menú y clic afuera
+  document.addEventListener('keydown', e => {
+    if (!abierto) return;
+    const items = [...abierto.pop.querySelectorAll('[role^=menuitem]')];
+    const i = items.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); cerrar(); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+    else if (e.key === 'Home') { e.preventDefault(); items[0].focus(); }
+    else if (e.key === 'End') { e.preventDefault(); items[items.length - 1].focus(); }
+    else if (e.key === 'Tab') cerrar(false);
+  });
+  document.addEventListener('click', e => { if (abierto && !abierto.pop.contains(e.target) && !abierto.btn.contains(e.target)) cerrar(false); });
+
+  // Hamburguesa a X
+  document.querySelectorAll('button.hx').forEach(b => b.addEventListener('click', () => {
+    const on = b.getAttribute('aria-expanded') !== 'true';
+    b.setAttribute('aria-expanded', String(on)); b.setAttribute('aria-label', on ? 'Cerrar menú' : 'Abrir menú');
+  }));
+  const ht = document.getElementById('hx-texto');
+  ht.addEventListener('click', () => {
+    const on = ht.getAttribute('aria-expanded') !== 'true';
+    ht.setAttribute('aria-expanded', String(on)); ht.querySelector('.hx').setAttribute('aria-expanded', String(on));
+    ht.lastChild.textContent = on ? 'Cerrar' : 'Menú';
+  });
+
+  window.IconosMenu = { ICONOS, svg };
+});
+</script>
+</body>
+</html>
