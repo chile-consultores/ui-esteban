@@ -40,9 +40,9 @@
   .campo[data-e=error] input,.campo[data-e=error] select,.campo[data-e=error] textarea{border-color:var(--rojo);box-shadow:0 0 0 3px rgba(248,113,113,.15)}
   .campo[data-e=ok] input{border-color:var(--verde)}
   .campo[data-e=ok] .estado{color:var(--verde)} .campo[data-e=error] .estado{color:var(--rojo)}
-  .campo .msg{font-size:.82rem;color:var(--rojo);display:none;gap:6px}
-  .campo[data-e=error] .msg{display:flex}
-  .campo[data-e=error] .ayuda{display:none}
+  /* El espacio del error queda reservado siempre: el formulario no salta al aparecer o desaparecer */
+  .campo .msg{font-size:.82rem;line-height:1.4;color:var(--rojo);display:flex;gap:6px;min-height:1.4em;visibility:hidden}
+  .campo[data-e=error] .msg{visibility:visible}
   .campo.tiene-ojo .estado{right:50px}
 
   /* === COMPONENTE: medidor de contraseña === */

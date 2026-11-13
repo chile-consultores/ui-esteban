@@ -52,7 +52,8 @@
   .pn-campo .input{font-size:1rem}
   .pn-campo .input[aria-invalid=true]{border-color:var(--rojo)}
   .pn-campo .input.valido{border-color:var(--verde)}
-  .pn-msg{min-height:22px;font-size:var(--fs-s);display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap}
+  .pn-msg{min-height:2.9em;line-height:1.45;font-size:var(--fs-s);display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap}
+  @media(max-width:520px){.pn-msg{min-height:4.35em}}
   .pn-msg.error{color:var(--rojo)}
   .pn-msg.ok{color:var(--verde)}
   .pn-msg button{border:0;background:none;color:var(--acento);text-decoration:underline;cursor:pointer;padding:0;font:inherit}
