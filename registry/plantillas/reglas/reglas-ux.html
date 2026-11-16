@@ -64,6 +64,71 @@
   .pn-reglas ul{margin:0;padding-left:18px;display:grid;gap:8px;font-size:var(--fs-s);color:var(--texto-2)}
   .pn-reglas b{color:var(--texto)}
   .pn-ojo{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--ambar-l);color:var(--texto);font-size:var(--fs-s)}
+  /* === COMPONENTE: ficha abierta (panel lateral) === */
+  .rg.abre{cursor:pointer;transition:border-color var(--dur-s) var(--ease-salida)}
+  .rg.abre:hover{border-color:var(--borde-2)}
+  .ver-ej{border:0;background:none;color:var(--acento);font:inherit;font-size:var(--fs-xs);font-weight:600;cursor:pointer;padding:6px 0;min-height:32px}
+  .fx-telon{position:fixed;inset:0;z-index:60;background:rgba(5,5,10,.55)}
+  .fx{position:fixed;z-index:61;top:0;right:0;bottom:0;width:min(640px,100%);display:flex;flex-direction:column;background:#11111b;border-left:1px solid var(--borde-2);box-shadow:var(--sombra-f);animation:fx-in 220ms var(--ease-salida)}
+  @keyframes fx-in{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+  .fx-telon[hidden],.fx[hidden]{display:none}
+  .fx-cab{flex:none;display:flex;align-items:flex-start;gap:10px;padding:16px;border-bottom:1px solid var(--borde)}
+  .fx-cab .tt{flex:1;min-width:0}
+  .fx-cab .sec{font-size:var(--fs-xs);color:var(--texto-3);text-transform:uppercase;letter-spacing:.06em}
+  .fx-cab h2{font-size:1.15rem;margin-top:2px}
+  .fx-cab .nav-f{display:flex;gap:6px}
+  .fx-ib{width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--borde-2);border-radius:10px;background:var(--superficie);color:var(--texto);cursor:pointer;font-size:1.05rem}
+  .fx-ib:hover{border-color:var(--marca)}
+  .fx-cuerpo{flex:1;min-height:0;overflow-y:auto;padding:18px 16px 28px;display:flex;flex-direction:column;gap:16px}
+  .fx-cuerpo h3{font-size:.8rem;color:var(--texto-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+  .fx-cuerpo .txt{color:var(--texto-2);font-size:var(--fs-b)}
+  .fx-cuerpo .regla-f{font-size:1rem;color:var(--texto)}
+  .fx-pie{flex:none;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--borde);font-size:var(--fs-xs);color:var(--texto-3)}
+  .fx-bm{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:560px){.fx-bm{grid-template-columns:1fr}}
+  .fx-bm>div{border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+  .fx-bm .etq{font-size:var(--fs-xs);font-weight:700}
+  .fx-bm .bien{border:1px solid rgba(34,197,94,.35);background:var(--verde-l)}.fx-bm .bien .etq{color:var(--verde)}
+  .fx-bm .mal{border:1px solid rgba(239,68,68,.35);background:var(--rojo-l)}.fx-bm .mal .etq{color:var(--rojo)}
+  .fx-bm .exp{font-size:var(--fs-s);color:var(--texto)}
+  .fx-code{margin:0;padding:12px;border-radius:10px;background:#0a0a12;border:1px solid var(--borde);font:13px/1.5 ui-monospace,Menlo,monospace;color:#d6d6e4;white-space:pre-wrap;word-break:break-word}
+  /* Mini maqueta clara donde se dibujan los ejemplos */
+  .mq{background:#fff;color:#1d1d24;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;font:400 13px/1.45 system-ui,sans-serif;min-height:90px}
+  .mq .m-h{font-weight:700;font-size:15px}
+  .mq .m-p{color:#55555f}
+  .mq .m-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .mq .m-b{display:inline-flex;align-items:center;justify-content:center;padding:6px 11px;border-radius:7px;font-weight:600;font-size:12px;border:1px solid transparent}
+  .mq .m-b.p{background:#2457d6;color:#fff}.mq .m-b.s{background:#fff;color:#1d1d24;border-color:#c9c9d1}.mq .m-b.r{background:#c62828;color:#fff}.mq .m-b.g{color:#2457d6;padding:6px 4px}.mq .m-b.dis{background:#e4e4ea;color:#8a8a95}
+  .mq .m-b.foco{outline:2px solid #2457d6;outline-offset:2px}
+  .mq .m-in{display:flex;flex-direction:column;gap:3px}
+  .mq .m-in label{font-weight:600;font-size:12px}
+  .mq .m-in .c{border:1px solid #bdbdc6;border-radius:7px;padding:7px 9px;min-height:32px;color:#1d1d24}
+  .mq .m-in .c.ph{color:#9a9aa5}
+  .mq .m-in.err .c{border-color:#c62828;box-shadow:0 0 0 2px rgba(198,40,40,.12)}.mq .m-in.ok .c{border-color:#1b7f3a}
+  .mq .m-in .n{font-size:11.5px;color:#666}.mq .m-in.err .n{color:#c62828}.mq .m-in.ok .n{color:#1b7f3a}
+  .mq .m-chip{display:inline-flex;padding:3px 9px;border-radius:99px;font-size:11.5px;font-weight:600;background:#eef0f5;color:#3a3a45}
+  .mq .m-chip.ok{background:#e3f4e8;color:#1b7f3a}.mq .m-chip.av{background:#fbf0d9;color:#8a5a00}.mq .m-chip.pe{background:#fbe4e4;color:#c62828}
+  .mq .m-toast{display:flex;align-items:center;gap:10px;justify-content:space-between;background:#1d1d24;color:#fff;border-radius:8px;padding:8px 11px;font-size:12px}
+  .mq .m-toast b{color:#9ec1ff}
+  .mq .m-alert{border-radius:8px;padding:8px 10px;font-size:12px;border:1px solid #e3b4b4;background:#fdf1f1;color:#8e1f1f}
+  .mq .m-alert.n{border-color:#cfd6e6;background:#f2f5fb;color:#26324a}
+  .mq table{width:100%;border-collapse:collapse;font-size:12px}
+  .mq th,.mq td{text-align:left;padding:5px 6px;border-bottom:1px solid #e6e6ec;white-space:nowrap}
+  .mq th{color:#66667a;font-weight:600}.mq .der{text-align:right;font-variant-numeric:tabular-nums}
+  .mq .m-bar{height:8px;border-radius:4px;background:#e6e6ec;overflow:hidden}.mq .m-bar i{display:block;height:100%;background:#2457d6}
+  .mq .m-skel{height:10px;border-radius:5px;background:#e6e6ec}
+  .mq .m-nav{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid #e6e6ec;padding-bottom:6px}
+  .mq .m-nav span{padding:4px 8px;border-radius:6px;color:#55555f;font-size:12px}
+  .mq .m-nav span.on{background:#e8eefc;color:#1d3f9e;font-weight:700}
+  .mq .m-code{font:11.5px/1.45 ui-monospace,Menlo,monospace;background:#f3f3f6;border-radius:6px;padding:6px 8px;white-space:pre-wrap;word-break:break-word}
+  .mq ul{margin:0;padding-left:16px;display:grid;gap:3px}
+  .mq .m-card{border:1px solid #e1e1e8;border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:5px;background:#fafafc}
+  .mq .m-modal{border:1px solid #c9c9d1;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;box-shadow:0 8px 20px -10px rgba(0,0,0,.25)}
+  .mq .m-drop{border:2px dashed #9fb6ec;border-radius:10px;padding:16px;text-align:center;color:#2457d6;background:#f1f5fe}
+  .mq .m-drop.x{border-color:#c9c9d1;color:#77777f;background:#fff}
+  .mq .m-acc{display:flex;justify-content:space-between;border:1px solid #e1e1e8;border-radius:8px;padding:8px 10px;font-weight:600}
+  .mq .m-kbd{font:11px ui-monospace,monospace;padding:2px 6px;border:1px solid #c9c9d1;border-bottom-width:2px;border-radius:4px}
+  @media(prefers-reduced-motion:reduce){.fx{animation:none}}
 </style>
 </head>
 <body>
@@ -162,6 +227,20 @@
     </ul>
   </section>
 </main>
+
+<div class="fx-telon" id="fx-telon" hidden></div>
+<aside class="fx" id="fx" role="dialog" aria-modal="true" aria-labelledby="fx-t" hidden>
+  <div class="fx-cab">
+    <div class="tt"><span class="sec" id="fx-sec"></span><h2 id="fx-t"></h2></div>
+    <div class="nav-f">
+      <button class="fx-ib" type="button" id="fx-ant" aria-label="Ficha anterior">‹</button>
+      <button class="fx-ib" type="button" id="fx-sig" aria-label="Ficha siguiente">›</button>
+      <button class="fx-ib" type="button" id="fx-x" aria-label="Cerrar">×</button>
+    </div>
+  </div>
+  <div class="fx-cuerpo" id="fx-cuerpo"></div>
+  <div class="fx-pie"><span id="fx-pos"></span><span>← → cambian de ficha · Esc cierra</span></div>
+</aside>
 
 <script src="../[base]/base.js"></script>
 <script>
@@ -277,6 +356,373 @@ document.addEventListener('DOMContentLoaded', () => {
   const $ = s => document.querySelector(s);
   const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
 
+  /* ===== Fichas abiertas: panel lateral con ejemplo bien y mal ===== */
+  // Mini maqueta a partir de piezas [tipo, ...datos]. Solo textContent.
+  function mq(piezas) {
+    const caja = el('div', 'mq');
+    const pieza = ([t, a, b, c, d, e]) => {
+      if (t === 'h') return el('div', 'm-h', a);
+      if (t === 'p') return el('div', 'm-p', a);
+      if (t === 'b') return el('span', 'm-b ' + (b || 's'), a);
+      if (t === 'kbd') return el('span', 'm-kbd', a);
+      if (t === 'row') { const r = el('div', 'm-row'); a.forEach(x => r.append(pieza(x))); return r; }
+      if (t === 'card') { const r = el('div', 'm-card'); a.forEach(x => r.append(pieza(x))); return r; }
+      if (t === 'in') { const r = el('div', 'm-in' + (c ? ' ' + c : '')); if (a) r.append(el('label', '', a)); r.append(el('div', 'c' + (b ? '' : ' ph'), b || e || '')); if (d) r.append(el('div', 'n', d)); return r; }
+      if (t === 'chip') return el('span', 'm-chip ' + (b || ''), a);
+      if (t === 'toast') { const r = el('div', 'm-toast'); r.append(el('span', '', a)); if (b) r.append(el('b', '', b)); return r; }
+      if (t === 'alert') return el('div', 'm-alert ' + (b || ''), a);
+      if (t === 'bar') { const r = el('div', 'm-bar'); const i = el('i'); i.style.width = a + '%'; r.append(i); return r; }
+      if (t === 'skel') { const r = el('div'); r.style.cssText = 'display:grid;gap:6px'; for (let k = 0; k < a; k++) { const s = el('div', 'm-skel'); s.style.width = (95 - k * 15) + '%'; r.append(s); } return r; }
+      if (t === 'nav') { const r = el('div', 'm-nav'); a.forEach((x, k) => r.append(el('span', k === b ? 'on' : '', x))); return r; }
+      if (t === 'code') return el('div', 'm-code', a);
+      if (t === 'ul') { const r = el('ul'); a.forEach(x => r.append(el('li', '', x))); return r; }
+      if (t === 'tabla') { const tb = el('table'); const tr = el('tr'); a.forEach(x => tr.append(el('th', x[0] === '>' ? 'der' : '', x.replace(/^>/, '')))); const th = el('thead'); th.append(tr); const bd = el('tbody'); b.forEach(f => { const r = el('tr'); f.forEach((x, k) => r.append(el('td', a[k][0] === '>' ? 'der' : '', x))); bd.append(r); }); tb.append(th, bd); const w = el('div'); w.style.overflowX = 'auto'; w.append(tb); return w; }
+      if (t === 'modal') { const r = el('div', 'm-modal'); r.append(el('div', 'm-h', a)); if (b) r.append(el('div', 'm-p', b)); const f = el('div', 'm-row'); c.forEach(x => { const k = x[0] === '*' ? 's foco' : x[0] === '!' ? 'r' : x[0] === '+' ? 'p' : x[0] === '#' ? 'r foco' : 's'; f.append(el('span', 'm-b ' + k, x.replace(/^[*!+#]/, ''))); }); r.append(f); return r; }
+      if (t === 'drop') return el('div', 'm-drop' + (b ? ' x' : ''), a);
+      if (t === 'acc') { const r = el('div', 'm-acc'); r.append(el('span', '', a), el('span', '', b || '▾')); return r; }
+      return el('div', '', '');
+    };
+    piezas.forEach(p => caja.append(pieza(p)));
+    return caja;
+  }
+  function bloque(titulo, ...hijos) { const s = el('section'); s.append(el('h3', '', titulo), ...hijos); return s; }
+  function bienMal(ej) {
+    const g = el('div', 'fx-bm');
+    [['bien', '✓ Bien', ej.b, ej.bx], ['mal', '✕ Mal', ej.m, ej.mx]].forEach(([k, t, spec, exp]) => {
+      if (!spec) return; const d = el('div', k); d.append(el('span', 'etq', t), spec.nodeType ? spec : mq(spec)); if (exp) d.append(el('p', 'exp', exp)); g.append(d);
+    });
+    return g;
+  }
+  const slug = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  // cfg.cuerpo(card) devuelve los nodos de la ficha; cfg.sec(card) el nombre de la sección
+  function Fichas(cfg) {
+    const fx = $('#fx'), telon = $('#fx-telon'), main = document.querySelector('main');
+    let actual = -1, origen = null;
+    const visibles = () => [...document.querySelectorAll('.rg.abre')].filter(c => c.offsetParent !== null);
+    function pintar(card) {
+      const lista = visibles(); actual = lista.indexOf(card);
+      $('#fx-t').textContent = card.querySelector('h3').textContent.replace(/^\d+/, '').trim();
+      $('#fx-sec').textContent = cfg.sec(card);
+      $('#fx-pos').textContent = (actual + 1) + ' de ' + lista.length;
+      const c = $('#fx-cuerpo'); c.replaceChildren(...cfg.cuerpo(card)); c.scrollTop = 0;
+      try { history.replaceState(null, '', '#ficha=' + card.dataset.slug); } catch {}
+    }
+    function abrir(card, desde) {
+      if (fx.hidden) { origen = desde || document.activeElement; fx.hidden = false; telon.hidden = false; main.inert = true; document.body.style.overflow = 'hidden'; }
+      pintar(card); $('#fx-x').focus();
+    }
+    function cerrar() {
+      if (fx.hidden) return; fx.hidden = true; telon.hidden = true; main.inert = false; document.body.style.overflow = '';
+      try { history.replaceState(null, '', location.pathname + location.search); } catch {}
+      if (origen && origen.isConnected) origen.focus();
+    }
+    function mover(d) { const l = visibles(); if (!l.length) return; pintar(l[(actual + d + l.length) % l.length]); }
+    document.querySelectorAll('.rg.abre').forEach(card => {
+      card.addEventListener('click', e => { if (!e.target.closest('a')) abrir(card, card.querySelector('.ver-ej')); });
+    });
+    $('#fx-x').addEventListener('click', cerrar); telon.addEventListener('click', cerrar);
+    $('#fx-ant').addEventListener('click', () => mover(-1)); $('#fx-sig').addEventListener('click', () => mover(1));
+    fx.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); cerrar(); }
+      else if (e.key === 'ArrowRight' && !/input|textarea/i.test(e.target.tagName)) { e.preventDefault(); mover(1); }
+      else if (e.key === 'ArrowLeft' && !/input|textarea/i.test(e.target.tagName)) { e.preventDefault(); mover(-1); }
+      else if (e.key === 'Tab') { const f = [...fx.querySelectorAll('button, a[href]')].filter(x => x.offsetParent !== null); const i = f.indexOf(document.activeElement); if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); } }
+    });
+    const porHash = () => { const h = location.hash.match(/ficha=([\w-]+)/); const c = h && document.querySelector('.rg.abre[data-slug="' + h[1] + '"]'); if (c) abrir(c, c.querySelector('.ver-ej')); };
+    porHash(); window.addEventListener('hashchange', porHash);
+    return { abrir, cerrar };
+  }
+
+  // Ejemplos por regla (clave = título). w: por qué; b/m: maqueta bien/mal; bx/mx: qué cambia; c: cómo aplicarlo
+  const EJ = {
+    'Visibilidad del estado del sistema': { w: 'Si el sistema trabaja en silencio, la gente no sabe si funcionó: vuelve a apretar, duplica o abandona.',
+      b: [['nav', ['Inicio', 'Encuestas', 'Informes'], 1], ['row', [['b', 'Guardando...', 'dis']]], ['p', 'Actualizado hace 2 min']], bx: 'Sección activa marcada, botón en gerundio mientras guarda y hora de la última actualización.',
+      m: [['nav', ['Inicio', 'Encuestas', 'Informes'], -1], ['row', [['b', 'Guardar', 'p']]], ['p', '(apretaste Guardar y no cambió nada)']], mx: 'No sabes en qué sección estás ni si el guardado funcionó.',
+      c: 'aria-current="page" en la sección activa.\nboton.disabled = true; boton.textContent = "Guardando...";' },
+    'Coincidencia con el mundo real': { w: 'La persona piensa en sus palabras, no en las de la base de datos.',
+      b: [['tabla', ['Encuesta', 'Estado', 'Creada'], [['Clima Q4', 'En revisión', '12 nov']]]], bx: 'Nombres del negocio y fecha legible.',
+      m: [['tabla', ['survey_name', 'status', 'created_at'], [['clima_q4', '2', '2026-11-12T13:02Z']]]], mx: 'Columnas, códigos y fechas de máquina.',
+      c: 'const ESTADOS = { 1: "Borrador", 2: "En revisión", 3: "Aprobado" };\nfecha.toLocaleDateString("es-CL", { day: "numeric", month: "short" })' },
+    'Control y libertad': { w: 'Equivocarse tiene que ser barato. Un Deshacer da más seguridad que diez "¿seguro?".',
+      b: [['toast', 'Encuesta archivada', 'Deshacer']], bx: 'Actúa al tiro y deja 7 segundos para revertir.',
+      m: [['modal', '¿Está seguro?', 'Esta acción archivará el elemento.', ['*Aceptar', 'Cancelar']]], mx: 'Pregunta por todo, el botón dice Aceptar y no hay vuelta atrás.',
+      c: 'UI.toast("Encuesta archivada", "info", { deshacer: () => restaurar(id) });' },
+    'Consistencia y estándares': { w: 'Si algo cambia de nombre o de forma, la persona cree que es otra cosa.',
+      b: [['row', [['b', 'Eliminar', 'r'], ['b', 'Eliminar', 'r']]], ['p', 'Mismo verbo y estilo en la tabla y en la ficha']], bx: 'Una palabra y un estilo por acción.',
+      m: [['row', [['b', 'Borrar', 'r'], ['b', 'Quitar', 's'], ['b', 'Eliminar', 'p']]], ['p', 'Tres palabras y tres estilos para lo mismo']], mx: 'Obliga a adivinar si son acciones distintas.',
+      c: 'Mantén un glosario de verbos: Crear, Editar, Eliminar, Archivar. Nada de sinónimos.' },
+    'Prevención de errores': { w: 'El mejor mensaje de error es el que nunca tiene que aparecer.',
+      b: [['in', 'Inicio', '01-11-2026'], ['in', 'Término', '30-11-2026', '', 'El calendario no deja elegir antes del inicio']], bx: 'El control no permite el error.',
+      m: [['in', 'Inicio', '01-11-2026'], ['in', 'Término', '01-10-2026', 'err', 'La fecha de término no puede ser anterior al inicio']], mx: 'Deja equivocarse y después reta.',
+      c: 'inicio.addEventListener("change", () => { termino.min = inicio.value; });' },
+    'Reconocer antes que recordar': { w: 'Recordar cansa; ver lo que está activo no.',
+      b: [['row', [['chip', 'Estado: Activo ✕'], ['chip', 'Área: Ventas ✕'], ['b', 'Limpiar filtros', 'g']]], ['p', 'Mostrando 12 de 148']], bx: 'Los filtros activos están a la vista y se quitan con un clic.',
+      m: [['p', 'Mostrando 12 de 148'], ['p', '(los filtros quedaron escondidos en un menú)']], mx: '¿Por qué solo 12? Hay que acordarse de lo que se filtró.',
+      c: 'Chips con ✕ arriba de la tabla + botón "Limpiar filtros".' },
+    'Flexibilidad y eficiencia': { w: 'El nuevo necesita botones claros; el experto, atajos. Las dos cosas conviven.',
+      b: [['row', [['kbd', 'Ctrl'], ['kbd', 'K'], ['p', 'abre la búsqueda']]], ['in', 'Buscar', 'clima', '', 'Enter abre el primer resultado']], bx: 'Atajo para el que sabe, botón visible para el resto.',
+      m: [['p', 'Crear encuesta: Menú › Estudios › Encuestas › Nueva'], ['p', '4 clics siempre, sin atajo']], mx: 'El usuario frecuente pierde tiempo todos los días.',
+      c: 'document.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "k") abrirPaleta(); });' },
+    'Diseño estético y minimalista': { w: 'Cada cosa extra le roba atención a lo importante.',
+      b: [['h', '82 % de participación'], ['p', '164 de 200 personas'], ['b', 'Ver informe', 'p']], bx: 'Un dato, su contexto y una acción.',
+      m: [['h', '¡Bienvenido al panel de resultados!'], ['p', 'Aquí podrás ver todos los resultados de tus encuestas de manera fácil.'], ['row', [['b', 'Ver', 'p'], ['b', 'Exportar', 'p'], ['b', 'Compartir', 'p'], ['b', 'Ayuda', 'p']]]], mx: 'Texto de relleno y cuatro botones compitiendo.',
+      c: 'Pregúntate por cada elemento: si lo saco, ¿alguien lo extraña?' },
+    'Ayudar a reconocer y salir de errores': { w: 'Un error útil dice qué pasó, por qué y qué hacer ahora.',
+      b: [['alert', 'No pudimos guardar. Revisa tu conexión y vuelve a intentar.'], ['b', 'Reintentar', 'p']], bx: 'Lenguaje simple y una salida.',
+      m: [['alert', 'Error 500: Internal Server Error']], mx: 'Código técnico y ningún camino.',
+      c: 'function mensajeDeError(e) { if (!navigator.onLine) return "Sin conexión. Revisa tu internet."; return "No pudimos completar la acción. Intenta de nuevo."; }' },
+    'Ayuda y documentación': { w: 'La ayuda sirve en el momento de la duda, no en un manual aparte.',
+      b: [['row', [['p', '¿Qué es eNPS?'], ['b', '?', 's']]], ['p', 'El botón de ayuda está en el mismo lugar en todas las páginas']], bx: 'Ayuda en contexto y siempre en el mismo sitio (WCAG 3.2.6).',
+      m: [['p', 'Ayuda: descargar Manual_v3.pdf (48 páginas)']], mx: 'Nadie lo abre cuando tiene la duda.',
+      c: 'Tooltip o "?" junto al término difícil; enlace de ayuda fijo en el encabezado.' },
+
+    'Ley de Jakob': { w: 'La gente trae costumbres de las apps que usa a diario.',
+      b: [['row', [['h', 'Marca'], ['p', 'Inicio · Precios'], ['b', 'Ingresar', 's']]]], bx: 'Logo a la izquierda, Ingresar arriba a la derecha: donde todos lo buscan.',
+      m: [['row', [['p', 'Inicio · Precios'], ['h', 'Marca']]], ['p', '(Ingresar está en el pie de página)']], mx: 'Patrón inventado que obliga a buscar.',
+      c: 'Antes de inventar, mira cómo lo resuelven Google, Mercado Libre o tu banco.' },
+    'Ley de Fitts': { w: 'Lo chico y lejano cuesta más de alcanzar, sobre todo con el pulgar.',
+      b: [['b', 'Crear encuesta', 'p'], ['p', '44 px de alto, a ancho completo en celular']], bx: 'Fácil de tocar.',
+      m: [['p', 'crear (enlace de 12 px en la esquina)']], mx: 'Se toca lo de al lado.',
+      c: '.btn { min-height: 44px; } @media (max-width: 640px) { .btn-principal { width: 100%; } }' },
+    'Ley de Hick': { w: 'Cada opción extra suma tiempo de decisión.',
+      b: [['row', [['b', 'Editar', 's'], ['b', '⋯', 's']]]], bx: 'Una acción directa; el resto en Más acciones.',
+      m: [['row', [['b', 'Editar', 's'], ['b', 'Duplicar', 's'], ['b', 'Archivar', 's'], ['b', 'Exportar', 's'], ['b', 'Eliminar', 'r']]]], mx: 'Cinco botones por fila: nadie lee la tabla.',
+      c: 'Máximo 2 acciones por fila; las demás en un menú kebab.' },
+    'Ley de Miller': { w: 'Leemos mejor en bloques cortos.',
+      b: [['in', 'Celular', '+56 9 1234 5678', 'ok']], bx: 'Agrupado se lee y se revisa de un vistazo.',
+      m: [['in', 'Celular', '56912345678']], mx: 'Once dígitos seguidos: fácil equivocarse.',
+      c: 'Formatea al salir del campo: +56 9 XXXX XXXX. RUT con puntos y guion.' },
+    'Ley de Tesler': { w: 'Si el sistema no absorbe la complejidad, la absorbe la persona.',
+      b: [['in', 'País', 'Chile'], ['in', 'Moneda', 'CLP']], bx: 'Lo que elige el 80 % ya viene puesto.',
+      m: [['in', 'País', '', '', '', 'Elige entre 195 países'], ['in', 'Moneda', '', '', '', 'Elige moneda']], mx: 'Trabajo repetido para casi todos.',
+      c: '<select name="pais"><option selected>Chile</option>...</select>' },
+    'Ley de Postel': { w: 'No castigues a la persona por escribir distinto.',
+      b: [['in', 'RUT', '12.345.678-5', 'ok', 'Escribiste 123456785 y lo ordenamos']], bx: 'Acepta cualquier formato y lo limpia.',
+      m: [['in', 'RUT', '12345678-5', 'err', 'Formato inválido. Use puntos y guion.']], mx: 'El dato era correcto y igual retó.',
+      c: 'const limpio = valor.replace(/[^0-9kK]/g, "");  // valida limpio, muestra formateado' },
+    'Umbral de Doherty': { w: 'Bajo 400 ms se siente instantáneo; sobre eso, hay que mostrar que algo pasa.',
+      b: [['row', [['b', 'Guardando...', 'dis']]], ['bar', 70]], bx: 'Respuesta inmediata aunque el servidor tarde.',
+      m: [['row', [['b', 'Guardar', 'p']]], ['p', 'Clic... 2 segundos sin cambio... otro clic = duplicado']], mx: 'Parece que no funcionó.',
+      c: 'Cambia el botón en el mismo clic, antes del await.' },
+    'Efecto Von Restorff': { w: 'Lo distinto se recuerda; si todo es distinto, nada se recuerda.',
+      b: [['row', [['b', 'Básico', 's'], ['b', 'Equipo (recomendado)', 'p'], ['b', 'Empresa', 's']]]], bx: 'Un solo elemento destacado guía la decisión.',
+      m: [['row', [['b', 'Básico', 'p'], ['b', 'Equipo', 'r'], ['b', 'Empresa', 'p']]]], mx: 'Todo grita, nada guía.',
+      c: 'Un solo botón primario por bloque.' },
+    'Gradiente de meta': { w: 'Ver que falta poco da ganas de terminar.',
+      b: [['bar', 34], ['p', 'Paso 1 de 3 listo: te quedan 2']], bx: 'El avance arranca con algo ganado.',
+      m: [['bar', 0], ['p', 'Paso 1 de 3']], mx: 'Se siente al inicio de un camino largo.',
+      c: 'Muestra el progreso en pasos y cuenta como hecho lo que ya entregó (correo, nombre).' },
+    'Regla pico y final': { w: 'De una experiencia se recuerdan el peor momento y el cierre.',
+      b: [['h', '✓ Encuesta enviada'], ['p', 'Gracias, Ana. Los resultados estarán el 30 de noviembre.']], bx: 'Cierre claro y con lo que viene.',
+      m: [['p', 'Gracias.']], mx: 'Final frío; no sabes si quedó bien.',
+      c: 'Diseña la pantalla de éxito y el error más común con el mismo cuidado que el inicio.' },
+    'Efecto de posición serial': { w: 'Se recuerda lo primero y lo último de una lista.',
+      b: [['nav', ['Inicio', 'Encuestas', 'Informes', 'Ajustes', 'Crear'], 0]], bx: 'Lo clave en los extremos.',
+      m: [['nav', ['Ajustes', 'Ayuda', 'Inicio', 'Legal', 'Perfil'], 2]], mx: 'Lo importante perdido al medio.',
+      c: 'Inicio primero; la acción más usada al final o destacada.' },
+    'Efecto Zeigarnik': { w: 'Las tareas sin terminar se quedan en la cabeza y empujan a completarlas.',
+      b: [['h', 'Activa tu cuenta: 3 de 5'], ['bar', 60], ['ul', ['✓ Logo', '✓ Usuarios', '○ Primera encuesta']]], bx: 'Lo pendiente queda a la vista.',
+      m: [['p', 'Bienvenido. Explora la plataforma.']], mx: 'Sin guía ni sensación de avance.',
+      c: 'Checklist de activación visible hasta completarla.' },
+    'Región común': { w: 'Lo que comparte un fondo o borde se lee como un grupo.',
+      b: [['card', [['p', 'Datos de la empresa'], ['in', 'Razón social', 'Acme SpA']]], ['card', [['p', 'Contacto'], ['in', 'Correo', 'ana@acme.cl']]]], bx: 'Dos grupos claros sin títulos enormes.',
+      m: [['in', 'Razón social', 'Acme SpA'], ['in', 'Correo', 'ana@acme.cl'], ['in', 'Giro', 'Servicios']], mx: 'Todo seguido, no se ve qué va con qué.',
+      c: 'Agrupa con fondo --superficie o un borde antes de agregar más títulos.' },
+
+    'Orden fijo: cargando, error, vacío, contenido': { w: 'Si falta un estado, la persona ve una pantalla en blanco y cree que se rompió.',
+      b: [['skel', 3], ['p', '→ si falla: error con Reintentar'], ['p', '→ si no hay nada: vacío con acción'], ['p', '→ si hay: los datos']], bx: 'Siempre hay algo que entender en pantalla.',
+      m: [['p', '(pantalla en blanco mientras carga)'], ['p', '(y si falla, sigue en blanco)']], mx: 'No se distingue cargando de roto.',
+      c: 'if (cargando) return <Cargando/>\nif (error) return <EstadoError reintentar={...}/>\nif (!filas.length) return <EstadoVacio/>\nreturn <Tabla/>' },
+    'Vacío no es "No hay datos"': { w: 'El vacío es una oportunidad de explicar y guiar al primer paso.',
+      b: [['h', 'Aún no tienes encuestas'], ['p', 'Crea la primera y envíala a tu equipo en 5 minutos.'], ['b', 'Crear encuesta', 'p']], bx: 'Explica y ofrece la acción.',
+      m: [['p', 'No hay datos']], mx: 'Parece un error y no dice qué hacer.',
+      c: 'Vacío total → invitar a crear. Vacío por filtros → "Sin resultados" + Limpiar filtros.' },
+    'Skeleton solo en la primera carga': { w: 'Volver al esqueleto después de guardar desmonta la vista: se pierde el scroll y se cierran los modales.',
+      b: [['tabla', ['Nombre', 'Estado'], [['Ana Rojas', 'Activa'], ['Luis Soto', 'Activo']]], ['chip', 'Actualizando...']], bx: 'Solo cambia la fila editada; el resto se relee callado.',
+      m: [['skel', 4], ['p', '(después de guardar, toda la tabla vuelve a cargar)']], mx: 'Parpadeo, pérdida de posición y modales cerrados.',
+      c: 'filas = filas.map(f => f.id === editado.id ? editado : f); relecturaEnSegundoPlano();' },
+    'Caché primero': { w: 'Mostrar lo último conocido es mejor que una pantalla esperando.',
+      b: [['row', [['p', 'Encuestas'], ['chip', 'Actualizando...']]], ['tabla', ['Encuesta', '>Avance'], [['Clima Q4', '82 %']]]], bx: 'Se ve al tiro y se actualiza encima.',
+      m: [['p', '⟳ Cargando...'], ['p', '(cada vez que entras, desde cero)']], mx: 'Espera repetida aunque los datos casi no cambian.',
+      c: 'Pinta la caché, pide en segundo plano y, si tarda más de 3 s, ofrece Reintentar.' },
+    'Progreso honesto': { w: 'Una barra que miente rompe la confianza.',
+      b: [['bar', 62], ['p', '62 % · 3,1 de 5 MB']], bx: 'Avance real con datos concretos.',
+      m: [['bar', 100], ['p', '100 %... y sigue esperando 10 segundos']], mx: 'Dice que terminó y no terminó.',
+      c: 'xhr.upload.onprogress = e => barra.style.width = (e.loaded / e.total * 100) + "%";' },
+    'Optimista solo en acciones rápidas': { w: 'Lo optimista da velocidad, pero en configuraciones un error silencioso es grave.',
+      b: [['ul', ['● Nueva respuesta → marcada como leída al tiro', '(si falla, vuelve atrás y avisa)']]], bx: 'Acción chica, reversible, con aviso si falla.',
+      m: [['p', 'Permisos: cada switch se guarda solo al tocarlo']], mx: 'Probar un switch cambia permisos reales.',
+      c: 'Aplica el cambio local, llama al servidor y si falla revierte + toast de error.' },
+
+    'La severidad decide el patrón': { w: 'No todos los errores merecen detener a la persona.',
+      b: [['in', 'Correo', 'ana@', 'err', 'Al correo le falta el dominio. Ej: ana@empresa.cl'], ['toast', 'Reconectando...']], bx: 'Error de campo junto al campo; lo transitorio, en un toast que se va solo.',
+      m: [['modal', 'Error', 'Correo inválido', ['*Aceptar']]], mx: 'Un modal para un detalle de campo.',
+      c: 'Crítico → modal con acción. Campo → inline. Transitorio → toast.' },
+    'Cero errores crudos': { w: 'El mensaje técnico asusta y no ayuda.',
+      b: [['alert', 'No encontramos esa encuesta. Puede que la hayan eliminado.'], ['b', 'Volver a encuestas', 's']], bx: 'Traducido y con salida.',
+      m: [['alert', 'PGRST116: JSON object requested, multiple (or no) rows returned']], mx: 'Error de Supabase directo a la pantalla.',
+      c: 'Todo catch pasa por mensajeDeError(e) antes de mostrarse.' },
+    'Toda acción muestra resultado': { w: 'Un clic sin respuesta hace que la persona repita o abandone.',
+      b: [['b', 'Exportar', 's'], ['toast', 'Preparando Excel... se descarga solo']], bx: 'Respuesta inmediata aunque el archivo tarde.',
+      m: [['b', 'Exportar', 's'], ['p', '(clic y no pasa nada)']], mx: '¿Funcionó? Se aprieta otra vez.',
+      c: 'Cada handler termina en: cambio visible, toast de éxito o error con Reintentar.' },
+    'Reglas de toast': { w: 'El toast avisa sin interrumpir, pero mal ubicado tapa lo que importa.',
+      b: [['toast', '✓ Cambios guardados']], bx: 'Uno, corto, en su lugar fijo y se va solo.',
+      m: [['toast', '✓ Guardado'], ['toast', '✓ Usuario creado'], ['toast', '✓ Correo enviado'], ['toast', '✓ Informe listo']], mx: 'Apilados tapan los botones del pulgar.',
+      c: 'Máximo 3; 3 a 5 s (7 a 9 s errores); role="status" aria-live="polite".' },
+    'Nunca alert() ni confirm()': { w: 'Las ventanas del navegador no tienen tu marca ni contexto y bloquean todo.',
+      b: [['modal', 'Eliminar a Juan Pérez', 'Se borra su historial. No se puede deshacer.', ['*Cancelar', '!Eliminar empleado']]], bx: 'Modal propio con nombre y consecuencia.',
+      m: [['code', 'if (confirm("¿Seguro?")) borrar();']], mx: 'Caja gris genérica que no dice qué se borra.',
+      c: 'const ok = await UI.confirmar({ titulo, texto, confirmar: "Eliminar empleado", peligro: true });' },
+
+    'Pregunta la estructura primero': { w: 'Un formulario largo en una sola vista cansa; uno corto en pasos aburre.',
+      b: [['p', 'Corto (4 campos): una vista, dos columnas en escritorio'], ['p', 'Largo: 1 Datos · 2 Empresa · 3 Pago']], bx: 'La estructura sigue al largo y al tema.',
+      m: [['p', '20 campos en una columna, sin bloques ni pasos']], mx: 'Se ve eterno y se abandona.',
+      c: 'Decide con el cliente: compacto o por pasos, antes de programar.' },
+    'Crear: botón activo con resumen de pendientes': { w: 'Al crear, el botón nunca debe fallar en silencio.',
+      b: [['alert', 'Hay 2 cosas por corregir: Nombre · RUT'], ['b', 'Crear empresa', 'p']], bx: 'Dice qué falta y cada ítem lleva al campo.',
+      m: [['b', 'Crear empresa', 'p'], ['p', '(se aprieta, no pasa nada, no dice qué falta)']], mx: 'La persona no sabe qué hacer.',
+      c: 'Alternativa: botón positivo/negativo (ver demo abajo en Formularios).' },
+    'Nunca borres lo escrito': { w: 'Volver a escribir todo es la principal razón de abandono.',
+      b: [['in', 'Nombre', 'Ana Rojas'], ['alert', 'No pudimos guardar. Tus datos siguen aquí. Intenta de nuevo.']], bx: 'Lo escrito se mantiene.',
+      m: [['in', 'Nombre', ''], ['alert', 'Error. Intente nuevamente.']], mx: 'Formulario vacío después del error.',
+      c: 'Nunca form.reset() en el catch. Guarda borrador en localStorage con try/catch.' },
+    'El placeholder no es etiqueta': { w: 'El placeholder desaparece al escribir y la persona olvida qué campo era.',
+      b: [['in', 'Correo', '', '', '', 'nombre@empresa.cl']], bx: 'Etiqueta fija y ejemplo de formato.',
+      m: [['in', '', '', '', '', 'Correo']], mx: 'Al escribir, se pierde el nombre del campo.',
+      c: '<label for="correo">Correo</label><input id="correo" placeholder="nombre@empresa.cl">' },
+    'Valida al salir del campo': { w: 'Retar mientras la persona todavía escribe es injusto y molesto.',
+      b: [['in', 'Correo', 'ana@empre', '', '(escribiendo: sin error todavía)']], bx: 'El error espera a que salga del campo.',
+      m: [['in', 'Correo', 'a', 'err', 'Correo inválido (con la primera letra)']], mx: 'Reta antes de terminar.',
+      c: 'input.addEventListener("blur", validar); y después del primer error, también en "input".' },
+    'El botón no salta': { w: 'Si el error empuja el botón, se aprieta lo que no era.',
+      b: [['in', 'RUT', '12.345', 'err', 'Al RUT le faltan números'], ['b', 'Continuar', 'p']], bx: 'El espacio del error ya estaba reservado.',
+      m: [['in', 'RUT', '12.345'], ['p', '(aparece el error y empuja el botón hacia abajo)']], mx: 'El layout se mueve justo cuando ibas a apretar.',
+      c: '.msg { min-height: 1.4em; visibility: hidden; }\n[data-e=error] .msg { visibility: visible; }' },
+    'Un código no es un número': { w: 'type="number" agrega flechas, cambia con la rueda y borra ceros.',
+      b: [['in', 'RUT', '12.345.678-5']], bx: 'Texto con teclado adecuado.',
+      m: [['in', 'RUT', '12345678 ▲▼', '', 'La rueda del mouse cambió el número']], mx: 'Se altera sin querer.',
+      c: '<input type="text" inputmode="numeric" autocomplete="one-time-code">' },
+    'autocomplete en cada campo': { w: 'El navegador ya sabe el nombre, correo y teléfono: deja que los ponga.',
+      b: [['in', 'Correo', 'ana@empresa.cl', 'ok', 'Lo completó el navegador']], bx: 'Un toque y listo.',
+      m: [['in', 'Correo', '', '', 'El navegador no sugiere nada']], mx: 'Escribir todo a mano, sobre todo en celular.',
+      c: '<input type="email" name="email" autocomplete="email">' },
+    'Autofoco solo al crear': { w: 'Al editar, el foco automático hace que se borre o cambie algo sin querer.',
+      b: [['in', 'Nombre', '|', '', 'Al crear: foco listo para escribir']], bx: 'Ahorra un clic al empezar.',
+      m: [['in', 'Nombre', 'Ana Rojas|', '', 'Al editar: foco puesto, un toque borra']], mx: 'Riesgo de cambiar datos existentes.',
+      c: 'if (modo === "crear") primerCampo.focus();' },
+
+    'Zona que reacciona al arrastrar': { w: 'La persona necesita saber que puede soltar ahí antes de soltar.',
+      b: [['drop', 'Suelta aquí tus archivos o elige uno']], bx: 'Se ilumina al pasar por encima y tiene botón para elegir.',
+      m: [['drop', 'Arrastra archivos', true]], mx: 'Nada cambia al arrastrar y no hay alternativa sin arrastre.',
+      c: 'zona.addEventListener("dragover", e => { e.preventDefault(); zona.classList.add("sobre"); });' },
+    'Progreso real y reintento por archivo': { w: 'Si un archivo falla, los demás no tienen por qué perderse.',
+      b: [['ul', ['informe.pdf · 80 %', 'fotos.zip · Falló · Reintentar', 'datos.xlsx · ✓ Listo']]], bx: 'Cada archivo con su estado.',
+      m: [['p', '⟳ Subiendo 3 archivos...'], ['p', '(falla uno y hay que subir todo de nuevo)']], mx: 'Todo o nada.',
+      c: 'Una promesa por archivo, máximo 3 o 4 a la vez, botón Reintentar en el que falló.' },
+    'Vista previa real': { w: 'Ver el archivo confirma que se eligió el correcto.',
+      b: [['ul', ['PNG · logo.png · 240 KB', 'PDF · contrato.pdf · 1,2 MB']]], bx: 'Tipo, nombre y peso legibles.',
+      m: [['ul', ['archivo1', 'archivo2']]], mx: 'No se sabe qué se subió.',
+      c: 'img.src = URL.createObjectURL(archivo); // y revokeObjectURL al quitar' },
+
+    'Todo se guarda con Guardar': { w: 'En configuraciones, probar no debería cambiar nada real.',
+      b: [['modal', 'Permisos de Ana', '☑ Ver informes  ☐ Editar encuestas', ['Cancelar', '+Guardar cambios']]], bx: 'Se prueba libre y se confirma al final.',
+      m: [['p', 'Cada switch guarda al tocarlo'], ['p', '(probaste uno y ya cambió el permiso real)']], mx: 'No hay forma de arrepentirse.',
+      c: 'Estado local en el modal; un solo envío al apretar Guardar.' },
+    'Tres zonas: cabecera, cuerpo, pie': { w: 'Los botones tienen que verse siempre, sin buscar con scroll.',
+      b: [['modal', 'Editar empresa', '(cuerpo con scroll)', ['Cancelar', '+Guardar']]], bx: 'Pie fijo siempre visible.',
+      m: [['p', 'Guardar está al final del scroll, fuera de la pantalla']], mx: 'Parece que no hay cómo guardar.',
+      c: '.cuerpo { min-height: 0; overflow-y: auto; } .modal { max-height: 90dvh; }' },
+    'Una sola salida: pedirCierre()': { w: 'Perder lo escrito por un clic afuera es de lo más frustrante.',
+      b: [['modal', '¿Estás seguro que quieres salir?', 'Tienes cambios sin guardar.', ['*Seguir editando', 'Guardar y salir', '!Salir sin guardar']]], bx: 'Tres opciones claras y foco en la segura.',
+      m: [['p', 'Clic afuera cierra el modal y se pierde todo']], mx: 'Sin aviso, sin vuelta.',
+      c: 'Escape, X, Cancelar y clic afuera llaman a pedirCierre(); si sucio, pregunta.' },
+    'Foco en el botón seguro': { w: 'Un Enter por reflejo no debería borrar nada.',
+      b: [['modal', 'Eliminar a Juan Pérez', 'No se puede deshacer.', ['*Cancelar', '!Eliminar empleado']]], bx: 'El foco parte en Cancelar.',
+      m: [['modal', 'Eliminar a Juan Pérez', 'No se puede deshacer.', ['Cancelar', '#Eliminar empleado']]], mx: 'Enter borra al tiro.',
+      c: 'botonCancelar.focus(); // al abrir la confirmación destructiva' },
+    'Borrar según gravedad': { w: 'Pedir lo mismo para todo hace que la gente confirme sin leer.',
+      b: [['ul', ['Archivar fila → Deshacer 7 s', 'Eliminar cliente → Papelera', 'Borrar definitivo → escribir ELIMINAR']]], bx: 'La fricción crece con el riesgo.',
+      m: [['p', 'Mismo "¿Seguro?" para archivar y para borrar todo']], mx: 'Se confirma por costumbre.',
+      c: 'Rápido: UndoToast. Negocio: soft-delete. Definitivo: palabra exacta.' },
+    'Panel lateral para editar mirando la tabla': { w: 'A veces para editar hay que mirar otras filas.',
+      b: [['row', [['card', [['p', 'Tabla (se puede scrollear)'], ['p', 'Luis: Ver, Editar']]], ['card', [['h', 'Editar a Ana'], ['p', '☑ Ver ☑ Editar']]]]]], bx: 'Compara sin cerrar.',
+      m: [['modal', 'Editar a Ana', '(tapa toda la tabla)', ['Cancelar', '+Guardar']]], mx: 'Hay que cerrar para mirar y volver a abrir.',
+      c: 'Drawer derecho; clic en la tabla dispara pedirCierre().' },
+
+    '2 nombres y "+N"': { w: 'Las filas parejas se escanean rápido.',
+      b: [['tabla', ['Persona', 'Áreas'], [['Ana', 'Ventas, Finanzas +6']]]], bx: 'Fila pareja; +6 abre la lista.',
+      m: [['tabla', ['Persona', 'Áreas'], [['Ana', 'Ventas, Finanzas, Operaciones, RR.HH., Legal, TI...']]]], mx: 'Celda gigante que deforma la tabla.',
+      c: '<button aria-label="Ver las 6 áreas restantes">+6</button> con popover en hover, foco y toque.' },
+    'Primera columna humana': { w: 'La gente busca por nombre, no por código.',
+      b: [['tabla', ['Empresa', 'Plan'], [['Acme SpA', 'Pro']]]], bx: 'Se encuentra de un vistazo.',
+      m: [['tabla', ['ID', 'Plan'], [['9821a-f3', 'Pro']]]], mx: 'Hay que abrir cada fila para saber cuál es.',
+      c: 'th:first-child, td:first-child { position: sticky; left: 0; }' },
+    'Números a la derecha': { w: 'Alineados a la derecha, las cifras se comparan por tamaño.',
+      b: [['tabla', ['Cliente', '>Monto'], [['Acme', '$1.240.000'], ['Beta', '$98.500']]]], bx: 'Miles con miles, se ve cuál es mayor.',
+      m: [['tabla', ['Cliente', 'Monto'], [['Acme', '$1.240.000'], ['Beta', '$98.500']]]], mx: 'Cuesta comparar.',
+      c: 'td.num { text-align: right; font-variant-numeric: tabular-nums; }' },
+    'Máximo 2 acciones por fila': { w: 'Muchos botones por fila tapan los datos.',
+      b: [['row', [['p', 'Ana Rojas'], ['b', 'Editar', 's'], ['b', '⋯', 's']]]], bx: 'Lo frecuente directo, el resto en el menú.',
+      m: [['row', [['p', 'Ana'], ['b', 'Editar', 's'], ['b', 'Duplicar', 's'], ['b', 'Archivar', 's'], ['b', 'Eliminar', 'r']]]], mx: 'Ruido en cada fila.',
+      c: 'Ver iconos-de-menu: kebab para acciones de fila.' },
+    'Buscador desde 9 opciones': { w: 'Sobre 8 opciones, buscar es más rápido que leer.',
+      b: [['in', 'Área', 'Ven', '', 'Enter elige "Ventas"'], ['ul', ['Ventas', 'Ventas norte']]], bx: 'Escribe tres letras y listo.',
+      m: [['ul', ['Administración', 'Bodega', 'Compras', 'Finanzas', 'Legal', 'Marketing', '... 12 más']]], mx: 'Hay que leer la lista entera.',
+      c: 'Filtra al escribir; Enter elige el primero; flechas recorren.' },
+    'Rango y total': { w: 'Saber cuánto hay ayuda a decidir si buscar o recorrer.',
+      b: [['p', 'Mostrando 1-20 de 148'], ['row', [['b', '‹', 's'], ['b', '1', 'p'], ['b', '2', 's'], ['b', '›', 's']]]], bx: 'Contexto claro.',
+      m: [['row', [['b', '‹', 's'], ['b', '›', 's']]]], mx: '¿Cuántas páginas quedan?',
+      c: '`Mostrando ${desde}-${hasta} de ${total}`' },
+    'Acordeón: dato clave en la cabecera': { w: 'Si el resumen está afuera, no hay que abrir para saber si importa.',
+      b: [['acc', 'Permisos especiales · 2 activos']], bx: 'Se sabe sin abrir.',
+      m: [['acc', 'Permisos especiales']], mx: 'Hay que abrir cada bloque para revisar.',
+      c: '<button aria-expanded="false" aria-controls="p1">Permisos · 2 activos</button>' },
+
+    'Modal accesible': { w: 'Con teclado o lector de pantalla, un modal mal hecho es una trampa o un agujero.',
+      b: [['code', 'role="dialog" aria-modal="true" aria-labelledby="titulo"'], ['p', 'Tab no se escapa, Escape cierra, el foco vuelve al botón']], bx: 'Se usa igual con teclado.',
+      m: [['p', 'Tab sigue recorriendo la página de atrás'], ['p', 'Al cerrar, el foco queda perdido']], mx: 'Imposible de usar sin mouse.',
+      c: 'main.inert = true al abrir; foco al primer botón; al cerrar, origen.focus().' },
+    'Nada solo con hover': { w: 'En celular y con teclado no existe el hover.',
+      b: [['row', [['p', 'Ana Rojas'], ['b', 'Editar', 's']]]], bx: 'La acción se ve o aparece también con foco.',
+      m: [['row', [['p', 'Ana Rojas'], ['p', '(los botones aparecen solo al pasar el mouse)']]]], mx: 'En celular no hay forma de editar.',
+      c: '.fila:hover .acc, .fila:focus-within .acc { opacity: 1 } @media (hover: none) { .acc { opacity: 1 } }' },
+    'Todo usable con teclado': { w: 'Mucha gente navega con teclado, por costumbre o necesidad.',
+      b: [['row', [['b', 'Guardar', 'p foco'], ['p', '← foco visible']]]], bx: 'Tab llega a todo y se ve dónde estás.',
+      m: [['code', '<div onclick="guardar()">Guardar</div>'], ['p', 'Tab se lo salta']], mx: 'No es un botón real.',
+      c: 'Usa <button> y <a href>; nunca quites el :focus-visible.' },
+    'alt con sentido': { w: 'El alt es lo que escucha quien no ve la imagen.',
+      b: [['code', 'alt="Gráfico: la participación subió de 64 % a 82 %"']], bx: 'Dice lo que aporta la imagen.',
+      m: [['code', 'alt="grafico1.png"']], mx: 'Técnicamente presente, inútil.',
+      c: 'Decorativa: alt="". Informativa: describe el dato, no la forma.' },
+    'Error de campo bien conectado': { w: 'El borde rojo no lo escucha un lector de pantalla.',
+      b: [['in', 'Correo', 'ana@', 'err', 'Al correo le falta el dominio'], ['code', 'aria-invalid="true" aria-describedby="e-correo"']], bx: 'El error se anuncia con el campo.',
+      m: [['in', 'Correo', 'ana@', 'err']], mx: 'Solo color: no se sabe qué está mal.',
+      c: 'input.setAttribute("aria-describedby", msg.id);' },
+    'Los checkers no bastan': { w: 'Las herramientas automáticas encuentran solo una parte de los problemas.',
+      b: [['ul', ['axe: 0 errores', 'Teclado: probado de punta a punta', 'VoiceOver: flujo principal probado']]], bx: 'Herramienta más prueba real.',
+      m: [['ul', ['Lighthouse: 100', '(nadie probó con teclado)']]], mx: 'Puntaje perfecto y modal inusable.',
+      c: 'Antes de publicar: recorre el flujo solo con Tab, Enter y Escape.' },
+
+    'La imagen principal no es lazy': { w: 'Lazy en la imagen principal retrasa justo lo que más se ve (LCP).',
+      b: [['code', '<img src="hero.webp" fetchpriority="high"\n     width="1200" height="600" alt="...">']], bx: 'Se pide primero.',
+      m: [['code', '<img src="hero.webp" loading="lazy">']], mx: 'Espera a calcular el layout para empezar a bajar.',
+      c: 'Solo una imagen con fetchpriority="high" por página; el resto, lazy.' },
+    'Reserva espacio': { w: 'Si la imagen llega sin espacio reservado, empuja lo que estabas leyendo (CLS).',
+      b: [['code', 'img { aspect-ratio: 16 / 9; width: 100%; }']], bx: 'El hueco existe antes de que llegue.',
+      m: [['p', 'La imagen carga y empuja el texto hacia abajo']], mx: 'Clics en el lugar equivocado.',
+      c: 'width y height en el HTML o aspect-ratio en CSS.' },
+    'Fuentes con swap': { w: 'Sin swap, el texto queda invisible mientras baja la fuente.',
+      b: [['code', '@font-face { font-display: swap; }']], bx: 'Se lee al tiro con la fuente del sistema.',
+      m: [['p', 'Texto invisible 2 segundos en 4G']], mx: 'Página en blanco aparente.',
+      c: 'Google Fonts: &display=swap en la URL.' },
+    'Scripts que no bloquean': { w: 'Un script sin defer en el head detiene todo el pintado.',
+      b: [['code', '<script src="analytics.js" defer><\/script>']], bx: 'La página se pinta primero.',
+      m: [['code', '<head>\n  <script src="analytics.js"><\/script>']], mx: 'Nada se ve hasta que baja y corre.',
+      c: 'defer para lo propio, async para terceros independientes.' }
+  };
+
   // Pintar secciones
   const cont = $('#secciones');
   Object.entries(SECCIONES).forEach(([k, [titulo, bajada]]) => {
@@ -290,6 +736,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const h = el('h3'); if (r.n) h.append(el('span', 'num', String(r.n))); h.append(r.t);
       const pie = el('div', 'pie'); pie.append(el('span', '', 'Fuente: ' + r.f));
       if (r.p) { const l = el('a', '', 'Ver en plantilla'); l.href = P + r.p; pie.append(l); }
+      a.classList.add('abre'); a.dataset.slug = slug(r.t); a.dataset.i = REGLAS.indexOf(r);
+      const ver = el('button', 'ver-ej', 'Ver ejemplo →'); ver.type = 'button'; ver.setAttribute('aria-label', 'Ver ejemplo: ' + r.t);
+      pie.firstChild.after(ver);
       a.append(h, el('p', '', r.r), pie); rej.append(a);
     });
     sec.append(rej); cont.append(sec);
@@ -391,7 +840,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   estado();
 
-  window.ReglasUX = { REGLAS, CHECKLIST, SECCIONES, CAMPOS };
+  Fichas({
+    sec: card => SECCIONES[card.dataset.sec][0],
+    cuerpo: card => {
+      const r = REGLAS[+card.dataset.i], ej = EJ[r.t] || {};
+      const out = [bloque('La regla', el('p', 'regla-f', r.r))];
+      if (ej.w) out.push(bloque('Por qué', el('p', 'txt', ej.w)));
+      if (ej.b || ej.m) out.push(bloque('Ejemplo', bienMal(ej)));
+      if (ej.c) out.push(bloque('Cómo aplicarlo', el('pre', 'fx-code', ej.c)));
+      out.push(el('p', 'txt small', 'Fuente: ' + r.f));
+      if (r.p) { const l = el('a', '', 'Ver aplicada en la plantilla →'); l.href = P + r.p; out.push(l); }
+      return out;
+    }
+  });
+
+  window.ReglasUX = { REGLAS, CHECKLIST, SECCIONES, CAMPOS, EJ };
 });
 </script>
 </body>

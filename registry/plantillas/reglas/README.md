@@ -26,6 +26,7 @@ Guías vivas de UI, UX, proceso de diseño y color. HTML autocontenido por plant
 
 - Las reglas se editan en los arreglos del script (o en los `<article>` en reglas-ui).
 - Los checklists se recuerdan solo en ese navegador (localStorage con try/catch).
+- En reglas-ui y reglas-ux cada ficha se abre en un panel lateral (por qué, ejemplo bien y mal, cómo aplicarlo). Ejemplos en el objeto `EJ`; URL directa con `#ficha=slug`.
 - Los enlaces "Ver en plantilla" apuntan a `../[carpeta]/archivo.html`: funcionan con la estructura de `public/plantillas/`.
 - Reglas nuevas desde internet: anotar fuente, si choca con una regla actual y en qué skill `ux-*` iría.
 

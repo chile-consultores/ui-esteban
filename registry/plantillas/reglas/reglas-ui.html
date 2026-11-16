@@ -51,6 +51,72 @@
   .fuentes{margin:0;padding-left:18px;display:grid;gap:4px;font-size:var(--fs-s)}
   .vacio{padding:24px;text-align:center;border:1px dashed var(--borde-2);border-radius:var(--r)}
   @media(max-width:420px){.bm{grid-template-columns:1fr}}
+  /* === COMPONENTE: ficha abierta (panel lateral) === */
+  .rg.abre{cursor:pointer;transition:border-color var(--dur-s) var(--ease-salida)}
+  .rg.abre:hover{border-color:var(--borde-2)}
+  .rg>.ver-ej{align-self:flex-start}
+  .ver-ej{border:0;background:none;color:var(--acento);font:inherit;font-size:var(--fs-xs);font-weight:600;cursor:pointer;padding:6px 0;min-height:32px}
+  .fx-telon{position:fixed;inset:0;z-index:60;background:rgba(5,5,10,.55)}
+  .fx{position:fixed;z-index:61;top:0;right:0;bottom:0;width:min(640px,100%);display:flex;flex-direction:column;background:#11111b;border-left:1px solid var(--borde-2);box-shadow:var(--sombra-f);animation:fx-in 220ms var(--ease-salida)}
+  @keyframes fx-in{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+  .fx-telon[hidden],.fx[hidden]{display:none}
+  .fx-cab{flex:none;display:flex;align-items:flex-start;gap:10px;padding:16px;border-bottom:1px solid var(--borde)}
+  .fx-cab .tt{flex:1;min-width:0}
+  .fx-cab .sec{font-size:var(--fs-xs);color:var(--texto-3);text-transform:uppercase;letter-spacing:.06em}
+  .fx-cab h2{font-size:1.15rem;margin-top:2px}
+  .fx-cab .nav-f{display:flex;gap:6px}
+  .fx-ib{width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--borde-2);border-radius:10px;background:var(--superficie);color:var(--texto);cursor:pointer;font-size:1.05rem}
+  .fx-ib:hover{border-color:var(--marca)}
+  .fx-cuerpo{flex:1;min-height:0;overflow-y:auto;padding:18px 16px 28px;display:flex;flex-direction:column;gap:16px}
+  .fx-cuerpo h3{font-size:.8rem;color:var(--texto-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+  .fx-cuerpo .txt{color:var(--texto-2);font-size:var(--fs-b)}
+  .fx-cuerpo .regla-f{font-size:1rem;color:var(--texto)}
+  .fx-pie{flex:none;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--borde);font-size:var(--fs-xs);color:var(--texto-3)}
+  .fx-bm{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:560px){.fx-bm{grid-template-columns:1fr}}
+  .fx-bm>div{border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+  .fx-bm .etq{font-size:var(--fs-xs);font-weight:700}
+  .fx-bm .bien{border:1px solid rgba(34,197,94,.35);background:var(--verde-l)}.fx-bm .bien .etq{color:var(--verde)}
+  .fx-bm .mal{border:1px solid rgba(239,68,68,.35);background:var(--rojo-l)}.fx-bm .mal .etq{color:var(--rojo)}
+  .fx-bm .exp{font-size:var(--fs-s);color:var(--texto)}
+  .fx-code{margin:0;padding:12px;border-radius:10px;background:#0a0a12;border:1px solid var(--borde);font:13px/1.5 ui-monospace,Menlo,monospace;color:#d6d6e4;white-space:pre-wrap;word-break:break-word}
+  /* Mini maqueta clara donde se dibujan los ejemplos */
+  .mq{background:#fff;color:#1d1d24;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;font:400 13px/1.45 system-ui,sans-serif;min-height:90px}
+  .mq .m-h{font-weight:700;font-size:15px}
+  .mq .m-p{color:#55555f}
+  .mq .m-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .mq .m-b{display:inline-flex;align-items:center;justify-content:center;padding:6px 11px;border-radius:7px;font-weight:600;font-size:12px;border:1px solid transparent}
+  .mq .m-b.p{background:#2457d6;color:#fff}.mq .m-b.s{background:#fff;color:#1d1d24;border-color:#c9c9d1}.mq .m-b.r{background:#c62828;color:#fff}.mq .m-b.g{color:#2457d6;padding:6px 4px}.mq .m-b.dis{background:#e4e4ea;color:#8a8a95}
+  .mq .m-b.foco{outline:2px solid #2457d6;outline-offset:2px}
+  .mq .m-in{display:flex;flex-direction:column;gap:3px}
+  .mq .m-in label{font-weight:600;font-size:12px}
+  .mq .m-in .c{border:1px solid #bdbdc6;border-radius:7px;padding:7px 9px;min-height:32px;color:#1d1d24}
+  .mq .m-in .c.ph{color:#9a9aa5}
+  .mq .m-in.err .c{border-color:#c62828;box-shadow:0 0 0 2px rgba(198,40,40,.12)}.mq .m-in.ok .c{border-color:#1b7f3a}
+  .mq .m-in .n{font-size:11.5px;color:#666}.mq .m-in.err .n{color:#c62828}.mq .m-in.ok .n{color:#1b7f3a}
+  .mq .m-chip{display:inline-flex;padding:3px 9px;border-radius:99px;font-size:11.5px;font-weight:600;background:#eef0f5;color:#3a3a45}
+  .mq .m-chip.ok{background:#e3f4e8;color:#1b7f3a}.mq .m-chip.av{background:#fbf0d9;color:#8a5a00}.mq .m-chip.pe{background:#fbe4e4;color:#c62828}
+  .mq .m-toast{display:flex;align-items:center;gap:10px;justify-content:space-between;background:#1d1d24;color:#fff;border-radius:8px;padding:8px 11px;font-size:12px}
+  .mq .m-toast b{color:#9ec1ff}
+  .mq .m-alert{border-radius:8px;padding:8px 10px;font-size:12px;border:1px solid #e3b4b4;background:#fdf1f1;color:#8e1f1f}
+  .mq .m-alert.n{border-color:#cfd6e6;background:#f2f5fb;color:#26324a}
+  .mq table{width:100%;border-collapse:collapse;font-size:12px}
+  .mq th,.mq td{text-align:left;padding:5px 6px;border-bottom:1px solid #e6e6ec;white-space:nowrap}
+  .mq th{color:#66667a;font-weight:600}.mq .der{text-align:right;font-variant-numeric:tabular-nums}
+  .mq .m-bar{height:8px;border-radius:4px;background:#e6e6ec;overflow:hidden}.mq .m-bar i{display:block;height:100%;background:#2457d6}
+  .mq .m-skel{height:10px;border-radius:5px;background:#e6e6ec}
+  .mq .m-nav{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid #e6e6ec;padding-bottom:6px}
+  .mq .m-nav span{padding:4px 8px;border-radius:6px;color:#55555f;font-size:12px}
+  .mq .m-nav span.on{background:#e8eefc;color:#1d3f9e;font-weight:700}
+  .mq .m-code{font:11.5px/1.45 ui-monospace,Menlo,monospace;background:#f3f3f6;border-radius:6px;padding:6px 8px;white-space:pre-wrap;word-break:break-word}
+  .mq ul{margin:0;padding-left:16px;display:grid;gap:3px}
+  .mq .m-card{border:1px solid #e1e1e8;border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:5px;background:#fafafc}
+  .mq .m-modal{border:1px solid #c9c9d1;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;box-shadow:0 8px 20px -10px rgba(0,0,0,.25)}
+  .mq .m-drop{border:2px dashed #9fb6ec;border-radius:10px;padding:16px;text-align:center;color:#2457d6;background:#f1f5fe}
+  .mq .m-drop.x{border-color:#c9c9d1;color:#77777f;background:#fff}
+  .mq .m-acc{display:flex;justify-content:space-between;border:1px solid #e1e1e8;border-radius:8px;padding:8px 10px;font-weight:600}
+  .mq .m-kbd{font:11px ui-monospace,monospace;padding:2px 6px;border:1px solid #c9c9d1;border-bottom-width:2px;border-radius:4px}
+  @media(prefers-reduced-motion:reduce){.fx{animation:none}}
 </style>
 </head>
 <body>
@@ -278,6 +344,20 @@
   </section>
 </main>
 
+<div class="fx-telon" id="fx-telon" hidden></div>
+<aside class="fx" id="fx" role="dialog" aria-modal="true" aria-labelledby="fx-t" hidden>
+  <div class="fx-cab">
+    <div class="tt"><span class="sec" id="fx-sec"></span><h2 id="fx-t"></h2></div>
+    <div class="nav-f">
+      <button class="fx-ib" type="button" id="fx-ant" aria-label="Ficha anterior">‹</button>
+      <button class="fx-ib" type="button" id="fx-sig" aria-label="Ficha siguiente">›</button>
+      <button class="fx-ib" type="button" id="fx-x" aria-label="Cerrar">×</button>
+    </div>
+  </div>
+  <div class="fx-cuerpo" id="fx-cuerpo"></div>
+  <div class="fx-pie"><span id="fx-pos"></span><span>← → cambian de ficha · Esc cierra</span></div>
+</aside>
+
 <script src="../[base]/base.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -297,6 +377,131 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
   const KEY = 'reglas-ui-check';
   const $ = s => document.querySelector(s);
+  const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+  /* ===== Fichas abiertas: panel lateral con ejemplo bien y mal ===== */
+  // Mini maqueta a partir de piezas [tipo, ...datos]. Solo textContent.
+  function mq(piezas) {
+    const caja = el('div', 'mq');
+    const pieza = ([t, a, b, c, d, e]) => {
+      if (t === 'h') return el('div', 'm-h', a);
+      if (t === 'p') return el('div', 'm-p', a);
+      if (t === 'b') return el('span', 'm-b ' + (b || 's'), a);
+      if (t === 'kbd') return el('span', 'm-kbd', a);
+      if (t === 'row') { const r = el('div', 'm-row'); a.forEach(x => r.append(pieza(x))); return r; }
+      if (t === 'card') { const r = el('div', 'm-card'); a.forEach(x => r.append(pieza(x))); return r; }
+      if (t === 'in') { const r = el('div', 'm-in' + (c ? ' ' + c : '')); if (a) r.append(el('label', '', a)); r.append(el('div', 'c' + (b ? '' : ' ph'), b || e || '')); if (d) r.append(el('div', 'n', d)); return r; }
+      if (t === 'chip') return el('span', 'm-chip ' + (b || ''), a);
+      if (t === 'toast') { const r = el('div', 'm-toast'); r.append(el('span', '', a)); if (b) r.append(el('b', '', b)); return r; }
+      if (t === 'alert') return el('div', 'm-alert ' + (b || ''), a);
+      if (t === 'bar') { const r = el('div', 'm-bar'); const i = el('i'); i.style.width = a + '%'; r.append(i); return r; }
+      if (t === 'skel') { const r = el('div'); r.style.cssText = 'display:grid;gap:6px'; for (let k = 0; k < a; k++) { const s = el('div', 'm-skel'); s.style.width = (95 - k * 15) + '%'; r.append(s); } return r; }
+      if (t === 'nav') { const r = el('div', 'm-nav'); a.forEach((x, k) => r.append(el('span', k === b ? 'on' : '', x))); return r; }
+      if (t === 'code') return el('div', 'm-code', a);
+      if (t === 'ul') { const r = el('ul'); a.forEach(x => r.append(el('li', '', x))); return r; }
+      if (t === 'tabla') { const tb = el('table'); const tr = el('tr'); a.forEach(x => tr.append(el('th', x[0] === '>' ? 'der' : '', x.replace(/^>/, '')))); const th = el('thead'); th.append(tr); const bd = el('tbody'); b.forEach(f => { const r = el('tr'); f.forEach((x, k) => r.append(el('td', a[k][0] === '>' ? 'der' : '', x))); bd.append(r); }); tb.append(th, bd); const w = el('div'); w.style.overflowX = 'auto'; w.append(tb); return w; }
+      if (t === 'modal') { const r = el('div', 'm-modal'); r.append(el('div', 'm-h', a)); if (b) r.append(el('div', 'm-p', b)); const f = el('div', 'm-row'); c.forEach(x => { const k = x[0] === '*' ? 's foco' : x[0] === '!' ? 'r' : x[0] === '+' ? 'p' : x[0] === '#' ? 'r foco' : 's'; f.append(el('span', 'm-b ' + k, x.replace(/^[*!+#]/, ''))); }); r.append(f); return r; }
+      if (t === 'drop') return el('div', 'm-drop' + (b ? ' x' : ''), a);
+      if (t === 'acc') { const r = el('div', 'm-acc'); r.append(el('span', '', a), el('span', '', b || '▾')); return r; }
+      return el('div', '', '');
+    };
+    piezas.forEach(p => caja.append(pieza(p)));
+    return caja;
+  }
+  function bloque(titulo, ...hijos) { const s = el('section'); s.append(el('h3', '', titulo), ...hijos); return s; }
+  function bienMal(ej) {
+    const g = el('div', 'fx-bm');
+    [['bien', '✓ Bien', ej.b, ej.bx], ['mal', '✕ Mal', ej.m, ej.mx]].forEach(([k, t, spec, exp]) => {
+      if (!spec) return; const d = el('div', k); d.append(el('span', 'etq', t), spec.nodeType ? spec : mq(spec)); if (exp) d.append(el('p', 'exp', exp)); g.append(d);
+    });
+    return g;
+  }
+  const slug = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  // cfg.cuerpo(card) devuelve los nodos de la ficha; cfg.sec(card) el nombre de la sección
+  function Fichas(cfg) {
+    const fx = $('#fx'), telon = $('#fx-telon'), main = document.querySelector('main');
+    let actual = -1, origen = null;
+    const visibles = () => [...document.querySelectorAll('.rg.abre')].filter(c => c.offsetParent !== null);
+    function pintar(card) {
+      const lista = visibles(); actual = lista.indexOf(card);
+      $('#fx-t').textContent = card.querySelector('h3').textContent.replace(/^\d+/, '').trim();
+      $('#fx-sec').textContent = cfg.sec(card);
+      $('#fx-pos').textContent = (actual + 1) + ' de ' + lista.length;
+      const c = $('#fx-cuerpo'); c.replaceChildren(...cfg.cuerpo(card)); c.scrollTop = 0;
+      try { history.replaceState(null, '', '#ficha=' + card.dataset.slug); } catch {}
+    }
+    function abrir(card, desde) {
+      if (fx.hidden) { origen = desde || document.activeElement; fx.hidden = false; telon.hidden = false; main.inert = true; document.body.style.overflow = 'hidden'; }
+      pintar(card); $('#fx-x').focus();
+    }
+    function cerrar() {
+      if (fx.hidden) return; fx.hidden = true; telon.hidden = true; main.inert = false; document.body.style.overflow = '';
+      try { history.replaceState(null, '', location.pathname + location.search); } catch {}
+      if (origen && origen.isConnected) origen.focus();
+    }
+    function mover(d) { const l = visibles(); if (!l.length) return; pintar(l[(actual + d + l.length) % l.length]); }
+    document.querySelectorAll('.rg.abre').forEach(card => {
+      card.addEventListener('click', e => { if (!e.target.closest('a')) abrir(card, card.querySelector('.ver-ej')); });
+    });
+    $('#fx-x').addEventListener('click', cerrar); telon.addEventListener('click', cerrar);
+    $('#fx-ant').addEventListener('click', () => mover(-1)); $('#fx-sig').addEventListener('click', () => mover(1));
+    fx.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); cerrar(); }
+      else if (e.key === 'ArrowRight' && !/input|textarea/i.test(e.target.tagName)) { e.preventDefault(); mover(1); }
+      else if (e.key === 'ArrowLeft' && !/input|textarea/i.test(e.target.tagName)) { e.preventDefault(); mover(-1); }
+      else if (e.key === 'Tab') { const f = [...fx.querySelectorAll('button, a[href]')].filter(x => x.offsetParent !== null); const i = f.indexOf(document.activeElement); if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); } }
+    });
+    const porHash = () => { const h = location.hash.match(/ficha=([\w-]+)/); const c = h && document.querySelector('.rg.abre[data-slug="' + h[1] + '"]'); if (c) abrir(c, c.querySelector('.ver-ej')); };
+    porHash(); window.addEventListener('hashchange', porHash);
+    return { abrir, cerrar };
+  }
+
+
+  // Ejemplos por regla de UI (clave = título). Si la tarjeta ya trae bien/mal, se reutiliza.
+  const EJ = {
+    'El color sale del manual de marca': { b: [['row', [['b', 'Clima', 'p'], ['chip', '#1F6F5C del manual']]]], bx: 'Color tomado del manual del cliente.', m: [['row', [['b', 'Clima', 'p'], ['chip', 'Morado "porque se ve moderno"']]]], mx: 'Paleta inventada, no se reconoce la marca.', c: 'Busca el manual o los colores en uso. Si no hay, pregunta. Para derivar faltantes: paletas-de-color.' },
+    'Mismos nombres de token, distintos valores': { b: [['code', '.btn { background: var(--marca); color: var(--sobre-marca); }']], bx: 'El componente sirve para cualquier cliente.', m: [['code', '.btn { background: #2457d6; color: #fff; }']], mx: 'Hay que reescribirlo en cada proyecto.', c: ':root { --marca: #1F6F5C; --sobre-marca: #fff; --fondo: #F6F8F6; ... }' },
+    'Contraste AA': { w: 'Con poco contraste, el texto no se lee al sol, en pantallas malas ni con baja visión.', bx: 'Gris oscuro sobre blanco: 9:1.', mx: 'Gris claro sobre blanco: 1,9:1, ilegible.', c: 'Mide con el panel de DevTools o con paletas-de-color. Texto 4.5:1, grande y bordes 3:1.' },
+    'El estado nunca va solo con color': { w: 'Cerca de 1 de cada 12 hombres distingue mal el rojo del verde.', bx: 'Icono y palabra además del color.', mx: 'Dos puntos casi iguales para un daltónico.', c: '<span class="chip ok">✓ Pagado</span>' },
+    'Solo dos temas, desde la misma marca': { w: 'Más temas es más trabajo y más errores de contraste, sin beneficio real.', b: [['row', [['chip', 'Claro'], ['chip', 'Oscuro'], ['chip', 'Sistema']]]], bx: 'Claro, oscuro y seguir al sistema.', m: [['row', [['chip', 'Claro'], ['chip', 'Oscuro'], ['chip', 'Glassy'], ['chip', 'Neón'], ['chip', 'Sepia']]]], mx: 'Cinco temas que nadie mantiene.', c: '@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ... } }\n:root[data-theme="dark"] { ... }' },
+    'Oscuro bien hecho': { w: 'El negro puro con blanco puro cansa la vista y hace "vibrar" el texto.', bx: 'Fondo con tinte y superficies que suben de nivel.', mx: 'Contraste máximo que cansa.', c: '--fondo: #14151c; --superficie: #1f2029; --tinta: #e6e6ec;' },
+    'Sin look de IA': { b: [['card', [['h', 'Clima laboral'], ['p', 'Foto real del equipo del cliente'], ['b', 'Cotizar', 'p']]]], bx: 'Color plano y contenido real.', m: [['card', [['h', '✨ Transforma tu clima ✨'], ['p', 'Fondo aurora morado, brillo detrás del título, vidrio esmerilado']]]], mx: 'Igual a mil plantillas genéricas.', c: 'Prohibido por defecto: auroras, glow, backdrop-filter como estilo, texto con gradiente.' },
+    'Lo publicado no se toca': { w: 'Cambiar el look de algo que el cliente ya aprobó genera retrabajo y desconfianza.', b: [['p', 'Arreglo de un bug sin cambiar colores ni tipografía']], bx: 'Cambio quirúrgico.', m: [['p', '"De paso" cambié la paleta y los botones']], mx: 'El cliente ve otra plataforma.', c: 'Cambios visuales en plataformas publicadas solo si se piden.' },
+    'Tamaños fluidos con piso y techo': { w: 'Con px fijos el texto no escala con el zoom ni se adapta a la pantalla.', b: [['code', 'h1 { font-size: clamp(1.75rem, 1.2rem + 2.2vw, 2.75rem); }']], bx: 'Crece con la pantalla sin pasarse.', m: [['code', 'h1 { font-size: 44px; }']], mx: 'Gigante en celular, no respeta el zoom.', c: 'Todo en rem con clamp(mínimo, preferido, máximo).' },
+    'Mínimos que no se rompen': { w: 'Bajo 12 px casi nadie lee cómodo, y bajo 16 px en inputs el iPhone hace zoom solo.', bx: '16 y 13 px se leen sin esfuerzo.', mx: '11 y 9 px obligan a acercarse.', c: 'input, select, textarea { font-size: 1rem; }' },
+    'Máximo 2 familias': { w: 'Cada fuente extra suma peso de carga y ruido visual.', b: [['h', 'Título en Outfit'], ['p', 'Cuerpo en Inter']], bx: 'Dos familias con roles claros.', m: [['h', 'Título en Playfair'], ['p', 'Subtítulo en Montserrat, cuerpo en Lato, botones en Roboto']], mx: 'Cuatro fuentes, ninguna identidad.', c: '--display: "Outfit"; --sans: "Inter", system-ui;' },
+    'Líneas cómodas de leer': { w: 'Líneas muy largas hacen perder el renglón; muy cortas cortan la lectura.', b: [['p', 'Párrafo de unos 65 caracteres por línea, con interlineado 1.6: se lee sin perder el renglón.']], bx: 'Ancho y aire correctos.', m: [['code', 'p { max-width: none; line-height: 1.1; }']], mx: 'Renglones de 150 caracteres pegados.', c: 'p { max-width: 70ch; line-height: 1.6; }' },
+    'Escala según contexto': { w: 'Un dashboard necesita densidad; una landing, impacto.', b: [['row', [['card', [['p', 'App'], ['h', 'Título 24 px']]], ['card', [['p', 'Landing'], ['h', 'Título 56 px']]]]]], bx: 'Mismo sistema, techo distinto.', m: [['p', 'Títulos de 64 px dentro de un panel de datos']], mx: 'Empuja los datos fuera de la pantalla.', c: 'Apps: --fs-xl hasta 2rem. Landings: hasta 4rem.' },
+    'Grilla de 4 y 8': { w: 'Una escala fija da ritmo y evita decidir cada margen.', b: [['code', 'gap: var(--space-4); /* 16 */\npadding: var(--space-6); /* 24 */']], bx: 'Todo calza.', m: [['code', 'margin: 13px 7px 19px 9px;']], mx: 'Desalineado sutil que se nota.', c: '--space-1: 4px; --space-2: 8px; ... --space-8: 64px;' },
+    'Proximidad agrupa': { w: 'El ojo agrupa lo que está cerca; el espacio explica sin palabras.', bx: 'Etiqueta pegada a su dato, grupos separados.', mx: 'Todo a la misma distancia, no se sabe qué va con qué.', c: 'Etiqueta-dato 4 a 8 px; mismo grupo 12 a 16; entre grupos 24 a 32.' },
+    'Radios y sombras en escala': { b: [['row', [['b', 'Botón r-s', 's'], ['chip', 'chip r-pill']]], ['card', [['p', 'Tarjeta con --r']]]], bx: 'Cuatro radios, siempre los mismos.', m: [['p', 'Botón 5 px, tarjeta 13 px, input 3 px, modal 22 px']], mx: 'Cada pieza parece de otro producto.', c: '--r-xs: 6px; --r-s: 9px; --r: 14px; --r-pill: 99px;' },
+    'Ancho máximo de contenido': { w: 'En pantallas anchas, un formulario estirado obliga a mover la cabeza.', b: [['code', '.contenido { max-width: 1200px; margin: 0 auto; }\nform { max-width: 560px; }']], bx: 'Se lee y se completa cómodo.', m: [['p', 'Input de 1.900 px de ancho en un monitor grande']], mx: 'Campos eternos.', c: 'Formularios entre 480 y 640 px; texto 70ch.' },
+    'Si todo destaca, nada destaca': { w: 'La jerarquía dice qué mirar primero.', bx: 'Un número grande y un apoyo en gris.', mx: 'Todo en color y mayúsculas, compite.', c: '--tinta para lo principal, --gris para lo secundario, --gris-2 para apoyo.' },
+    'Un solo botón primario por bloque': { w: 'El primario dice "esto es lo que sigue". Si hay tres, no dice nada.', bx: 'Guardar destaca, Cancelar acompaña.', mx: 'Tres botones iguales: hay que leer todos.', c: 'Un .btn primario; el resto .btn-sec o .btn-ghost.' },
+    'Patrón F en apps, Z en portadas': { w: 'En pantallas con datos, la vista recorre en F; en portadas, en Z.', b: [['row', [['h', 'Encuestas · 12 activas'], ['b', 'Crear encuesta', 'p']]], ['tabla', ['Encuesta', 'Avance'], [['Clima Q4', '82 %']]]], bx: 'Título arriba a la izquierda, acción arriba a la derecha.', m: [['p', 'Botón Crear al fondo centrado, título a la derecha']], mx: 'Hay que buscar la acción.', c: 'Encabezado de vista: título + indicadores a la izquierda, acción principal a la derecha.' },
+    'Lenguaje del mundo real': { w: 'Lo que entiende la base de datos no es lo que entiende el cliente.', bx: 'Fecha y estado en palabras.', mx: 'Nombres técnicos en pantalla.', c: 'Diccionario de estados y fechas con toLocaleDateString("es-CL").' },
+    'Cuatro variantes, nada más': { w: 'Pocas variantes hacen que cada una signifique algo.', mx: '', c: '.btn (primario) · .btn-sec · .btn-danger · .btn-ghost' },
+    'Verbo y objeto': { w: '"OK" obliga a releer la pregunta; "Descargar informe" se entiende solo.', bx: 'Dice lo que va a pasar.', mx: 'Genérico, hay que adivinar.', c: 'Verbo en infinitivo + objeto: Crear empresa, Guardar cambios.' },
+    '44 x 44 px para tocar': { w: 'El dedo no es un puntero: necesita área.', b: [['row', [['b', 'Editar', 's'], ['b', 'Eliminar', 'r']]], ['p', '44 px de alto y 8 px entre ellos']], bx: 'Se toca lo que se quiere.', m: [['row', [['p', '✎ 🗑 (iconos de 16 px pegados)']]]], mx: 'Se toca el de al lado.', c: '.btn, .btn-icon { min-height: 44px; min-width: 44px; }' },
+    'Responde en menos de 100 ms': { w: 'Si el clic no cambia nada al instante, parece que no funcionó.', b: [['b', 'Guardando...', 'dis']], bx: 'Cambio inmediato y bloqueo de doble clic.', m: [['p', '(spinner tapando todo el botón, sin texto)']], mx: 'No se sabe qué pasa.', c: 'btn.disabled = true; btn.textContent = "Guardando...";' },
+    'Botón solo icono con nombre': { w: 'Un lector de pantalla lee "botón" y nada más si no tiene nombre.', b: [['code', '<button aria-label="Eliminar a Ana">🗑</button>']], bx: 'Se anuncia "Eliminar a Ana, botón".', m: [['code', '<button>🗑</button>']], mx: 'Se anuncia "botón".', c: 'Icono poco conocido: agrega texto visible al lado.' },
+    'Más de 5 secciones: menú lateral': { w: 'Con muchas secciones, una barra superior no alcanza y se esconden.', b: [['row', [['card', [['p', 'Inicio'], ['p', 'Encuestas'], ['p', 'Informes'], ['p', 'Usuarios'], ['p', 'Facturación'], ['p', 'Ajustes']]], ['p', 'Contenido']]]], bx: 'Todas visibles y colapsable a iconos.', m: [['nav', ['Inicio', 'Encuestas', 'Más ▾'], 0]], mx: 'La mitad escondida en "Más".', c: 'Ver plantilla sidebars-laterales.' },
+    'Celular: nunca sin botón visible': { w: 'Si la navegación no tiene botón, no existe para la persona.', b: [['row', [['b', '☰ Menú', 's'], ['h', 'Encuestas']]]], bx: 'Botón con icono y texto.', m: [['row', [['h', 'Encuestas']]], ['p', '(el menú aparece solo deslizando desde el borde)']], mx: 'Gesto oculto que nadie descubre.', c: 'Ver plantillas iconos-de-menu y menus-moviles.' },
+    'Ubicación clara': { w: 'La persona necesita saber dónde está para saber a dónde ir.', b: [['nav', ['Inicio', 'Encuestas', 'Informes'], 1]], bx: 'Activo con fondo y peso, no solo color.', m: [['nav', ['Inicio', 'Encuestas', 'Informes'], -1]], mx: 'Nada marca la sección actual.', c: '<a aria-current="page">Encuestas</a>' },
+    'Puntos de quiebre fijos': { w: 'Breakpoints distintos por pantalla generan saltos raros.', b: [['code', '@media (max-width: 640px) { ... }\n@media (max-width: 768px) { ... }\n@media (min-width: 1024px) { ... }']], bx: 'Los mismos en todo el proyecto.', m: [['code', '@media (max-width: 713px) { ... }\n@media (max-width: 859px) { ... }']], mx: 'Cada vista se quiebra distinto.', c: '640, 768, 1024, 1280. Diseña primero a 375 px.' },
+    'Una página, un objetivo': { w: 'Cada CTA extra le quita clics al principal.', b: [['h', 'Estudios de clima laboral'], ['b', 'Cotizar estudio', 'p']], bx: 'Una acción, repetida arriba y al final.', m: [['row', [['b', 'Cotizar', 'p'], ['b', 'Suscríbete', 'p'], ['b', 'Descarga el ebook', 'p'], ['b', 'Síguenos', 'p']]]], mx: 'Cuatro objetivos, ninguno gana.', c: 'Define el objetivo antes de diseñar la landing.' },
+    'Arriba del pliegue: qué, para quién y qué hago': { w: 'La mayoría decide en segundos si sigue leyendo.', bx: 'Qué es, para quién y botón con acción concreta.', mx: 'Frase vacía y "Saber más".', c: 'H1 = qué + para quién. CTA = verbo + objeto.' },
+    'Prueba antes que adjetivos': { w: '"Líderes en innovación" no convence; "120 empresas medidas" sí.', b: [['h', '120 empresas medidas'], ['p', 'Logos reales de clientes con permiso']], bx: 'Datos verificables.', m: [['h', 'Somos líderes en innovación'], ['p', '"Excelente servicio" - Juan P. (inventado)']], mx: 'Adjetivos y testimonios falsos.', c: 'Sin datos reales: [marcador] y preguntar. Nunca inventar.' },
+    'Indexable y liviana': { w: 'Una landing lenta o sin título no aparece ni convierte.', b: [['code', '<title>Clima laboral · Chile Consultores</title>\n<meta name="description" content="...">\n<img fetchpriority="high" ...>']], bx: 'Título propio y la imagen principal primero.', m: [['code', '<title>Document</title>\n<img loading="lazy" src="hero.png">']], mx: 'Sin SEO y hero lento.', c: 'Un solo h1. Ver reglas de rendimiento en Reglas de UX.' },
+    'Español chileno con tú': { w: 'El tono cercano y consistente genera confianza.', b: [['p', 'Revisa tu correo y confirma tu cuenta.']], bx: 'Tú, claro y directo.', m: [['p', 'Revise su correo. Vos confirmá tu cuenta.']], mx: 'Mezcla de usted y voseo.', c: 'Salvo que la marca pida usted (banca, salud).' },
+    'Errores sin culpa y con salida': { w: 'El error lo resuelve la persona; dile cómo.', bx: 'Qué pasó y qué hacer.', mx: 'Código técnico sin salida.', c: 'Estructura: qué pasó + qué hacer + botón.' },
+    'Una palabra para cada cosa': { w: 'Dos palabras para lo mismo hacen pensar que son dos cosas.', b: [['row', [['b', 'Eliminar', 'r'], ['p', 'en tabla, ficha y menú']]]], bx: 'Siempre Eliminar.', m: [['row', [['b', 'Borrar', 'r'], ['b', 'Quitar', 's'], ['b', 'Eliminar', 'r']]]], mx: '¿Son acciones distintas?', c: 'Glosario del proyecto con los verbos permitidos.' },
+    'Un dato vale más que una frase': { b: [['h', '164 de 200 respondieron'], ['p', 'Cierra el 30 de noviembre']], bx: 'Concreto.', m: [['h', 'Tu encuesta va muy bien'], ['p', 'Sigue así para obtener grandes resultados']], mx: 'Frase que no dice nada.', c: 'Reemplaza cada adjetivo por un número, fecha o estado.' },
+    'Anima solo para confirmar un cambio': { w: 'La animación decorativa distrae y cansa; la funcional explica qué pasó.', b: [['p', 'La fila nueva aparece con un fundido corto: se entiende que se agregó']], bx: 'Movimiento con significado.', m: [['p', 'Iconos que rebotan sin parar y títulos que entran girando']], mx: 'Ruido que no informa.', c: 'Si quitas la animación y no se pierde información, sobra.' },
+    '150 a 250 ms, ease-out, solo transform y opacity': { w: 'Más lento se siente pesado; animar width o top hace tirones.', b: [['code', 'transition: transform 200ms cubic-bezier(.2,.9,.3,1), opacity 150ms;']], bx: 'Rápido y fluido.', m: [['code', 'transition: all 800ms ease-in-out; /* anima height y top */']], mx: 'Lento y con tirones.', c: '@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }' },
+    'El foco siempre se ve': { w: 'Sin foco visible, quien usa teclado no sabe dónde está.', b: [['row', [['b', 'Guardar', 'p foco'], ['p', '← borde de foco']]]], bx: 'Se ve dónde está el teclado.', m: [['code', '*:focus { outline: none; }']], mx: 'Navegar con teclado se vuelve a ciegas.', c: ':focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; }' },
+    'Código limpio de interfaz': { w: 'innerHTML con datos del usuario abre la puerta a XSS; onclick inline rompe la CSP.', b: [['code', 'celda.textContent = cliente.nombre;\nbtn.addEventListener("click", guardar);']], bx: 'Seguro y mantenible.', m: [['code', 'celda.innerHTML = cliente.nombre;\n<button onclick="guardar()">']], mx: 'Un nombre con <script> se ejecuta.', c: 'textContent para texto; createElement para estructura.' }
+  };
   const reglas = [...document.querySelectorAll('.rg')];
   let sec = 'todas';
 
@@ -339,7 +544,30 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#check-reset').addEventListener('click', () => { lista.querySelectorAll('input').forEach(c => c.checked = false); progreso(false); UI.toast('Checklist desmarcado', 'info'); });
   progreso();
 
-  window.ReglasUI = { SECCIONES, CHECKLIST };
+  // Fichas que se abren
+  reglas.forEach(card => {
+    const t = card.querySelector('h3').textContent;
+    card.classList.add('abre'); card.dataset.slug = slug(t);
+    const ver = el('button', 'ver-ej', 'Ver ejemplo →'); ver.type = 'button'; ver.setAttribute('aria-label', 'Ver ejemplo: ' + t);
+    card.append(ver);
+  });
+  Fichas({
+    sec: card => SECCIONES[card.dataset.sec],
+    cuerpo: card => {
+      const t = card.querySelector('h3').textContent, ej = EJ[t] || {};
+      const out = [bloque('La regla', el('p', 'regla-f', card.querySelector('.regla').textContent))];
+      const pq = ej.w || (card.querySelector('.porque') || {}).textContent; if (pq) out.push(bloque('Por qué', el('p', 'txt', pq)));
+      const bien = card.querySelector('.bm .bien .lienzo'), mal = card.querySelector('.bm .mal .lienzo');
+      const par = { b: bien ? bien.cloneNode(true) : ej.b, m: mal ? mal.cloneNode(true) : ej.m, bx: ej.bx, mx: ej.mx };
+      if (par.b || par.m) out.push(bloque('Ejemplo', bienMal(par)));
+      if (ej.c) out.push(bloque('Cómo aplicarlo', el('pre', 'fx-code', ej.c)));
+      const f = card.querySelector('.fuente'); if (f) out.push(el('p', 'txt small', f.textContent));
+      card.querySelectorAll('.regla a').forEach(a => { const l = el('a', '', 'Ver ' + a.textContent + ' →'); l.href = a.getAttribute('href'); out.push(l); });
+      return out;
+    }
+  });
+
+  window.ReglasUI = { SECCIONES, CHECKLIST, EJ };
 });
 </script>
 </body>
