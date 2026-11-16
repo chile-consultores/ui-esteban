@@ -63,6 +63,7 @@
   #resumen-errores ul{margin:0;padding-left:18px;display:grid;gap:2px}
   #resumen-errores a{color:var(--texto)}
   .acciones{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  #btn-atras[hidden]{display:none}
   .btn.cargando{position:relative;color:transparent!important;pointer-events:none}
   .btn.cargando::after{content:"";position:absolute;inset:0;margin:auto;width:18px;height:18px;border:2px solid #fff;border-right-color:transparent;border-radius:50%;animation:g .7s linear infinite}
   @keyframes g{to{transform:rotate(360deg)}}
@@ -84,7 +85,6 @@
   <form class="caja" id="form" novalidate autocomplete="on">
     <ol class="pasos" id="pasos" aria-label="Progreso del formulario"><li></li><li></li><li></li></ol>
     <div class="cab-paso"><h2 id="tit-paso" tabindex="-1">Paso 1 de 3</h2><span class="borrador" id="borrador" hidden role="status"><i></i><span>Borrador guardado</span></span></div>
-    <div id="resumen-errores" role="alert" hidden tabindex="-1"></div>
 
     <section data-paso="1" class="grupo" aria-labelledby="tit-paso">
       <div class="campo" data-v="texto"><label for="in-nombre">Nombre completo</label><div class="caja-in"><input class="input" id="in-nombre" name="nombre" autocomplete="name" required><span class="estado" aria-hidden="true"></span></div><div class="msg" id="e-in-nombre"></div></div>
@@ -108,6 +108,8 @@
     <section data-paso="4" class="exito" hidden aria-live="polite"><svg viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="26.5"/><path d="M17 31l9 9 17-19"/></svg><h2 style="margin:0">Cuenta creada</h2><p class="small" id="txt-exito" style="margin:0"></p><button class="btn btn-sec" type="button" id="btn-otra">Crear otra cuenta</button></section>
 
     <div class="acciones" id="acciones"><button class="btn btn-sec" type="button" id="btn-atras" hidden>Atrás</button><button class="btn" type="submit" id="btn-sig" style="margin-left:auto">Continuar</button></div>
+    <!-- El resumen va bajo los botones: al aparecer no empuja los campos -->
+    <div id="resumen-errores" role="alert" hidden tabindex="-1"></div>
   </form>
 </main>
 
