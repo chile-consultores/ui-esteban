@@ -237,3 +237,39 @@ input:-webkit-autofill{-webkit-box-shadow:inset 0 0 0 40px var(--fondo-2),inset 
 *::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:999px;border:2px solid transparent;background-clip:content-box}
 *::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.32);background-clip:content-box}
 *::-webkit-scrollbar-corner{background:transparent}
+
+/* ============================================================
+   Temas claro y oscuro sobrios (opcional, decisiones de diseño 2026-11).
+   Se activa solo si <html> lleva data-tema="claro" o "oscuro"; sin el atributo nada cambia.
+   Quita aurora, estrellas, desenfoques y gradientes.
+   ============================================================ */
+[data-tema] .aurora,[data-tema] .estrellas{display:none}
+[data-tema] .sidebar,[data-tema] .topbar{background:var(--fondo);backdrop-filter:none}
+[data-tema] .telon{backdrop-filter:none}
+[data-tema] .progreso > span{background:var(--marca)}
+[data-tema] .gradient-text{background:none;color:var(--texto)}
+[data-tema="oscuro"]{color-scheme:dark}
+[data-tema="claro"]{
+  color-scheme:light;
+  --marca:#5B4BD6; --marca-d:#4838BE; --marca-l:rgba(91,75,214,.12);
+  --acento:#0369A1; --acento-l:rgba(3,105,161,.10);
+  --verde:#15803D; --verde-l:rgba(21,128,61,.12);
+  --ambar:#B45309; --ambar-l:rgba(180,83,9,.12);
+  --rojo:#DC2626; --rojo-l:rgba(220,38,38,.10);
+  --info:#1D4ED8; --info-l:rgba(29,78,216,.10);
+  --fondo:#F6F6F9; --fondo-2:#FFFFFF;
+  --superficie:#FFFFFF; --superficie-2:#EEEEF3;
+  --borde:rgba(15,15,30,.10); --borde-2:rgba(15,15,30,.22);
+  --texto:#16161F; --texto-2:#4B4B5C; --texto-3:#6A6A7C;
+  --sombra:0 1px 2px rgba(15,15,30,.06),0 8px 24px -16px rgba(15,15,30,.18);
+  --sombra-f:0 2px 4px rgba(15,15,30,.08),0 18px 40px -18px rgba(15,15,30,.3);
+}
+[data-tema="claro"] .menu,[data-tema="claro"] .modal,[data-tema="claro"] .toast{background:#fff}
+[data-tema="claro"] .btn:disabled,[data-tema="claro"] .btn[aria-disabled="true"]{background:#E3E3EA;color:#6A6A7C}
+[data-tema="claro"] .switch{background:#B9B9C6}
+[data-tema="claro"] .switch[aria-checked="true"]{background:var(--marca)}
+[data-tema="claro"] .tabla tbody tr:hover{background:var(--superficie-2)}
+[data-tema="claro"] .telon{background:rgba(15,15,30,.45)}
+[data-tema="claro"] *{scrollbar-color:rgba(15,15,30,.3) transparent}
+[data-tema="claro"] *::-webkit-scrollbar-thumb{background:rgba(15,15,30,.25);background-clip:content-box}
+[data-tema="claro"] .select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234B4B5C' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}

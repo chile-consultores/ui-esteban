@@ -763,7 +763,7 @@
       "name": "facturacion-y-suscripcion",
       "type": "registry:file",
       "title": "Facturación y suscripción",
-      "description": "panel admin de facturación.",
+      "description": "Panel admin de facturación: plan con barras de uso, cambio de plan con prorrateo en CLP + IVA, tarjeta con Luhn, historial de facturas y cancelación con motivo.",
       "categories": [
         "plantillas",
         "admin"
@@ -903,6 +903,53 @@
           "path": "publico/formulario-contacto.html",
           "type": "registry:file",
           "target": "public/plantillas/[publico]/formulario-contacto.html"
+        }
+      ]
+    },
+    {
+      "name": "torneos",
+      "type": "registry:file",
+      "title": "Torneos",
+      "description": "plataforma completa de torneos: inscripción con restricciones horarias, cuadros automáticos por categoría (grupos + playoff, eliminación con consolación, liga, doble eliminación, americano, mexicano), programación de canchas y horarios, resultados con avance automático y vista pública. Pádel, tenis, pickleball, fútbol, vóleibol y básquetbol.",
+      "categories": [
+        "plantillas",
+        "completas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "completas/torneos.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[completas]/torneos.html"
+        },
+        {
+          "path": "completas/torneos-motor.js",
+          "type": "registry:file",
+          "target": "public/plantillas/[completas]/torneos-motor.js"
+        }
+      ]
+    },
+    {
+      "name": "club-de-padel",
+      "type": "registry:file",
+      "title": "Club de pádel",
+      "description": "plataforma completa de gestión de club: reservas por cancha con turnos fijos y reserva pública, socios y planes, clases con asistencia, caja con cierre diario, módulos activables y usuarios con roles y permisos por módulo.",
+      "categories": [
+        "plantillas",
+        "completas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "plantillas-base"
+      ],
+      "files": [
+        {
+          "path": "completas/club-de-padel.html",
+          "type": "registry:file",
+          "target": "public/plantillas/[completas]/club-de-padel.html"
         }
       ]
     }
