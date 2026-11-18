@@ -56,6 +56,44 @@
           "target": "hooks/use-tab-save.tsx"
         }
       ]
+    },
+    {
+      "name": "use-scroll-anchor",
+      "type": "registry:hook",
+      "title": "useScrollAnchor",
+      "description": "Que la página no salte al cambiar filtros: mantiene en su lugar la tarjeta que se está mirando mientras las de arriba cambian de alto. Se suelta si el usuario hace scroll.",
+      "categories": [
+        "hooks",
+        "scroll"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "use-scroll-anchor/use-scroll-anchor.ts",
+          "type": "registry:hook",
+          "target": "hooks/use-scroll-anchor.ts"
+        }
+      ]
+    },
+    {
+      "name": "use-stable-height",
+      "type": "registry:hook",
+      "title": "useStableHeight",
+      "description": "Mientras carga, el bloque mantiene su último alto; al llegar los datos pasa al alto real con una transición corta (respeta prefers-reduced-motion).",
+      "categories": [
+        "hooks",
+        "carga"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "use-stable-height/use-stable-height.ts",
+          "type": "registry:hook",
+          "target": "hooks/use-stable-height.ts"
+        }
+      ]
     }
   ]
 }

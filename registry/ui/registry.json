@@ -60,6 +60,26 @@
           "target": "components/ui/menu-button.tsx"
         }
       ]
+    },
+    {
+      "name": "segmented-control",
+      "type": "registry:ui",
+      "title": "Segmented Control",
+      "description": "Control segmentado de una sola elección (radiogroup) con píldoras y detalle corto («Optical Center · 212»). Flechas, Inicio y Fin; scroll horizontal propio sin mover la página; 44 px en táctil. Cero dependencias npm.",
+      "categories": [
+        "ui",
+        "forms",
+        "accesibilidad"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "segmented-control/segmented-control.tsx",
+          "type": "registry:ui",
+          "target": "components/ui/segmented-control.tsx"
+        }
+      ]
     }
   ]
 }
