@@ -1031,6 +1031,35 @@
           "target": "public/plantillas/[reglas]/paletas-de-color.html"
         }
       ]
+    },
+    {
+      "name": "wallet-tarjeta-fidelizacion",
+      "type": "registry:file",
+      "title": "Tarjeta de fidelización (Wallet)",
+      "description": "Reglas y dibujo de tarjetas de sellos o puntos para Apple y Google Wallet: 5 plantillas (círculos, íconos, número, progreso, niveles), vista previa en vivo y franja del pase en canvas. JS puro, lo usa el navegador y el servidor.",
+      "categories": [
+        "plantillas",
+        "plataformas"
+      ],
+      "dependencies": [],
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "wallet-tarjeta/reglas.js",
+          "type": "registry:file",
+          "target": "public/plantillas/[wallet-tarjeta]/reglas.js"
+        },
+        {
+          "path": "wallet-tarjeta/iconos.js",
+          "type": "registry:file",
+          "target": "public/plantillas/[wallet-tarjeta]/iconos.js"
+        },
+        {
+          "path": "wallet-tarjeta/tarjeta.js",
+          "type": "registry:file",
+          "target": "public/plantillas/[wallet-tarjeta]/tarjeta.js"
+        }
+      ]
     }
   ]
 }
